@@ -39,9 +39,9 @@ jobs:
 
       - name: Run hourly refresh pipeline
         env:
-          FLASHSCORE_ENABLED: "1"
+          FLASHSCORE_ENABLED: ${{ secrets.FLASHSCORE_ENABLED || '1' }}
           THEODDSAPI_KEY: ${{ secrets.THEODDSAPI_KEY }}
-          THEODDSAPI_DAYS_AHEAD: "2"
+          THEODDSAPI_DAYS_AHEAD: ${{ secrets.THEODDSAPI_DAYS_AHEAD || '2' }}
         run: |
           python src/run_hourly_refresh.py
 

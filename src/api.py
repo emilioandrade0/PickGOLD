@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import math
+import os
 from datetime import date, datetime
 from datetime import timedelta
 import re
@@ -90,13 +91,29 @@ SPORTS_CONFIG = {
 
 app = FastAPI(title="NBA GOLD API")
 
+frontend_origin_env = os.getenv("FRONTEND_ORIGIN", "*").strip()
+if frontend_origin_env == "*":
+    allowed_origins = ["*"]
+    cors_allow_credentials = False
+else:
+    allowed_origins = [o.strip() for o in frontend_origin_env.split(",") if o.strip()]
+    cors_allow_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "nba-gold-api",
+    }
 
 
 def ensure_sport_exists(sport: str):

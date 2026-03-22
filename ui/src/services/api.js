@@ -1,4 +1,5 @@
-export const API_BASE = "/api";
+const configuredApiBase = (import.meta.env.VITE_API_BASE || "/api").trim();
+export const API_BASE = configuredApiBase.replace(/\/$/, "");
 const API_FALLBACK_BASE = "http://127.0.0.1:8010/api";
 
 const ODDS_QUALITY_KEYS = [
