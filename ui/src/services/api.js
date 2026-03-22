@@ -12,6 +12,38 @@ const ODDS_QUALITY_KEYS = [
   "closing_total_line",
 ];
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry(path, {
+  timeoutMs = 30000,
+  retries = 2,
+  retryDelayMs = 2000,
+  errorMessage = "No se pudo completar la solicitud.",
+} = {}) {
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal });
+      if (!res.ok) {
+        throw new Error(`${errorMessage} (status ${res.status})`);
+      }
+      return await res.json();
+    } catch (err) {
+      if (attempt < retries) {
+        await sleep(retryDelayMs * (attempt + 1));
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  throw new Error(`${errorMessage} Intenta de nuevo en unos segundos.`);
+}
+
 async function fetchWithFallback(path, options = undefined) {
   try {
     const primary = await fetch(`${API_BASE}${path}`, options);
@@ -101,87 +133,56 @@ export async function fetchAvailableDates(sport) {
 }
 
 export async function fetchInsightsSummary() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
-  const res = await fetch(`${API_BASE}/insights/summary`, { signal: controller.signal }).finally(() => {
-    clearTimeout(timeoutId);
+  return await fetchJsonWithRetry("/insights/summary", {
+    timeoutMs: 45000,
+    retries: 2,
+    errorMessage: "No se pudieron cargar los insights del sistema.",
   });
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar los insights del sistema.");
-  }
-  return await res.json();
 }
 
 export async function fetchWeekdayScoringInsights() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
-  const res = await fetch(`${API_BASE}/insights/weekday-scoring`, { signal: controller.signal }).finally(() => {
-    clearTimeout(timeoutId);
+  return await fetchJsonWithRetry("/insights/weekday-scoring", {
+    timeoutMs: 60000,
+    retries: 2,
+    errorMessage: "No se pudieron cargar los insights de scoring por dia.",
   });
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar los insights de scoring por dia.");
-  }
-  return await res.json();
 }
 
 export async function fetchBestPicksToday(topN = 25, rankingMode = "best_hit_rate") {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
-  const res = await fetch(
-    `${API_BASE}/insights/best-picks/today?top_n=${encodeURIComponent(topN)}&ranking_mode=${encodeURIComponent(rankingMode)}`,
+  return await fetchJsonWithRetry(
+    `/insights/best-picks/today?top_n=${encodeURIComponent(topN)}&ranking_mode=${encodeURIComponent(rankingMode)}`,
     {
-    signal: controller.signal,
+      timeoutMs: 90000,
+      retries: 2,
+      errorMessage: "No se pudieron cargar los mejores picks del dia.",
     },
-  ).finally(() => {
-    clearTimeout(timeoutId);
-  });
+  );
 
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar los mejores picks del dia.");
-  }
-  return await res.json();
 }
 
 export async function fetchBestPicksByDate(dateStr, topN = 25, rankingMode = "best_hit_rate") {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
-  const res = await fetch(
-    `${API_BASE}/insights/best-picks/${encodeURIComponent(dateStr)}?top_n=${encodeURIComponent(topN)}&ranking_mode=${encodeURIComponent(rankingMode)}`,
-    { signal: controller.signal },
-  ).finally(() => {
-    clearTimeout(timeoutId);
+  return await fetchJsonWithRetry(
+    `/insights/best-picks/${encodeURIComponent(dateStr)}?top_n=${encodeURIComponent(topN)}&ranking_mode=${encodeURIComponent(rankingMode)}`,
+    {
+      timeoutMs: 90000,
+      retries: 2,
+      errorMessage: "No se pudieron cargar los mejores picks para esa fecha.",
+    },
   });
-
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar los mejores picks para esa fecha.");
-  }
-  return await res.json();
 }
 
 export async function fetchBestPicksAvailableDates() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
-  const res = await fetch(`${API_BASE}/insights/best-picks/available-dates`, {
-    signal: controller.signal,
-  }).finally(() => {
-    clearTimeout(timeoutId);
+  return await fetchJsonWithRetry("/insights/best-picks/available-dates", {
+    timeoutMs: 30000,
+    retries: 2,
+    errorMessage: "No se pudieron cargar las fechas de best picks.",
   });
-
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar las fechas de best picks.");
-  }
-  return await res.json();
 }
 
 export async function fetchTierPerformanceInsights() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
-  const res = await fetch(`${API_BASE}/insights/tier-performance`, { signal: controller.signal }).finally(() => {
-    clearTimeout(timeoutId);
+  return await fetchJsonWithRetry("/insights/tier-performance", {
+    timeoutMs: 60000,
+    retries: 2,
+    errorMessage: "No se pudieron cargar los insights por tier.",
   });
-
-  if (!res.ok) {
-    throw new Error("No se pudieron cargar los insights por tier.");
-  }
-  return await res.json();
 }
