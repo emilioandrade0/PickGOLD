@@ -1,0 +1,188 @@
+{
+  "full_game": {
+    "market_key": "full_game",
+    "target_col": "TARGET_home_win",
+    "threshold": 0.52,
+    "xgb_metrics": {
+      "accuracy": 0.6343825665859564,
+      "logloss": 0.6720949792784966,
+      "roc_auc": 0.6340493427319489
+    },
+    "lgbm_metrics": {
+      "accuracy": 0.6029055690072639,
+      "logloss": 0.7452004429213529,
+      "roc_auc": 0.6076157363307295
+    },
+    "ensemble_metrics": {
+      "accuracy": 0.639225181598063,
+      "logloss": 0.6768859034763124,
+      "roc_auc": 0.6315012383311107
+    },
+    "top_features": [
+      {
+        "feature": "diff_elo",
+        "importance": 180.00665608374402
+      },
+      {
+        "feature": "diff_runs_scored_L5",
+        "importance": 172.00576477171853
+      },
+      {
+        "feature": "home_elo_pre",
+        "importance": 168.00665244087577
+      },
+      {
+        "feature": "diff_run_diff_L5",
+        "importance": 158.0124542163685
+      },
+      {
+        "feature": "diff_runs_allowed_L5",
+        "importance": 155.01040584314615
+      },
+      {
+        "feature": "home_home_only_run_diff_L5",
+        "importance": 153.0067793163471
+      },
+      {
+        "feature": "diff_surface_run_diff_L5",
+        "importance": 151.506615891587
+      },
+      {
+        "feature": "away_runs_scored_L5",
+        "importance": 151.5059519894421
+      },
+      {
+        "feature": "home_runs_allowed_L5",
+        "importance": 144.00682365894318
+      },
+      {
+        "feature": "away_runs_allowed_L5",
+        "importance": 140.50662961276248
+      }
+    ]
+  },
+  "yrfi": {
+    "market_key": "yrfi",
+    "target_col": "TARGET_yrfi",
+    "threshold": 0.35,
+    "xgb_metrics": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "lgbm_metrics": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "ensemble_metrics": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "top_features": [
+      {
+        "feature": "home_elo_pre",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_elo_pre",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_elo",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_games_last_3_days",
+        "importance": 0.0
+      }
+    ]
+  },
+  "f5": {
+    "market_key": "f5",
+    "target_col": "TARGET_home_win_f5",
+    "threshold": 0.35,
+    "xgb_metrics": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "lgbm_metrics": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "ensemble_metrics": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "top_features": [
+      {
+        "feature": "home_elo_pre",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_elo_pre",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_elo",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_games_last_3_days",
+        "importance": 0.0
+      }
+    ]
+  }
+}

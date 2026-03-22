@@ -1,0 +1,82 @@
+{
+  "full_game": {
+    "market": "full_game",
+    "source": "baseline_copy",
+    "path": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\models_selective\\full_game"
+  },
+  "over_25": {
+    "market_key": "over_25",
+    "target_col": "TARGET_over_25",
+    "problem_type": "binary",
+    "threshold": 0.52,
+    "xgb_metrics": {
+      "accuracy": 0.5116279069767442,
+      "logloss": 0.9075097354998086,
+      "roc_auc": 0.4761904761904762
+    },
+    "lgbm_metrics": {
+      "accuracy": 0.5348837209302325,
+      "logloss": 0.9813517111051254,
+      "roc_auc": 0.507563025210084
+    },
+    "ensemble_metrics": {
+      "accuracy": 0.5813953488372093,
+      "logloss": 0.9279729524843491,
+      "roc_auc": 0.48459383753501406
+    },
+    "top_features": [
+      {
+        "feature": "diff_cards_pressure_proxy",
+        "importance": 113.0038032233715
+      },
+      {
+        "feature": "draw_tension_v3",
+        "importance": 107.67121347691864
+      },
+      {
+        "feature": "match_parity_elo",
+        "importance": 81.33655006811023
+      },
+      {
+        "feature": "diff_locality_proxy",
+        "importance": 75.6697573599716
+      },
+      {
+        "feature": "away_away_only_over_25_rate_L10",
+        "importance": 68.67026902238528
+      },
+      {
+        "feature": "away_corners_proxy",
+        "importance": 63.33692460910728
+      },
+      {
+        "feature": "home_cards_pressure_proxy",
+        "importance": 63.336083792460464
+      },
+      {
+        "feature": "away_surface_edge",
+        "importance": 62.0048303892836
+      },
+      {
+        "feature": "diff_over_25_rate_L10",
+        "importance": 61.33799794533601
+      },
+      {
+        "feature": "home_xg_proxy_l10",
+        "importance": 59.33769878900299
+      }
+    ],
+    "source": "v3_train",
+    "features_file": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\processed\\model_ready_features_liga_mx_v3.csv"
+  },
+  "btts": {
+    "market": "btts",
+    "source": "baseline_copy",
+    "path": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\models_selective\\btts"
+  },
+  "corners_over_95": {
+    "market": "corners_over_95",
+    "source": "baseline_copy",
+    "path": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\models_selective\\corners_over_95"
+  }
+}

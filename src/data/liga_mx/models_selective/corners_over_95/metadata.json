@@ -1,0 +1,138 @@
+{
+  "market_key": "corners_over_95",
+  "target_col": "TARGET_corners_over_95",
+  "problem_type": "binary",
+  "train_rows": 344,
+  "valid_rows": 86,
+  "feature_count": 84,
+  "ensemble_threshold": 0.5,
+  "ensemble_weights": {
+    "xgboost": 0.333,
+    "lightgbm_primary": 0.333,
+    "lightgbm_secondary": 0.334
+  },
+  "metrics": {
+    "xgboost_valid": {
+      "accuracy": 0.9186046511627907,
+      "logloss": 2.9337857409746517,
+      "roc_auc": 0.5
+    },
+    "lightgbm_valid": {
+      "accuracy": 0.9186046511627907,
+      "logloss": 2.9337857409746517,
+      "roc_auc": 0.5
+    },
+    "lightgbm_secondary_valid": {
+      "accuracy": 0.9186046511627907,
+      "logloss": 2.9337857409746517,
+      "roc_auc": 0.5
+    },
+    "ensemble_valid": {
+      "accuracy": 0.9186046511627907,
+      "logloss": 2.9337857409746517,
+      "roc_auc": 0.5
+    }
+  },
+  "top_features": [
+    {
+      "feature": "home_elo_pre",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_elo_pre",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_elo",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_rest_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_rest_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_rest_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_is_b2b",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_is_b2b",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_is_b2b",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_games_last_3_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_games_last_3_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_games_last_3_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_games_last_5_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_games_last_5_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_games_last_5_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_games_last_7_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_games_last_7_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_games_last_7_days",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_win_pct_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_win_pct_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_win_pct_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_win_pct_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_win_pct_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_win_pct_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_draw_pct_L5",
+      "importance": 0.0
+    }
+  ]
+}

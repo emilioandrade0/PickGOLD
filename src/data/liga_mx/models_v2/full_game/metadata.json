@@ -1,0 +1,14 @@
+{
+  "market": "full_game",
+  "model_type": "multiclass",
+  "ensemble_method": "average_probabilities",
+  "individual_models": {
+    "xgb_accuracy": 0.5,
+    "lgbm_accuracy": 0.5232558139534884,
+    "lgbm_secondary_accuracy": 0.47674418604651164
+  },
+  "ensemble_accuracy": 0.5116279069767442,
+  "feature_count": 47,
+  "training_samples": 341,
+  "validation_samples": 86
+}

@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  --bg-0: #090a0c;
+  --bg-1: #111319;
+  --surface-0: #171a21;
+  --surface-1: #1f2430;
+  --text-main: #f3f4f6;
+  --text-soft: rgba(243, 244, 246, 0.72);
+  --accent-amber: #f6c453;
+  --accent-cyan: #5cc8e8;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(246, 196, 83, 0.12), transparent 60%),
+    radial-gradient(700px 420px at 100% 0%, rgba(92, 200, 232, 0.1), transparent 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
+  color: var(--text-main);
+}
+
+.team-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}

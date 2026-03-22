@@ -1,0 +1,214 @@
+{
+  "nhl": {
+    "full_game": {
+      "method": "platt",
+      "buckets": [
+        {
+          "min": 0.5,
+          "max": 1.0,
+          "scale": 1.0,
+          "offset": 0.0
+        }
+      ],
+      "isotonic": {
+        "x": [
+          0.51,
+          0.62,
+          0.98,
+          0.99
+        ],
+        "y": [
+          0.5,
+          0.5,
+          1.0,
+          1.0
+        ]
+      },
+      "platt": {
+        "a": 6.57791514,
+        "b": -5.67111904
+      },
+      "metrics": {
+        "sample_size": 263,
+        "train_size": 184,
+        "valid_size": 79,
+        "brier_raw": 0.298986,
+        "brier_isotonic": 0.250178,
+        "brier_platt": 0.25,
+        "brier_selected": 0.25,
+        "logloss_raw": 0.791613,
+        "logloss_isotonic": 0.693504,
+        "logloss_platt": 0.693147,
+        "logloss_selected": 0.693147,
+        "ece_raw": 0.546456,
+        "ece_isotonic": 0.500176,
+        "ece_platt": 0.5,
+        "ece_selected": 0.5,
+        "reliability_curve_raw": [
+          {
+            "min": 0.5,
+            "max": 0.6,
+            "count": 78,
+            "mean_pred": 0.5454,
+            "mean_hit": 0.0
+          },
+          {
+            "min": 0.6,
+            "max": 0.7,
+            "count": 1,
+            "mean_pred": 0.63,
+            "mean_hit": 0.0
+          }
+        ],
+        "reliability_curve_isotonic": [
+          {
+            "min": 0.5,
+            "max": 0.6,
+            "count": 79,
+            "mean_pred": 0.5002,
+            "mean_hit": 0.0
+          }
+        ],
+        "reliability_curve_platt": [
+          {
+            "min": 0.5,
+            "max": 0.6,
+            "count": 79,
+            "mean_pred": 0.5,
+            "mean_hit": 0.0
+          }
+        ],
+        "reliability_curve_selected": [
+          {
+            "min": 0.5,
+            "max": 0.6,
+            "count": 79,
+            "mean_pred": 0.5,
+            "mean_hit": 0.0
+          }
+        ],
+        "selected_method": "platt"
+      }
+    },
+    "spread": {
+      "method": "isotonic",
+      "buckets": [
+        {
+          "min": 0.5,
+          "max": 1.0,
+          "scale": 1.0,
+          "offset": 0.0
+        }
+      ],
+      "isotonic": {
+        "x": [
+          0.5,
+          0.52,
+          0.74,
+          0.76,
+          0.99
+        ],
+        "y": [
+          0.5,
+          0.956522,
+          0.956522,
+          1.0,
+          1.0
+        ]
+      },
+      "platt": {
+        "a": 0.51159399,
+        "b": 4.0619522
+      },
+      "metrics": {
+        "sample_size": 263,
+        "train_size": 184,
+        "valid_size": 79,
+        "brier_raw": 0.034201,
+        "brier_isotonic": 0.000221,
+        "brier_platt": 0.000125,
+        "brier_selected": 0.000221,
+        "logloss_raw": 0.194923,
+        "logloss_isotonic": 0.005342,
+        "logloss_platt": 0.011229,
+        "logloss_selected": 0.005342,
+        "ece_raw": 0.17481,
+        "ece_isotonic": 0.005228,
+        "ece_platt": 0.011166,
+        "ece_selected": 0.005228,
+        "reliability_curve_raw": [
+          {
+            "min": 0.6,
+            "max": 0.7,
+            "count": 2,
+            "mean_pred": 0.685,
+            "mean_hit": 1.0
+          },
+          {
+            "min": 0.7,
+            "max": 0.8,
+            "count": 18,
+            "mean_pred": 0.7511,
+            "mean_hit": 1.0
+          },
+          {
+            "min": 0.8,
+            "max": 0.9,
+            "count": 52,
+            "mean_pred": 0.8446,
+            "mean_hit": 1.0
+          },
+          {
+            "min": 0.9,
+            "max": 1.0,
+            "count": 7,
+            "mean_pred": 0.9114,
+            "mean_hit": 1.0
+          }
+        ],
+        "reliability_curve_isotonic": [
+          {
+            "min": 0.9,
+            "max": 1.0,
+            "count": 79,
+            "mean_pred": 0.9948,
+            "mean_hit": 1.0
+          }
+        ],
+        "reliability_curve_platt": [
+          {
+            "min": 0.9,
+            "max": 1.0,
+            "count": 79,
+            "mean_pred": 0.9888,
+            "mean_hit": 1.0
+          }
+        ],
+        "reliability_curve_selected": [
+          {
+            "min": 0.9,
+            "max": 1.0,
+            "count": 79,
+            "mean_pred": 0.9948,
+            "mean_hit": 1.0
+          }
+        ],
+        "selected_method": "isotonic"
+      }
+    },
+    "home_over_25": {
+      "method": "bucket",
+      "buckets": [
+        {
+          "min": 0.5,
+          "max": 1.0,
+          "scale": 1.0,
+          "offset": 0.0
+        }
+      ],
+      "metrics": {
+        "sample_size": 0
+      }
+    }
+  }
+}

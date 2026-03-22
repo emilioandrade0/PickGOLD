@@ -1,0 +1,29 @@
+{
+  "market": "full_game",
+  "problem_type": "binary",
+  "num_classes": 2,
+  "accuracy": 0.5353982300884956,
+  "threshold": 0.39999999999999997,
+  "feature_columns": [
+    "home_elo_pre",
+    "away_elo_pre",
+    "home_goals_scored_l5",
+    "home_goals_allowed_l5",
+    "home_goals_scored_l10",
+    "home_goals_allowed_l10",
+    "home_win_rate_l5",
+    "home_win_rate_l10",
+    "home_rest_days",
+    "away_goals_scored_l5",
+    "away_goals_allowed_l5",
+    "away_goals_scored_l10",
+    "away_goals_allowed_l10",
+    "away_win_rate_l5",
+    "away_win_rate_l10",
+    "away_rest_days",
+    "h2h_home_win_rate",
+    "elo_diff"
+  ],
+  "training_samples": 900,
+  "validation_samples": 226
+}
