@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SportTabs from "./SportTabs.jsx";
 
 function getSportTitle(pathname) {
@@ -15,9 +15,18 @@ function getSportTitle(pathname) {
   return "NBA";
 }
 
-export default function Header({ onLogout, userName }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const sportTitle = getSportTitle(location.pathname);
+
+  // Leer el rol del usuario desde localStorage
+  let userRole = null;
+  if (typeof window !== "undefined") {
+    try {
+      const session = JSON.parse(window.localStorage.getItem("nba_gold_session"));
+      userRole = session?.role;
+    } catch {}
+  }
 
   return (
     <header className="border-b border-white/10 bg-black/35 shadow-2xl backdrop-blur-sm">
@@ -40,6 +49,16 @@ export default function Header({ onLogout, userName }) {
                   {userName}
                 </span>
               ) : null}
+              {/* Botón admin solo si el usuario es admin */}
+              {userRole === "admin" && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/approve-users")}
+                  className="rounded-lg border border-green-400/35 bg-green-400/10 px-3 py-2 text-sm font-semibold text-green-200 transition hover:bg-green-400/20"
+                >
+                  Admin: Autorizar usuarios
+                </button>
+              )}
               {onLogout ? (
                 <button
                   type="button"
