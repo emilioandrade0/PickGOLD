@@ -1,29 +1,31 @@
-import { useMemo, useState } from "react";
-import { getRegisteredUser, loginUser, registerUser } from "../services/auth.js";
+import { useState } from "react";
+import { loginUser, registerUser, setActiveSession } from "../services/auth.js";
 
-export default function AuthPage({ onAuthenticated }) {
-  const hasRegisteredUser = useMemo(() => Boolean(getRegisteredUser()), []);
-  const [mode, setMode] = useState(hasRegisteredUser ? "login" : "register");
+  const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const isLogin = mode === "login";
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-
-    const action = isLogin
-      ? loginUser({ email, password })
-      : registerUser({ name, email, password });
-
+    setLoading(true);
+    let action;
+    if (isLogin) {
+      action = await loginUser({ email, password });
+    } else {
+      action = await registerUser({ name, email, password });
+    }
+    setLoading(false);
     if (!action.ok) {
       setError(action.error || "No se pudo completar la acción.");
       return;
     }
-
+    setActiveSession(action.user);
     onAuthenticated?.(action.user);
   }
 
@@ -100,9 +102,10 @@ export default function AuthPage({ onAuthenticated }) {
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-[#007b55] px-4 py-2 font-semibold text-white transition hover:bg-[#0a8d63]"
+              className="w-full rounded-lg bg-[#007b55] px-4 py-2 font-semibold text-white transition hover:bg-[#0a8d63] disabled:opacity-60"
+              disabled={loading}
             >
-              {isLogin ? "Entrar" : "Crear cuenta"}
+              {loading ? "Procesando..." : isLogin ? "Entrar" : "Crear cuenta"}
             </button>
           </form>
         </div>

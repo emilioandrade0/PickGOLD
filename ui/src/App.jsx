@@ -13,9 +13,10 @@ import InsightsPage from "./pages/InsightsPage.jsx";
 import WeekdayScoringPage from "./pages/WeekdayScoringPage.jsx";
 import BestPicksPage from "./pages/BestPicksPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
+import AdminUserApproval from "./pages/AdminUserApproval.jsx";
 import { getActiveSession, logoutUser } from "./services/auth.js";
 
-function ProtectedApp({ onLogout, userName }) {
+function ProtectedApp({ onLogout, userName, session }) {
   return (
     <div className="min-h-screen bg-transparent text-white">
       <Header onLogout={onLogout} userName={userName} />
@@ -33,6 +34,10 @@ function ProtectedApp({ onLogout, userName }) {
         <Route path="/insights" element={<InsightsPage />} />
         <Route path="/weekday-scoring" element={<WeekdayScoringPage />} />
         <Route path="/best-picks" element={<BestPicksPage />} />
+        {/* Solo admin puede ver esta ruta */}
+        {session?.role === "admin" && (
+          <Route path="/admin/approve-users" element={<AdminUserApproval adminEmail={session.email} />} />
+        )}
         <Route path="*" element={<Navigate to="/nba" replace />} />
       </Routes>
     </div>
@@ -62,7 +67,7 @@ export default function App() {
         path="*"
         element={
           session ? (
-            <ProtectedApp onLogout={handleLogout} userName={session?.name || "Usuario"} />
+            <ProtectedApp onLogout={handleLogout} userName={session?.name || "Usuario"} session={session} />
           ) : (
             <Navigate to="/auth" replace />
           )
