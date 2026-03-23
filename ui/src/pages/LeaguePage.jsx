@@ -38,13 +38,31 @@ export default function LeaguePage({ sportKey, sportLabel }) {
       setLoading(true);
       setError("");
 
-      let data = await fetchTodayPredictions(sportKey);
-      let effectiveDate = data.length > 0 ? data[0].date : "";
+      const localToday = toYmdLocal(new Date());
+
+      let data = [];
+      let effectiveDate = "";
+
+      // Prefer the user's local date first to avoid UTC server drift showing tomorrow.
+      try {
+        const localRows = await fetchPredictionsByDate(sportKey, localToday);
+        if (Array.isArray(localRows) && localRows.length > 0) {
+          data = localRows;
+          effectiveDate = localToday;
+        }
+      } catch {
+        // Fallback to /today endpoint if direct date lookup fails.
+      }
+
+      if (data.length === 0) {
+        data = await fetchTodayPredictions(sportKey);
+        effectiveDate = data.length > 0 ? (data[0].date || localToday) : "";
+      }
 
       // If today's slate is empty, jump to the nearest date that actually has games.
       if (data.length === 0) {
         const allDates = await fetchAvailableDates(sportKey);
-        const todayStr = toYmdLocal(new Date());
+        const todayStr = localToday;
 
         const futureOrToday = allDates.filter((d) => d >= todayStr).sort();
         const past = allDates.filter((d) => d < todayStr).sort().reverse();
