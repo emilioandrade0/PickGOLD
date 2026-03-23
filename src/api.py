@@ -304,7 +304,7 @@ def build_results_lookup_for_sport(sport: str):
     if not file_path.exists():
         return {}
 
-    optional_status_cols = ["status_completed", "status_state"]
+    optional_status_cols = ["status_completed", "status_state", "completed"]
     try:
         header_cols = list(pd.read_csv(file_path, nrows=0).columns)
     except Exception:
@@ -325,6 +325,13 @@ def build_results_lookup_for_sport(sport: str):
                 has_explicit_status = True
                 try:
                     if int(float(row.get("status_completed") or 0)) != 1:
+                        continue
+                except Exception:
+                    pass
+            if "completed" in row and not pd.isna(row.get("completed")):
+                has_explicit_status = True
+                try:
+                    if int(float(row.get("completed") or 0)) != 1:
                         continue
                 except Exception:
                     pass
@@ -1885,6 +1892,7 @@ def _best_picks_with_results(payload: dict):
     def _event_is_completed(event: dict | None) -> bool:
         if not isinstance(event, dict):
             return False
+
         completed = event.get("status_completed")
         if completed is not None:
             try:
@@ -1892,12 +1900,48 @@ def _best_picks_with_results(payload: dict):
                     return True
             except Exception:
                 pass
+
         state = str(event.get("status_state") or "").strip().lower()
-        return state in {"post", "final", "completed"}
+        if state in {"post", "final", "completed"}:
+            return True
+
+        return bool(event.get("result_available"))
+
+    if not isinstance(payload, dict):
+        return payload
 
     event_lookup = _best_picks_event_lookup_for_payload(payload)
     out = dict(payload)
     out_picks = []
+
+    result_keys = [
+        "correct_full_game",
+        "correct_full_game_adjusted",
+        "correct_full_game_base",
+        "full_game_hit",
+        "correct_spread",
+        "correct_total",
+        "correct_total_adjusted",
+        "q1_hit",
+        "actual_result",
+        "final_score_text",
+        "status_state",
+        "status_description",
+        "status_detail",
+        "status_completed",
+        "result_available",
+        "home_score",
+        "away_score",
+        "home_q1_score",
+        "away_q1_score",
+        "full_game_result_winner",
+        "q1_result_winner",
+        "correct_btts",
+        "correct_btts_adjusted",
+        "correct_corners_adjusted",
+        "correct_f5",
+        "correct_home_over",
+    ]
 
     for pick in payload.get("picks") or []:
         row = dict(pick)
@@ -1906,45 +1950,33 @@ def _best_picks_with_results(payload: dict):
         game_id = str(row.get("game_id") or "")
 
         event = event_lookup.get((sport, date_str, game_id))
-        # Solo copiar campos de resultado, nunca picks ni recomendaciones
-        result_keys = [
-            "correct_full_game",
-            "correct_full_game_adjusted",
-            "correct_full_game_base",
-            "full_game_hit",
-            "correct_spread",
-            "correct_total",
-            "correct_total_adjusted",
-            "q1_hit",
-            "actual_result",
-            "final_score_text",
-        ]
+        if isinstance(event, dict):
+            for key in result_keys:
+                value = event.get(key)
+                if value is not None:
+                    row[key] = value
 
-        merged = []
-        for event in events:
-            item = dict(event)
-            game_id = str(item.get("game_id", "")).strip()
-            hist = by_game_id.get(game_id)
-            # Solo hidratar resultados si el juego existe en ambos archivos
-            if hist:
-                for key in result_keys:
-                    # Solo copiar si el campo no existe en el evento actual
-                    if key not in item and key in hist:
-                        item[key] = hist[key]
-                    elif item.get(key) is None and hist.get(key) is not None:
-                        item[key] = hist.get(key)
-                # No sobrescribir status de partido si aún no ha comenzado
-                if (item.get("status_state") not in (None, "post", "final") and
-                    hist.get("status_state") in ("post", "final")):
-                    # No copiar status de finalizado si el evento live no está finalizado
-                    pass
-                else:
-                    # Si el evento live no tiene status_state pero el histórico sí, solo copiar si ya terminó
-                    if not item.get("status_state") and hist.get("status_state") in ("post", "final"):
-                        item["status_state"] = hist["status_state"]
-            merged.append(item)
-        return merged
-            row["result_label"] = "RESUELTO"
+            if row.get("actual_result") is None and event.get("full_game_result_winner") is not None:
+                row["actual_result"] = event.get("full_game_result_winner")
+
+        is_resolved = _event_is_completed(event)
+        if is_resolved and row.get("full_game_hit") is None:
+            hit = row.get("correct_full_game_adjusted")
+            if hit is None:
+                hit = row.get("correct_full_game")
+            if hit is None:
+                hit = row.get("correct_full_game_base")
+            if hit is not None:
+                row["full_game_hit"] = hit
+
+        if is_resolved:
+            hit = row.get("full_game_hit")
+            if hit is True:
+                row["result_label"] = "ACIERTO"
+            elif hit is False:
+                row["result_label"] = "FALLO"
+            else:
+                row["result_label"] = "RESUELTO"
         else:
             row["result_label"] = "PENDIENTE"
 
@@ -1952,7 +1984,6 @@ def _best_picks_with_results(payload: dict):
 
     out["picks"] = out_picks
     return out
-
 
 def _best_picks_get_or_create_snapshot(date_str: str, generation_top_n: int, force_refresh: bool, ranking_mode: str = "balanced"):
     mode = _best_picks_normalize_ranking_mode(ranking_mode)

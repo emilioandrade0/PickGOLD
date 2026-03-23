@@ -1,12 +1,11 @@
-
-const API_BASE = "/api";
+import { API_BASE } from "./api.js";
 
 export async function registerUser({ name, email, password }) {
   try {
     const res = await fetch(`${API_BASE}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password }),
     });
     return await res.json();
   } catch (e) {
@@ -19,7 +18,7 @@ export async function loginUser({ email, password }) {
     const res = await fetch(`${API_BASE}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password }),
     });
     return await res.json();
   } catch (e) {
@@ -28,7 +27,6 @@ export async function loginUser({ email, password }) {
 }
 
 export function logoutUser() {
-  // Solo borra la sesión local (puedes mejorar con JWT/cookies)
   if (typeof window !== "undefined") {
     window.localStorage.removeItem("nba_gold_session");
   }
@@ -66,7 +64,7 @@ export async function approveUser(adminEmail, userId) {
     const res = await fetch(`${API_BASE}/approve-user`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_email: adminEmail, user_id: userId })
+      body: JSON.stringify({ admin_email: adminEmail, user_id: userId }),
     });
     return await res.json();
   } catch (e) {

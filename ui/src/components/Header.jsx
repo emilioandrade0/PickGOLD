@@ -15,17 +15,19 @@ function getSportTitle(pathname) {
   return "NBA";
 }
 
+export default function Header({ onLogout, userName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const sportTitle = getSportTitle(location.pathname);
 
-  // Leer el rol del usuario desde localStorage
   let userRole = null;
   if (typeof window !== "undefined") {
     try {
       const session = JSON.parse(window.localStorage.getItem("nba_gold_session"));
       userRole = session?.role;
-    } catch {}
+    } catch {
+      userRole = null;
+    }
   }
 
   return (
@@ -49,7 +51,7 @@ function getSportTitle(pathname) {
                   {userName}
                 </span>
               ) : null}
-              {/* Botón admin solo si el usuario es admin */}
+
               {userRole === "admin" && (
                 <button
                   type="button"
@@ -59,6 +61,7 @@ function getSportTitle(pathname) {
                   Admin: Autorizar usuarios
                 </button>
               )}
+
               {onLogout ? (
                 <button
                   type="button"
