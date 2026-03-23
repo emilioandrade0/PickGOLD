@@ -426,7 +426,14 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         try:
             yyyymmdd = datetime.strptime(target_date, "%Y-%m-%d").strftime("%Y%m%d")
             url = f"{base_url}?dates={yyyymmdd}&limit=500"
-            payload = requests.get(url, timeout=20).json() or {}
+            payload = requests.get(
+                url,
+                timeout=20,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; NBA-GOLD/1.0)",
+                    "Accept": "application/json",
+                },
+            ).json() or {}
         except Exception:
             return {}
 
@@ -550,7 +557,14 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         return out
 
     def _fetch_live_lookup(target_sport: str, items: list[dict], target_date: str):
-        if target_date != date.today().strftime("%Y-%m-%d"):
+        # Render runs in UTC; allow a one-day tolerance to avoid timezone drift
+        # where local "today" events can appear as yesterday/tomorrow on server date.
+        try:
+            target_dt = datetime.strptime(str(target_date), "%Y-%m-%d").date()
+        except Exception:
+            return {}
+
+        if abs((target_dt - date.today()).days) > 1:
             return {}
         if target_sport in ESPN_SCOREBOARD_URLS:
             return _fetch_live_lookup_espn(target_sport, target_date)
