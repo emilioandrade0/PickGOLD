@@ -1906,30 +1906,34 @@ def _best_picks_with_results(payload: dict):
         game_id = str(row.get("game_id") or "")
 
         event = event_lookup.get((sport, date_str, game_id))
-        result_hit = None
-        result_available = False
+        # Solo copiar campos de resultado, nunca picks ni recomendaciones
+        result_keys = [
+            "correct_full_game",
+            "correct_full_game_adjusted",
+            "correct_full_game_base",
+            "full_game_hit",
+            "correct_spread",
+            "correct_total",
+            "correct_total_adjusted",
+            "q1_hit",
+            "actual_result",
+            "final_score_text",
+        ]
 
-        if event:
-            result_hit = _event_hit_for_market(event, str(row.get("market") or ""))
-            result_available = result_hit is not None
-            if not result_available:
-                result_available = bool(event.get("result_available") is True)
-
-            # Guardrail: never show ACIERTO/FALLO for games that are not clearly final.
-            if not _event_is_completed(event):
-                result_hit = None
-                result_available = False
-
-            row["status_state"] = str(event.get("status_state") or row.get("status_state") or "").strip().lower() or None
-            row["status_description"] = str(event.get("status_description") or row.get("status_description") or "").strip() or None
-
-        row["result_available"] = bool(result_available)
-        row["result_hit"] = result_hit
-        if result_hit is True:
-            row["result_label"] = "ACIERTO"
-        elif result_hit is False:
-            row["result_label"] = "FALLO"
-        elif result_available:
+        merged = []
+        for event in events:
+            item = dict(event)
+            game_id = str(item.get("game_id", "")).strip()
+            hist = by_game_id.get(game_id)
+            if hist:
+                for key in result_keys:
+                    # Solo copiar si el campo no existe en el evento actual
+                    if key not in item and key in hist:
+                        item[key] = hist[key]
+                    elif item.get(key) is None and hist.get(key) is not None:
+                        item[key] = hist.get(key)
+            merged.append(item)
+        return merged
             row["result_label"] = "RESUELTO"
         else:
             row["result_label"] = "PENDIENTE"
