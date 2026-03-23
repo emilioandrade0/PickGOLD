@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { loginUser, registerUser, setActiveSession } from "../services/auth.js";
+
 export default function AuthPage({ onAuthenticated }) {
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
