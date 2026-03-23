@@ -157,7 +157,7 @@ function normalizeBetAction(actionValue) {
 function normalizeTotalDirection(rawPick) {
   const txt = String(rawPick || "").toUpperCase();
   if (txt.includes("OVER")) return "Over";
-  if (txt.includes("UNDER") || txt.includes("LEAN TOTAL")) return "Under";
+  if (txt.includes("UNDER")) return "Under";
   return null;
 }
 
@@ -219,14 +219,20 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const totalOddsDisplay = totalOdds || "Por definir";
   const secondaryOdds = resolveOddsForSecondary(event, secondaryLabel);
   const cornersOdds = resolveOddsValue(event, ODDS_KEYS.corners);
-  const spreadPick = expandTeamCodeInText(sportKey, resolveSidePick(event.spread_pick, teams)) || event.spread_pick;
+  const spreadPickRaw = String(event.spread_pick || "").trim();
+  const spreadPickFromEvent = expandTeamCodeInText(sportKey, resolveSidePick(spreadPickRaw, teams)) || spreadPickRaw;
+  const spreadPick = !isPendingPick(spreadPickRaw)
+    ? spreadPickFromEvent
+    : ((spreadLineDisplay !== "Por definir" || hasMlSpreadMarket) ? fullGamePick : null);
   const spreadHit = toHitValue(event.correct_spread);
   const totalHit = toHitValue(event.correct_total_adjusted ?? event.correct_total);
-  const totalPick = event.total_recommended_pick || event.total_pick;
-  const totalDirection = normalizeTotalDirection(totalPick);
+  const totalPickRaw = event.total_recommended_pick || event.total_pick;
+  const totalDirection = normalizeTotalDirection(totalPickRaw);
   const totalPickDisplay = totalDirection && totalLineDisplay !== "Por definir"
     ? `${totalDirection} de ${totalLineDisplay}`
-    : (totalPick || "N/A");
+    : (isPendingPick(totalPickRaw) && totalLineDisplay !== "Por definir"
+      ? `Over/Under de ${totalLineDisplay}`
+      : (totalPickRaw || "N/A"));
   const spreadPredictionLabel = hasResult
     ? (spreadHit === true ? "Si cubrio" : spreadHit === false ? "No cubrio" : (spreadPick || fullGamePick || "N/A"))
     : (spreadPick || fullGamePick || "N/A");

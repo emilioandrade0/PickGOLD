@@ -662,6 +662,28 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             return total_value < line
         return None
 
+    def _is_pending_pick(value) -> bool:
+        v = str(value or "").strip().upper()
+        return (not v) or v in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO", "PASS", "PASAR"}
+
+    def _resolve_spread_context(item: dict):
+        spread_market = str(item.get("spread_market", "") or "").strip().upper()
+        if spread_market and spread_market not in {"NO LINE", "N/A", "NAN"}:
+            return True
+        for key in ("closing_spread_line", "home_spread", "spread_abs"):
+            try:
+                if abs(float(item.get(key, 0) or 0)) > 0:
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _synthesize_missing_market_picks(item: dict):
+        spread_pick = item.get("spread_pick")
+        full_game_pick = str(item.get("full_game_pick") or "").strip()
+        if _is_pending_pick(spread_pick) and full_game_pick and _resolve_spread_context(item):
+            item["spread_pick"] = full_game_pick
+
     def _winner_from_score(home_team: str, away_team: str, home_score: int, away_score: int):
         if home_score > away_score:
             return home_team
@@ -703,6 +725,34 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         if "NO" in p:
             return not yes
         return None
+
+    def _hydrate_precomputed_result_flags(item: dict) -> bool:
+        # Some historical files (notably NHL) already include hit flags but no final score payload.
+        full_game_hit = _to_bool_or_none(item.get("full_game_hit"))
+        if full_game_hit is None:
+            full_game_hit = _to_bool_or_none(item.get("correct_full_game_adjusted"))
+        if full_game_hit is None:
+            full_game_hit = _to_bool_or_none(item.get("correct_full_game"))
+        if full_game_hit is None:
+            full_game_hit = _to_bool_or_none(item.get("correct_full_game_base"))
+        if full_game_hit is not None:
+            item["full_game_hit"] = full_game_hit
+
+        spread_hit = _to_bool_or_none(item.get("correct_spread"))
+        total_hit = _to_bool_or_none(item.get("correct_total_adjusted"))
+        if total_hit is None:
+            total_hit = _to_bool_or_none(item.get("correct_total"))
+        q1_hit = _to_bool_or_none(item.get("q1_hit"))
+
+        has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit))
+        if not has_any_hit:
+            return False
+
+        item["result_available"] = True
+        item["status_state"] = "post"
+        item["status_description"] = item.get("status_description") or "Final"
+        item["status_completed"] = 1
+        return True
 
     def _apply_market_hit_flags(item: dict, home_team: str, away_team: str, home_score: int, away_score: int, home_q1_score, away_q1_score, home_f5_score=None, away_f5_score=None, total_corners=None):
         full_game_winner = _winner_from_score(home_team, away_team, home_score, away_score)
@@ -804,6 +854,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
     for event in events:
         item = dict(event)
+        _synthesize_missing_market_picks(item)
         game_id = str(item.get("game_id", ""))
 
         live = live_lookup.get(game_id)
@@ -865,6 +916,10 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
                     enriched.append(item)
                     continue
+
+            if _hydrate_precomputed_result_flags(item):
+                enriched.append(item)
+                continue
 
             item["result_available"] = False
             enriched.append(item)
@@ -1553,6 +1608,50 @@ def resolve_prediction_file(predictions_dir: Path, historical_dir: Path, date_st
     )
 
 
+def merge_result_hints_from_historical(events: list, historical_file: Path):
+    if not historical_file.exists():
+        return events
+
+    historical_events = _normalize_events_payload(read_json_file(historical_file))
+    if not historical_events:
+        return events
+
+    by_game_id = {
+        str(item.get("game_id", "")).strip(): item
+        for item in historical_events
+        if str(item.get("game_id", "")).strip()
+    }
+
+    if not by_game_id:
+        return events
+
+    result_keys = [
+        "correct_full_game",
+        "correct_full_game_adjusted",
+        "correct_full_game_base",
+        "full_game_hit",
+        "correct_spread",
+        "correct_total",
+        "correct_total_adjusted",
+        "q1_hit",
+        "actual_result",
+        "final_score_text",
+    ]
+
+    merged = []
+    for event in events:
+        item = dict(event)
+        game_id = str(item.get("game_id", "")).strip()
+        hist = by_game_id.get(game_id)
+        if hist:
+            for key in result_keys:
+                if item.get(key) is None and hist.get(key) is not None:
+                    item[key] = hist.get(key)
+        merged.append(item)
+
+    return merged
+
+
 def _best_picks_normalize_ranking_mode(ranking_mode: str | None):
     mode = str(ranking_mode or "balanced").strip().lower()
     if mode not in {"balanced", "best_hit_rate", "best_ev_real_only", "meta"}:
@@ -1879,6 +1978,9 @@ def get_today_predictions(sport: str):
         latest = get_today_file(config["predictions_dir"], config["historical_dir"])
 
     events = _normalize_events_payload(read_json_file(latest))
+    source_stem = str(latest.stem)
+    _, hist_file = get_files_for_date(config["predictions_dir"], config["historical_dir"], source_stem)
+    events = merge_result_hints_from_historical(events, hist_file)
     overrides_date = source_today if sport == "kbo" else str(latest.stem)
     events = apply_overrides_to_events(sport, overrides_date, events)
     try:
@@ -1900,6 +2002,8 @@ def get_predictions_by_date(sport: str, date_str: str):
         source_date,
     )
     events = _normalize_events_payload(read_json_file(file_path))
+    _, hist_file = get_files_for_date(config["predictions_dir"], config["historical_dir"], source_date)
+    events = merge_result_hints_from_historical(events, hist_file)
     overrides_date = source_date if sport == "kbo" else date_str
     events = apply_overrides_to_events(sport, overrides_date, events)
     try:
@@ -1944,6 +2048,8 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
     )
 
     data = _normalize_events_payload(read_json_file(file_path))
+    _, hist_file = get_files_for_date(config["predictions_dir"], config["historical_dir"], source_date)
+    data = merge_result_hints_from_historical(data, hist_file)
     overrides_date = source_date if sport == "kbo" else date_str
     data = apply_overrides_to_events(sport, overrides_date, data)
     try:
