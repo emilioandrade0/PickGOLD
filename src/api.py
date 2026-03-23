@@ -871,7 +871,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             return not yes
         return None
 
-        def _hydrate_precomputed_result_flags(item: dict) -> bool:
+    def _hydrate_precomputed_result_flags(item: dict) -> bool:
         # Some historical files (notably NHL) already include hit flags but no final score payload.
         full_game_hit = _to_bool_or_none(item.get("full_game_hit"))
         if full_game_hit is None:
