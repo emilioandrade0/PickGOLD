@@ -25,31 +25,31 @@
         ]
       },
       "platt": {
-        "a": 6.57791514,
-        "b": -5.67111904
+        "a": 6.49570289,
+        "b": -5.5753511
       },
       "metrics": {
-        "sample_size": 263,
-        "train_size": 184,
-        "valid_size": 79,
-        "brier_raw": 0.298986,
-        "brier_isotonic": 0.250178,
+        "sample_size": 252,
+        "train_size": 176,
+        "valid_size": 76,
+        "brier_raw": 0.297945,
+        "brier_isotonic": 0.250185,
         "brier_platt": 0.25,
         "brier_selected": 0.25,
-        "logloss_raw": 0.791613,
-        "logloss_isotonic": 0.693504,
+        "logloss_raw": 0.789497,
+        "logloss_isotonic": 0.693518,
         "logloss_platt": 0.693147,
         "logloss_selected": 0.693147,
-        "ece_raw": 0.546456,
-        "ece_isotonic": 0.500176,
+        "ece_raw": 0.545526,
+        "ece_isotonic": 0.500183,
         "ece_platt": 0.5,
         "ece_selected": 0.5,
         "reliability_curve_raw": [
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 78,
-            "mean_pred": 0.5454,
+            "count": 75,
+            "mean_pred": 0.5444,
             "mean_hit": 0.0
           },
           {
@@ -64,7 +64,7 @@
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 79,
+            "count": 76,
             "mean_pred": 0.5002,
             "mean_hit": 0.0
           }
@@ -73,7 +73,7 @@
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 79,
+            "count": 76,
             "mean_pred": 0.5,
             "mean_hit": 0.0
           }
@@ -82,7 +82,7 @@
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 79,
+            "count": 76,
             "mean_pred": 0.5,
             "mean_hit": 0.0
           }
@@ -91,7 +91,7 @@
       }
     },
     "spread": {
-      "method": "isotonic",
+      "method": "platt",
       "buckets": [
         {
           "min": 0.5,
@@ -103,39 +103,39 @@
       "isotonic": {
         "x": [
           0.5,
-          0.52,
+          0.64,
           0.74,
           0.76,
           0.99
         ],
         "y": [
           0.5,
-          0.956522,
-          0.956522,
+          0.95,
+          0.95,
           1.0,
           1.0
         ]
       },
       "platt": {
-        "a": 0.51159399,
-        "b": 4.0619522
+        "a": 0.51715421,
+        "b": 4.01070708
       },
       "metrics": {
-        "sample_size": 263,
-        "train_size": 184,
-        "valid_size": 79,
-        "brier_raw": 0.034201,
-        "brier_isotonic": 0.000221,
-        "brier_platt": 0.000125,
-        "brier_selected": 0.000221,
-        "logloss_raw": 0.194923,
-        "logloss_isotonic": 0.005342,
-        "logloss_platt": 0.011229,
-        "logloss_selected": 0.005342,
-        "ece_raw": 0.17481,
-        "ece_isotonic": 0.005228,
-        "ece_platt": 0.011166,
-        "ece_selected": 0.005228,
+        "sample_size": 252,
+        "train_size": 176,
+        "valid_size": 76,
+        "brier_raw": 0.034559,
+        "brier_isotonic": 0.000304,
+        "brier_platt": 0.000137,
+        "brier_selected": 0.000137,
+        "logloss_raw": 0.196001,
+        "logloss_isotonic": 0.006407,
+        "logloss_platt": 0.011767,
+        "logloss_selected": 0.011767,
+        "ece_raw": 0.175658,
+        "ece_isotonic": 0.00625,
+        "ece_platt": 0.011698,
+        "ece_selected": 0.011698,
         "reliability_curve_raw": [
           {
             "min": 0.6,
@@ -147,15 +147,15 @@
           {
             "min": 0.7,
             "max": 0.8,
-            "count": 18,
-            "mean_pred": 0.7511,
+            "count": 17,
+            "mean_pred": 0.7488,
             "mean_hit": 1.0
           },
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 52,
-            "mean_pred": 0.8446,
+            "count": 50,
+            "mean_pred": 0.8434,
             "mean_hit": 1.0
           },
           {
@@ -170,8 +170,8 @@
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 79,
-            "mean_pred": 0.9948,
+            "count": 76,
+            "mean_pred": 0.9938,
             "mean_hit": 1.0
           }
         ],
@@ -179,8 +179,8 @@
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 79,
-            "mean_pred": 0.9888,
+            "count": 76,
+            "mean_pred": 0.9883,
             "mean_hit": 1.0
           }
         ],
@@ -188,12 +188,12 @@
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 79,
-            "mean_pred": 0.9948,
+            "count": 76,
+            "mean_pred": 0.9883,
             "mean_hit": 1.0
           }
         ],
-        "selected_method": "isotonic"
+        "selected_method": "platt"
       }
     },
     "home_over_25": {

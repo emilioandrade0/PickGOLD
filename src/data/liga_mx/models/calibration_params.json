@@ -12,8 +12,8 @@
       ],
       "isotonic": {
         "x": [
-          0.87,
-          0.99
+          0.71,
+          0.92
         ],
         "y": [
           1.0,
@@ -21,65 +21,65 @@
         ]
       },
       "metrics": {
-        "sample_size": 430,
-        "train_size": 301,
-        "valid_size": 129,
-        "brier_raw": 0.178788,
-        "brier_isotonic": 0.286822,
+        "sample_size": 437,
+        "train_size": 305,
+        "valid_size": 132,
+        "brier_raw": 0.178573,
+        "brier_isotonic": 0.325758,
         "brier_platt": null,
-        "brier_selected": 0.178788,
-        "logloss_raw": 0.534782,
-        "logloss_isotonic": 5.943882,
+        "brier_selected": 0.178573,
+        "logloss_raw": 0.529602,
+        "logloss_isotonic": 6.750761,
         "logloss_platt": null,
-        "logloss_selected": 0.534782,
-        "ece_raw": 0.097674,
-        "ece_isotonic": 0.286822,
+        "logloss_selected": 0.529602,
+        "ece_raw": 0.126364,
+        "ece_isotonic": 0.325758,
         "ece_platt": null,
-        "ece_selected": 0.097674,
+        "ece_selected": 0.126364,
         "reliability_curve_raw": [
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 23,
-            "mean_pred": 0.5483,
-            "mean_hit": 0.4783
+            "count": 27,
+            "mean_pred": 0.5441,
+            "mean_hit": 0.3333
           },
           {
             "min": 0.6,
             "max": 0.7,
-            "count": 16,
-            "mean_pred": 0.6512,
-            "mean_hit": 0.375
+            "count": 28,
+            "mean_pred": 0.6496,
+            "mean_hit": 0.4286
           },
           {
             "min": 0.7,
             "max": 0.8,
-            "count": 11,
-            "mean_pred": 0.7573,
-            "mean_hit": 0.7273
+            "count": 28,
+            "mean_pred": 0.7554,
+            "mean_hit": 0.8929
           },
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 17,
-            "mean_pred": 0.8341,
-            "mean_hit": 0.6471
+            "count": 38,
+            "mean_pred": 0.8445,
+            "mean_hit": 0.8684
           },
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 62,
-            "mean_pred": 0.9526,
-            "mean_hit": 0.9032
+            "count": 11,
+            "mean_pred": 0.9055,
+            "mean_hit": 0.9091
           }
         ],
         "reliability_curve_isotonic": [
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 129,
+            "count": 132,
             "mean_pred": 1.0,
-            "mean_hit": 0.7132
+            "mean_hit": 0.6742
           }
         ],
         "reliability_curve_platt": null,
@@ -87,37 +87,37 @@
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 23,
-            "mean_pred": 0.5483,
-            "mean_hit": 0.4783
+            "count": 27,
+            "mean_pred": 0.5441,
+            "mean_hit": 0.3333
           },
           {
             "min": 0.6,
             "max": 0.7,
-            "count": 16,
-            "mean_pred": 0.6512,
-            "mean_hit": 0.375
+            "count": 28,
+            "mean_pred": 0.6496,
+            "mean_hit": 0.4286
           },
           {
             "min": 0.7,
             "max": 0.8,
-            "count": 11,
-            "mean_pred": 0.7573,
-            "mean_hit": 0.7273
+            "count": 28,
+            "mean_pred": 0.7554,
+            "mean_hit": 0.8929
           },
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 17,
-            "mean_pred": 0.8341,
-            "mean_hit": 0.6471
+            "count": 38,
+            "mean_pred": 0.8445,
+            "mean_hit": 0.8684
           },
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 62,
-            "mean_pred": 0.9526,
-            "mean_hit": 0.9032
+            "count": 11,
+            "mean_pred": 0.9055,
+            "mean_hit": 0.9091
           }
         ],
         "selected_method": "bucket"
@@ -144,35 +144,35 @@
         ]
       },
       "metrics": {
-        "sample_size": 430,
-        "train_size": 301,
-        "valid_size": 129,
-        "brier_raw": 0.215649,
-        "brier_isotonic": 0.286822,
+        "sample_size": 437,
+        "train_size": 305,
+        "valid_size": 132,
+        "brier_raw": 0.219287,
+        "brier_isotonic": 0.295455,
         "brier_platt": null,
-        "brier_selected": 0.215649,
-        "logloss_raw": 0.644671,
-        "logloss_isotonic": 5.943882,
+        "brier_selected": 0.219287,
+        "logloss_raw": 0.653226,
+        "logloss_isotonic": 6.122783,
         "logloss_platt": null,
-        "logloss_selected": 0.644671,
-        "ece_raw": 0.135658,
-        "ece_isotonic": 0.286822,
+        "logloss_selected": 0.653226,
+        "ece_raw": 0.134988,
+        "ece_isotonic": 0.295455,
         "ece_platt": null,
-        "ece_selected": 0.135658,
+        "ece_selected": 0.134988,
         "reliability_curve_raw": [
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 15,
-            "mean_pred": 0.5396,
-            "mean_hit": 0.6667
+            "count": 19,
+            "mean_pred": 0.5401,
+            "mean_hit": 0.6316
           },
           {
             "min": 0.6,
             "max": 0.7,
-            "count": 16,
-            "mean_pred": 0.6538,
-            "mean_hit": 0.6875
+            "count": 17,
+            "mean_pred": 0.6555,
+            "mean_hit": 0.7059
           },
           {
             "min": 0.7,
@@ -184,25 +184,25 @@
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 34,
-            "mean_pred": 0.8559,
-            "mean_hit": 0.5882
+            "count": 33,
+            "mean_pred": 0.8552,
+            "mean_hit": 0.5758
           },
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 47,
-            "mean_pred": 0.9413,
-            "mean_hit": 0.8511
+            "count": 46,
+            "mean_pred": 0.9411,
+            "mean_hit": 0.8478
           }
         ],
         "reliability_curve_isotonic": [
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 129,
+            "count": 132,
             "mean_pred": 1.0,
-            "mean_hit": 0.7132
+            "mean_hit": 0.7045
           }
         ],
         "reliability_curve_platt": null,
@@ -210,16 +210,16 @@
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 15,
-            "mean_pred": 0.5396,
-            "mean_hit": 0.6667
+            "count": 19,
+            "mean_pred": 0.5401,
+            "mean_hit": 0.6316
           },
           {
             "min": 0.6,
             "max": 0.7,
-            "count": 16,
-            "mean_pred": 0.6538,
-            "mean_hit": 0.6875
+            "count": 17,
+            "mean_pred": 0.6555,
+            "mean_hit": 0.7059
           },
           {
             "min": 0.7,
@@ -231,16 +231,16 @@
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 34,
-            "mean_pred": 0.8559,
-            "mean_hit": 0.5882
+            "count": 33,
+            "mean_pred": 0.8552,
+            "mean_hit": 0.5758
           },
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 47,
-            "mean_pred": 0.9413,
-            "mean_hit": 0.8511
+            "count": 46,
+            "mean_pred": 0.9411,
+            "mean_hit": 0.8478
           }
         ],
         "selected_method": "bucket"
@@ -258,7 +258,7 @@
       ],
       "isotonic": {
         "x": [
-          0.802466,
+          0.705619,
           0.95
         ],
         "y": [
@@ -267,65 +267,65 @@
         ]
       },
       "metrics": {
-        "sample_size": 430,
-        "train_size": 301,
-        "valid_size": 129,
-        "brier_raw": 0.18586,
-        "brier_isotonic": 0.248062,
+        "sample_size": 437,
+        "train_size": 305,
+        "valid_size": 132,
+        "brier_raw": 0.176047,
+        "brier_isotonic": 0.257576,
         "brier_platt": null,
-        "brier_selected": 0.18586,
-        "logloss_raw": 0.563958,
-        "logloss_isotonic": 5.140655,
+        "brier_selected": 0.176047,
+        "logloss_raw": 0.523766,
+        "logloss_isotonic": 5.337811,
         "logloss_platt": null,
-        "logloss_selected": 0.563958,
-        "ece_raw": 0.106748,
-        "ece_isotonic": 0.248062,
+        "logloss_selected": 0.523766,
+        "ece_raw": 0.050661,
+        "ece_isotonic": 0.257576,
         "ece_platt": null,
-        "ece_selected": 0.106748,
+        "ece_selected": 0.050661,
         "reliability_curve_raw": [
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 15,
-            "mean_pred": 0.5467,
-            "mean_hit": 0.7333
+            "count": 16,
+            "mean_pred": 0.5503,
+            "mean_hit": 0.625
           },
           {
             "min": 0.6,
             "max": 0.7,
-            "count": 18,
-            "mean_pred": 0.6569,
-            "mean_hit": 0.6111
+            "count": 20,
+            "mean_pred": 0.6332,
+            "mean_hit": 0.45
           },
           {
             "min": 0.7,
             "max": 0.8,
-            "count": 15,
-            "mean_pred": 0.7533,
-            "mean_hit": 0.5333
+            "count": 37,
+            "mean_pred": 0.7643,
+            "mean_hit": 0.7568
           },
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 30,
-            "mean_pred": 0.8631,
-            "mean_hit": 0.8
+            "count": 31,
+            "mean_pred": 0.8503,
+            "mean_hit": 0.8065
           },
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 51,
-            "mean_pred": 0.9403,
-            "mean_hit": 0.8431
+            "count": 28,
+            "mean_pred": 0.9354,
+            "mean_hit": 0.9286
           }
         ],
         "reliability_curve_isotonic": [
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 129,
+            "count": 132,
             "mean_pred": 1.0,
-            "mean_hit": 0.7519
+            "mean_hit": 0.7424
           }
         ],
         "reliability_curve_platt": null,
@@ -333,37 +333,37 @@
           {
             "min": 0.5,
             "max": 0.6,
-            "count": 15,
-            "mean_pred": 0.5467,
-            "mean_hit": 0.7333
+            "count": 16,
+            "mean_pred": 0.5503,
+            "mean_hit": 0.625
           },
           {
             "min": 0.6,
             "max": 0.7,
-            "count": 18,
-            "mean_pred": 0.6569,
-            "mean_hit": 0.6111
+            "count": 20,
+            "mean_pred": 0.6332,
+            "mean_hit": 0.45
           },
           {
             "min": 0.7,
             "max": 0.8,
-            "count": 15,
-            "mean_pred": 0.7533,
-            "mean_hit": 0.5333
+            "count": 37,
+            "mean_pred": 0.7643,
+            "mean_hit": 0.7568
           },
           {
             "min": 0.8,
             "max": 0.9,
-            "count": 30,
-            "mean_pred": 0.8631,
-            "mean_hit": 0.8
+            "count": 31,
+            "mean_pred": 0.8503,
+            "mean_hit": 0.8065
           },
           {
             "min": 0.9,
             "max": 1.0,
-            "count": 51,
-            "mean_pred": 0.9403,
-            "mean_hit": 0.8431
+            "count": 28,
+            "mean_pred": 0.9354,
+            "mean_hit": 0.9286
           }
         ],
         "selected_method": "bucket"

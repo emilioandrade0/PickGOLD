@@ -7,7 +7,6 @@ export default function AuthPage({ onAuthenticated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isLogin = mode === "login";
@@ -15,27 +14,20 @@ export default function AuthPage({ onAuthenticated }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    setInfo("");
     setLoading(true);
-
-    const action = isLogin
-      ? await loginUser({ email, password })
-      : await registerUser({ name, email, password });
-
+    let action;
+    if (isLogin) {
+      action = await loginUser({ email, password });
+    } else {
+      action = await registerUser({ name, email, password });
+    }
     setLoading(false);
-
     if (!action.ok) {
       setError(action.error || "No se pudo completar la acción.");
       return;
     }
-
-    if (action.user) {
-      setActiveSession(action.user);
-      onAuthenticated?.(action.user);
-      return;
-    }
-
-    setInfo(isLogin ? "Inicio de sesión procesado." : "Cuenta creada correctamente.");
+    setActiveSession(action.user);
+    onAuthenticated?.(action.user);
   }
 
   return (
@@ -44,17 +36,13 @@ export default function AuthPage({ onAuthenticated }) {
         <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#2d3330] p-6 shadow-2xl">
           <h1 className="text-3xl font-semibold tracking-tight">NBA GOLD Access</h1>
           <p className="mt-2 text-sm text-white/70">
-            Regístrate una vez para solicitar acceso y luego inicia sesión para revisar si tu cuenta ya fue aprobada.
+            Regístrate una vez para habilitar acceso y luego inicia sesión para entrar a la app.
           </p>
 
           <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-black/25 p-1">
             <button
               type="button"
-              onClick={() => {
-                setMode("login");
-                setError("");
-                setInfo("");
-              }}
+              onClick={() => setMode("login")}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                 isLogin ? "bg-[#007b55] text-white" : "text-white/70 hover:text-white"
               }`}
@@ -63,11 +51,7 @@ export default function AuthPage({ onAuthenticated }) {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setMode("register");
-                setError("");
-                setInfo("");
-              }}
+              onClick={() => setMode("register")}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                 !isLogin ? "bg-[#007b55] text-white" : "text-white/70 hover:text-white"
               }`}
@@ -116,7 +100,6 @@ export default function AuthPage({ onAuthenticated }) {
             </label>
 
             {error && <p className="text-sm text-red-300">{error}</p>}
-            {info && <p className="text-sm text-amber-200">{info}</p>}
 
             <button
               type="submit"
