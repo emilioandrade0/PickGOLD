@@ -93,13 +93,12 @@ function resolveOddsForSecondary(event, label) {
 function resolveSecondaryMarket(event, sportKey, teams) {
   const q1PickRaw = event.q1_pick;
   if (!isPendingPick(q1PickRaw)) {
-    const q1Label = sportKey === "nhl"
-      ? (event.q1_market || "1P O/U 1.5")
-      : (["mlb", "kbo", "ncaa_baseball"].includes(sportKey) ? "YRFI / NRFI" : "Q1");
+    const q1Label = "Primer Cuarto";
     return {
       label: q1Label,
       pick: expandTeamCodeInText(sportKey, resolveSidePick(q1PickRaw, teams)),
       confidence: event.q1_confidence,
+      action: event.q1_action,
       hit: toHitValue(event.q1_hit),
     };
   }
@@ -147,6 +146,21 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   return null;
 }
 
+function normalizeBetAction(actionValue) {
+  const txt = String(actionValue || "").trim().toUpperCase();
+  if (!txt) return "No apostar";
+  if (["JUGAR", "APOSTAR", "PLAY", "BET"].includes(txt)) return "Apostar";
+  if (["PASS", "PASAR", "NO BET", "NO_APUESTA", "SKIP"].includes(txt)) return "No apostar";
+  return txt;
+}
+
+function normalizeTotalDirection(rawPick) {
+  const txt = String(rawPick || "").toUpperCase();
+  if (txt.includes("OVER")) return "Over";
+  if (txt.includes("UNDER") || txt.includes("LEAN TOTAL")) return "Under";
+  return null;
+}
+
 function TeamRow({ sportKey, abbr }) {
   const logoUrl = getTeamLogoUrl(sportKey, abbr);
   const fullName = getTeamDisplayName(sportKey, abbr);
@@ -187,6 +201,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const gameHit = event.full_game_hit;
   const secondaryMarket = resolveSecondaryMarket(event, sportKey, teams);
   const secondaryPick = secondaryMarket?.pick;
+  const secondaryAction = secondaryMarket?.action;
   const fullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
   const secondaryHit = secondaryMarket?.hit ?? null;
   const secondaryConfidence = secondaryMarket?.confidence;
@@ -205,9 +220,17 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const secondaryOdds = resolveOddsForSecondary(event, secondaryLabel);
   const cornersOdds = resolveOddsValue(event, ODDS_KEYS.corners);
   const spreadPick = expandTeamCodeInText(sportKey, resolveSidePick(event.spread_pick, teams)) || event.spread_pick;
-  const totalPick = event.total_recommended_pick || event.total_pick;
   const spreadHit = toHitValue(event.correct_spread);
   const totalHit = toHitValue(event.correct_total_adjusted ?? event.correct_total);
+  const totalPick = event.total_recommended_pick || event.total_pick;
+  const totalDirection = normalizeTotalDirection(totalPick);
+  const totalPickDisplay = totalDirection && totalLineDisplay !== "Por definir"
+    ? `${totalDirection} de ${totalLineDisplay}`
+    : (totalPick || "N/A");
+  const spreadPredictionLabel = hasResult
+    ? (spreadHit === true ? "Si cubrio" : spreadHit === false ? "No cubrio" : (spreadPick || fullGamePick || "N/A"))
+    : (spreadPick || fullGamePick || "N/A");
+  const q1BetActionLabel = normalizeBetAction(secondaryAction);
   const cornersPick = event.corners_pick;
   const cornersConfidence = event.corners_confidence;
   const cornersAction = event.corners_action;
@@ -263,8 +286,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
         <div className="grid gap-2 text-xs sm:grid-cols-2">
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/80">
             <p className="text-white/60">Spread</p>
-            <p className="mt-1">Pick: {spreadPick || "N/A"}</p>
-            <p className="mt-1">Linea: {spreadLineDisplay} · Cuota: {spreadOddsDisplay}</p>
+            <p className="mt-1">Pick: {spreadPredictionLabel}</p>
+            <p className="mt-1">Linea: {spreadLineDisplay}</p>
+            <p className="mt-1">Cuota: {spreadOddsDisplay}</p>
             {hasResult && spreadHit !== undefined && spreadHit !== null && (
               <p className="mt-1 font-semibold text-white/90">
                 Resultado: {spreadHit === true ? "ACIERTO" : "FALLO"}
@@ -273,8 +297,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
           </div>
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/80">
             <p className="text-white/60">Total</p>
-            <p className="mt-1">Pick: {totalPick || "N/A"}</p>
-            <p className="mt-1">Linea: {totalLineDisplay} · Cuota: {totalOddsDisplay}</p>
+            <p className="mt-1">Pick: {totalPickDisplay}</p>
+            <p className="mt-1">Linea: {totalLineDisplay}</p>
+            <p className="mt-1">Cuota: {totalOddsDisplay}</p>
             {hasResult && totalHit !== undefined && totalHit !== null && (
               <p className="mt-1 font-semibold text-white/90">
                 Resultado: {totalHit === true ? "ACIERTO" : "FALLO"}
@@ -297,7 +322,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
             {secondaryConfidence !== undefined && secondaryConfidence !== null && (
               <p className="mt-1 text-xs text-white/70">Confianza: {secondaryConfidence}%</p>
             )}
-            <p className="mt-1 text-xs text-white/70">Cuota: {secondaryOdds || "N/A"}</p>
+            <p className="mt-1 text-xs text-white/70">
+              {secondaryLabel === "Primer Cuarto" ? `Cuota: ${q1BetActionLabel}` : `Cuota: ${secondaryOdds || "N/A"}`}
+            </p>
             {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
               <p className="mt-1 text-xs font-semibold text-white/85">
                 Resultado: {secondaryHit === true ? "ACIERTO" : "FALLO"}

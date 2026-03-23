@@ -99,9 +99,7 @@ function resolveOddsForSecondary(event, label) {
 function resolveSecondaryMarket(event, sportKey, teams) {
   const q1PickRaw = event.q1_pick;
   if (!isPendingPick(q1PickRaw)) {
-    const q1Label = sportKey === "nhl"
-      ? (event.q1_market || "1P O/U 1.5")
-      : (["mlb", "kbo", "ncaa_baseball"].includes(sportKey) ? "YRFI / NRFI" : "Q1");
+    const q1Label = "Primer Cuarto";
     return {
       label: q1Label,
       pick: expandTeamCodeInText(sportKey, resolveSidePick(q1PickRaw, teams)),
@@ -164,6 +162,57 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   };
 }
 
+function normalizeBetAction(actionValue) {
+  const txt = String(actionValue || "").trim().toUpperCase();
+  if (!txt) return "No apostar";
+  if (["JUGAR", "APOSTAR", "PLAY", "BET"].includes(txt)) return "Apostar";
+  if (["PASS", "PASAR", "NO BET", "NO_APUESTA", "SKIP"].includes(txt)) return "No apostar";
+  return txt;
+}
+
+function normalizeTotalDirection(rawPick) {
+  const txt = String(rawPick || "").toUpperCase();
+  if (txt.includes("OVER")) return "Over";
+  if (txt.includes("UNDER") || txt.includes("LEAN TOTAL")) return "Under";
+  return null;
+}
+
+function toConfidenceValue(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildBestRecommendedPick({
+  fullGamePick,
+  fullGameConfidence,
+  handicapPick,
+  spreadConfidence,
+  totalPick,
+  totalConfidence,
+  q1Pick,
+  q1Confidence,
+  bttsPick,
+  bttsConfidence,
+  cornersPick,
+  cornersConfidence,
+}) {
+  const candidates = [
+    { market: "Full Game", pick: fullGamePick, confidence: toConfidenceValue(fullGameConfidence) },
+    { market: "Handicap", pick: handicapPick, confidence: toConfidenceValue(spreadConfidence) },
+    { market: "Total", pick: totalPick, confidence: toConfidenceValue(totalConfidence) },
+    { market: "Primer Cuarto", pick: q1Pick, confidence: toConfidenceValue(q1Confidence) },
+    { market: "BTTS", pick: bttsPick, confidence: toConfidenceValue(bttsConfidence) },
+    { market: "Corners", pick: cornersPick, confidence: toConfidenceValue(cornersConfidence) },
+  ].filter((c) => c.pick && c.pick !== "N/A" && c.confidence !== null);
+
+  if (!candidates.length) {
+    return { market: "Sin mercado", pick: "N/A", confidence: null };
+  }
+
+  candidates.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+  return candidates[0];
+}
+
 function TeamBadge({ sportKey, abbr }) {
   const logoUrl = getTeamLogoUrl(sportKey, abbr);
   const fullName = getTeamDisplayName(sportKey, abbr);
@@ -218,8 +267,22 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const spreadOddsDisplay = spreadOdds || (hasMlSpreadMarket ? mainOdds : "Por definir");
   const totalLineDisplay = totalLine || "Por definir";
   const totalOddsDisplay = totalOdds || "Por definir";
+  const spreadPick = expandTeamCodeInText(sportKey, resolveSidePick(event.spread_pick, teams)) || event.spread_pick || fullGamePick;
+  const spreadHit = toHitValue(event.correct_spread);
+  const totalHit = toHitValue(event.correct_total_adjusted ?? event.correct_total);
+  const totalDirection = normalizeTotalDirection(event.total_recommended_pick || event.total_pick);
+  const totalPickDisplay = totalDirection && totalLineDisplay !== "Por definir"
+    ? `${totalDirection} de ${totalLineDisplay}`
+    : (event.total_recommended_pick || event.total_pick || "N/A");
+  const q1PickDisplay = secondaryLabel === "Primer Cuarto" ? secondaryPick : "N/A";
+  const q1ConfidenceDisplay = secondaryLabel === "Primer Cuarto" ? secondaryConfidence : "-";
+  const q1ActionDisplay = secondaryLabel === "Primer Cuarto" ? normalizeBetAction(secondaryAction) : "No apostar";
+  const q1Hit = secondaryLabel === "Primer Cuarto" ? secondaryHit : null;
+  const handicapPickDisplay = hasResult && spreadHit !== null
+    ? (spreadHit ? `${spreadPick} cubrio handicap` : `${spreadPick} no cubrio handicap`)
+    : `${spreadPick} cubre handicap`;
   const cornersOdds = resolveOddsValue(event, ODDS_KEYS.corners);
-  const secondaryResultBorderClass = marketBorderClass(secondaryHit);
+  const secondaryResultBorderClass = marketBorderClass(q1Hit);
   const resultBorderClass =
     event.full_game_hit === true
       ? "border-emerald-400/70"
@@ -227,12 +290,24 @@ export default function DetailModal({ event, onClose, sportKey }) {
         ? "border-rose-400/70"
         : "border-white/15";
 
-  const propLabel = String(event.assists_pick || "").toUpperCase().includes("F5") ? "Pick F5" : "Prop destacada";
-  const propPick = event.assists_pick || "N/A";
-  const propConfidence = event.extra_f5_confidence ?? event.btts_confidence;
+  const propBest = buildBestRecommendedPick({
+    fullGamePick,
+    fullGameConfidence: event.full_game_confidence,
+    handicapPick: handicapPickDisplay,
+    spreadConfidence: event.spread_confidence,
+    totalPick: totalPickDisplay,
+    totalConfidence: event.total_confidence,
+    q1Pick: q1PickDisplay,
+    q1Confidence: q1ConfidenceDisplay,
+    bttsPick: event.btts_recommended_pick || event.btts_pick,
+    bttsConfidence: event.btts_confidence,
+    cornersPick: event.corners_pick,
+    cornersConfidence: event.corners_confidence,
+  });
+  const propLabel = "Pick recomendado";
+  const propPick = propBest.pick;
+  const propConfidence = propBest.confidence;
   const hasCorners = Boolean(event.corners_pick);
-  const spreadHit = toHitValue(event.correct_spread);
-  const totalHit = toHitValue(event.correct_total_adjusted ?? event.correct_total);
   const propHit = toHitValue(event.correct_f5 ?? event.correct_home_win_f5);
   const cornersHit = toHitValue(event.correct_corners_adjusted ?? event.correct_corners_base ?? event.correct_corners);
 
@@ -296,28 +371,28 @@ export default function DetailModal({ event, onClose, sportKey }) {
             </div>
 
             <div className={`rounded-2xl border bg-black/15 p-5 ${secondaryResultBorderClass}`}>
-              <p className="text-sm text-white/50">{secondaryLabel}</p>
-              <p className="mt-1 text-2xl font-semibold">{secondaryPick}</p>
+              <p className="text-sm text-white/50">Primer Cuarto</p>
+              <p className="mt-1 text-2xl font-semibold">{q1PickDisplay}</p>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-white/5 p-3">
                   <p className="text-white/50">Confianza</p>
                   <p className="mt-1 font-semibold">
-                    {secondaryConfidence === "-" ? "-" : `${secondaryConfidence}%`}
+                    {q1ConfidenceDisplay === "-" ? "-" : `${q1ConfidenceDisplay}%`}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
                   <p className="text-white/50">Cuota</p>
-                  <p className="mt-1 font-semibold">{secondaryOdds || "N/A"}</p>
+                  <p className="mt-1 font-semibold">{q1ActionDisplay}</p>
                 </div>
               </div>
 
-              <p className="mt-2 text-xs text-white/60">Acción: {secondaryAction}</p>
+              <p className="mt-2 text-xs text-white/60">Cuota decimal: {secondaryOdds || "N/A"}</p>
 
-              {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
+              {hasResult && q1Hit !== undefined && q1Hit !== null && (
                 <p className="mt-3 text-sm font-semibold text-white/85">
-                  Resultado: {secondaryHit === true ? "ACIERTO" : "FALLO"}
+                  Resultado: {q1Hit === true ? "ACIERTO" : "FALLO"}
                 </p>
               )}
             </div>
@@ -337,9 +412,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">{secondaryLabel}</p>
+                  <p className="text-white/50">Primer Cuarto</p>
                   <p className="mt-1 font-semibold">
-                    {secondaryHit === true ? "ACIERTO" : secondaryHit === false ? "FALLO" : "N/A"}
+                    {q1Hit === true ? "ACIERTO" : q1Hit === false ? "FALLO" : "N/A"}
                   </p>
                 </div>
               </div>
@@ -348,10 +423,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(spreadHit)}`}>
-              <p className="text-sm text-white/50">Mercado principal</p>
-              <p className="mt-1 text-lg font-semibold">{event.spread_pick}</p>
-              <p className="mt-2 text-sm text-white/65">Mercado: {event.spread_market}</p>
-              <p className="mt-1 text-sm text-white/65">Linea: {spreadLineDisplay}</p>
+              <p className="text-sm text-white/50">Handicap</p>
+              <p className="mt-1 text-lg font-semibold">Pick: {handicapPickDisplay}</p>
+              <p className="mt-2 text-sm text-white/65">Handicap casino: {spreadLineDisplay}</p>
               <p className="mt-1 text-sm text-white/65">Cuota: {spreadOddsDisplay}</p>
               {hasResult && spreadHit !== undefined && spreadHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
@@ -362,7 +436,7 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
             <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(totalHit)}`}>
               <p className="text-sm text-white/50">Total</p>
-              <p className="mt-1 text-lg font-semibold">{event.total_pick}</p>
+              <p className="mt-1 text-lg font-semibold">Pick: {totalPickDisplay}</p>
               <p className="mt-2 text-sm text-white/65">Línea: {totalLineDisplay}</p>
               <p className="mt-1 text-sm text-white/65">Cuota: {totalOddsDisplay}</p>
               {hasResult && totalHit !== undefined && totalHit !== null && (
@@ -375,6 +449,7 @@ export default function DetailModal({ event, onClose, sportKey }) {
             <div className={`rounded-2xl border bg-black/15 p-5 md:col-span-2 xl:col-span-1 ${marketBorderClass(propHit)}`}>
               <p className="text-sm text-white/50">{propLabel}</p>
               <p className="mt-1 text-lg font-semibold leading-snug">{propPick}</p>
+              <p className="mt-2 text-sm text-white/65">Mercado: {propBest.market}</p>
               {propConfidence && (
                 <p className="mt-2 text-sm text-white/65">Confianza: {propConfidence}%</p>
               )}
