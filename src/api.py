@@ -1925,6 +1925,7 @@ def _best_picks_with_results(payload: dict):
             item = dict(event)
             game_id = str(item.get("game_id", "")).strip()
             hist = by_game_id.get(game_id)
+            # Solo hidratar resultados si el juego existe en ambos archivos
             if hist:
                 for key in result_keys:
                     # Solo copiar si el campo no existe en el evento actual
@@ -1932,6 +1933,15 @@ def _best_picks_with_results(payload: dict):
                         item[key] = hist[key]
                     elif item.get(key) is None and hist.get(key) is not None:
                         item[key] = hist.get(key)
+                # No sobrescribir status de partido si aún no ha comenzado
+                if (item.get("status_state") not in (None, "post", "final") and
+                    hist.get("status_state") in ("post", "final")):
+                    # No copiar status de finalizado si el evento live no está finalizado
+                    pass
+                else:
+                    # Si el evento live no tiene status_state pero el histórico sí, solo copiar si ya terminó
+                    if not item.get("status_state") and hist.get("status_state") in ("post", "final"):
+                        item["status_state"] = hist["status_state"]
             merged.append(item)
         return merged
             row["result_label"] = "RESUELTO"
