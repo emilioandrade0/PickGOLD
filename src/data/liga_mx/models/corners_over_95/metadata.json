@@ -2,8 +2,8 @@
   "market_key": "corners_over_95",
   "target_col": "TARGET_corners_over_95",
   "problem_type": "binary",
-  "train_rows": 347,
-  "valid_rows": 87,
+  "train_rows": 349,
+  "valid_rows": 88,
   "feature_count": 84,
   "ensemble_threshold": 0.5,
   "ensemble_weights": {
@@ -13,23 +13,23 @@
   },
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.896551724137931,
-      "logloss": 3.7286537988741877,
+      "accuracy": 0.8636363636363636,
+      "logloss": 4.915043643970521,
       "roc_auc": 0.5
     },
     "lightgbm_valid": {
-      "accuracy": 0.896551724137931,
-      "logloss": 3.7286537988741877,
+      "accuracy": 0.8636363636363636,
+      "logloss": 4.915043643970521,
       "roc_auc": 0.5
     },
     "lightgbm_secondary_valid": {
-      "accuracy": 0.896551724137931,
-      "logloss": 3.7286537988741877,
+      "accuracy": 0.8636363636363636,
+      "logloss": 4.915043643970521,
       "roc_auc": 0.5
     },
     "ensemble_valid": {
-      "accuracy": 0.896551724137931,
-      "logloss": 3.7286537988741877,
+      "accuracy": 0.8636363636363636,
+      "logloss": 4.915043643970521,
       "roc_auc": 0.5
     }
   },

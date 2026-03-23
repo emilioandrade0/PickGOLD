@@ -1,78 +1,133 @@
 import { useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
-import Header from "./components/Header.jsx";
-import NBAPage from "./pages/NBAPage.jsx";
-import MLBPage from "./pages/MLBPage.jsx";
-import KBOPage from "./pages/KBOPage.jsx";
-import NHLPage from "./pages/NHLPage.jsx";
-import NCAABaseballPage from "./pages/NCAABaseballPage.jsx";
-import EuroLeaguePage from "./pages/EuroLeaguePage.jsx";
-import LigaMXPage from "./pages/LigaMXPage.jsx";
-import LaLigaPage from "./pages/LaLigaPage.jsx";
-import InsightsPage from "./pages/InsightsPage.jsx";
-import WeekdayScoringPage from "./pages/WeekdayScoringPage.jsx";
-import BestPicksPage from "./pages/BestPicksPage.jsx";
-import AuthPage from "./pages/AuthPage.jsx";
-import AdminUserApproval from "./pages/AdminUserApproval.jsx";
-import { getActiveSession, logoutUser } from "./services/auth.js";
+import { loginUser, registerUser, setActiveSession } from "./services/auth.js";
 
-function ProtectedApp({ onLogout, userName, session }) {
+export default function AuthPage({ onAuthenticated }) {
+  const [mode, setMode] = useState("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isLogin = mode === "login";
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    setLoading(true);
+
+    const action = isLogin
+      ? await loginUser({ email, password })
+      : await registerUser({ name, email, password });
+
+    setLoading(false);
+
+    if (!action.ok) {
+      setError(action.error || "No se pudo completar la acción.");
+      return;
+    }
+
+    if (action.user) {
+      setActiveSession(action.user);
+      onAuthenticated?.(action.user);
+      return;
+    }
+
+    setInfo(isLogin ? "Inicio de sesión procesado." : "Cuenta creada correctamente.");
+  }
+
   return (
-    <div className="min-h-screen bg-transparent text-white">
-      <Header onLogout={onLogout} userName={userName} />
+    <div className="min-h-screen bg-[#232725] text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#2d3330] p-6 shadow-2xl">
+          <h1 className="text-3xl font-semibold tracking-tight">NBA GOLD Access</h1>
+          <p className="mt-2 text-sm text-white/70">
+            Regístrate una vez para solicitar acceso y luego inicia sesión para revisar si tu cuenta ya fue aprobada.
+          </p>
 
-      <Routes>
-        <Route path="/" element={<Navigate to="/nba" replace />} />
-        <Route path="/nba" element={<NBAPage />} />
-        <Route path="/mlb" element={<MLBPage />} />
-        <Route path="/kbo" element={<KBOPage />} />
-        <Route path="/nhl" element={<NHLPage />} />
-        <Route path="/ncaa-baseball" element={<NCAABaseballPage />} />
-        <Route path="/euroleague" element={<EuroLeaguePage />} />
-        <Route path="/liga-mx" element={<LigaMXPage />} />
-        <Route path="/laliga" element={<LaLigaPage />} />
-        <Route path="/insights" element={<InsightsPage />} />
-        <Route path="/weekday-scoring" element={<WeekdayScoringPage />} />
-        <Route path="/best-picks" element={<BestPicksPage />} />
-        {/* Solo admin puede ver esta ruta */}
-        {session?.role === "admin" && (
-          <Route path="/admin/approve-users" element={<AdminUserApproval adminEmail={session.email} />} />
-        )}
-        <Route path="*" element={<Navigate to="/nba" replace />} />
-      </Routes>
+          <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-black/25 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError("");
+                setInfo("");
+              }}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                isLogin ? "bg-[#007b55] text-white" : "text-white/70 hover:text-white"
+              }`}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("register");
+                setError("");
+                setInfo("");
+              }}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                !isLogin ? "bg-[#007b55] text-white" : "text-white/70 hover:text-white"
+              }`}
+            >
+              Registro
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            {!isLogin && (
+              <label className="block text-sm">
+                <span className="mb-1 block text-white/80">Nombre</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 outline-none ring-0 focus:border-[#16a085]"
+                  placeholder="Tu nombre"
+                  required
+                />
+              </label>
+            )}
+
+            <label className="block text-sm">
+              <span className="mb-1 block text-white/80">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 outline-none ring-0 focus:border-[#16a085]"
+                placeholder="correo@ejemplo.com"
+                required
+              />
+            </label>
+
+            <label className="block text-sm">
+              <span className="mb-1 block text-white/80">Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-white/20 bg-black/20 px-3 py-2 outline-none ring-0 focus:border-[#16a085]"
+                placeholder="••••••••"
+                required
+              />
+            </label>
+
+            {error && <p className="text-sm text-red-300">{error}</p>}
+            {info && <p className="text-sm text-amber-200">{info}</p>}
+
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-[#007b55] px-4 py-2 font-semibold text-white transition hover:bg-[#0a8d63] disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? "Procesando..." : isLogin ? "Entrar" : "Crear cuenta"}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
-  );
-}
-
-export default function App() {
-  const [session, setSession] = useState(() => getActiveSession());
-
-  function handleAuthenticated(user) {
-    setSession(user || getActiveSession());
-  }
-
-  function handleLogout() {
-    logoutUser();
-    setSession(null);
-  }
-
-  return (
-    <Routes>
-      <Route
-        path="/auth"
-        element={session ? <Navigate to="/nba" replace /> : <AuthPage onAuthenticated={handleAuthenticated} />}
-      />
-
-      <Route
-        path="*"
-        element={
-          session ? (
-            <ProtectedApp onLogout={handleLogout} userName={session?.name || "Usuario"} session={session} />
-          ) : (
-            <Navigate to="/auth" replace />
-          )
-        }
-      />
-    </Routes>
   );
 }
