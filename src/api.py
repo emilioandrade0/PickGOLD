@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import math
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from datetime import timedelta
 import re
 
@@ -1587,6 +1587,14 @@ def resolve_prediction_file(predictions_dir: Path, historical_dir: Path, date_st
     selected_date = parse_date_str(date_str)
     today = date.today()
     live_file, hist_file = get_files_for_date(predictions_dir, historical_dir, date_str)
+
+    # Render uses UTC; around midnight, local "today" can look like "yesterday" on server.
+    # For near-today dates, prefer live board first to avoid serving stale historical snapshots.
+    if selected_date >= (today - timedelta(days=1)):
+        if live_file.exists():
+            return live_file
+        if hist_file.exists():
+            return hist_file
 
     # Pasado => prioriza histórico.
     if selected_date < today:
