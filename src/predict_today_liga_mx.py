@@ -117,6 +117,217 @@ def normalize_multiclass_probs(home_p: float, away_p: float, draw_p: float):
     return float(arr[1]), float(arr[0]), float(arr[2])
 
 
+def _parse_kickoff_minutes(time_value) -> int:
+    try:
+        txt = str(time_value or "").strip()
+        if not txt:
+            return 23 * 60 + 59
+        parts = txt.split(":")
+        if len(parts) < 2:
+            return 23 * 60 + 59
+        hh = int(parts[0])
+        mm = int(parts[1])
+        if hh < 0 or hh > 23 or mm < 0 or mm > 59:
+            return 23 * 60 + 59
+        return hh * 60 + mm
+    except Exception:
+        return 23 * 60 + 59
+
+
+def _american_to_implied_prob(odds_value):
+    try:
+        odds = float(odds_value)
+    except Exception:
+        return None
+
+    if odds == 0:
+        return None
+
+    if odds > 0:
+        return 100.0 / (odds + 100.0)
+    return abs(odds) / (abs(odds) + 100.0)
+
+
+def _favorite_side_from_odds(home_odds, away_odds, min_edge: float = 0.035):
+    home_imp = _american_to_implied_prob(home_odds)
+    away_imp = _american_to_implied_prob(away_odds)
+    if home_imp is None or away_imp is None:
+        return None
+
+    edge = abs(home_imp - away_imp)
+    if edge < min_edge:
+        return None
+
+    return "home" if home_imp > away_imp else "away"
+
+
+def _winner_side_from_scores(home_score, away_score):
+    try:
+        hs = int(float(home_score))
+        aw = int(float(away_score))
+    except Exception:
+        return None
+
+    if hs > aw:
+        return "home"
+    if aw > hs:
+        return "away"
+    return "draw"
+
+
+def _intraday_favorite_signal(schedule_df: pd.DataFrame, date_str: str, current_kickoff_minutes: int):
+    if schedule_df is None or schedule_df.empty:
+        return {
+            "completed_games": 0,
+            "qualified_games": 0,
+            "favorite_fail_rate": 0.0,
+            "draw_rate": 0.0,
+            "market_mood": "neutral",
+            "shift": 0.0,
+        }
+
+    same_day = schedule_df[schedule_df["date"].astype(str) == str(date_str)].copy()
+    if same_day.empty:
+        return {
+            "completed_games": 0,
+            "qualified_games": 0,
+            "favorite_fail_rate": 0.0,
+            "draw_rate": 0.0,
+            "market_mood": "neutral",
+            "shift": 0.0,
+        }
+
+    if "status_completed" in same_day.columns:
+        same_day = same_day[pd.to_numeric(same_day["status_completed"], errors="coerce").fillna(0).astype(int) == 1]
+
+    if same_day.empty:
+        return {
+            "completed_games": 0,
+            "qualified_games": 0,
+            "favorite_fail_rate": 0.0,
+            "draw_rate": 0.0,
+            "market_mood": "neutral",
+            "shift": 0.0,
+        }
+
+    same_day["kickoff_minutes"] = same_day["time"].apply(_parse_kickoff_minutes)
+    prior_games = same_day[same_day["kickoff_minutes"] < int(current_kickoff_minutes)].copy()
+    if prior_games.empty:
+        return {
+            "completed_games": int(len(same_day)),
+            "qualified_games": 0,
+            "favorite_fail_rate": 0.0,
+            "draw_rate": 0.0,
+            "market_mood": "neutral",
+            "shift": 0.0,
+        }
+
+    qualified = 0
+    favorite_failures = 0
+    draws = 0
+
+    for _, g in prior_games.iterrows():
+        favorite_side = _favorite_side_from_odds(g.get("home_moneyline_odds"), g.get("away_moneyline_odds"))
+        if not favorite_side:
+            continue
+
+        winner_side = _winner_side_from_scores(g.get("home_score"), g.get("away_score"))
+        if winner_side is None:
+            continue
+
+        qualified += 1
+        if winner_side == "draw":
+            draws += 1
+            favorite_failures += 1
+        elif winner_side != favorite_side:
+            favorite_failures += 1
+
+    if qualified == 0:
+        return {
+            "completed_games": int(len(prior_games)),
+            "qualified_games": 0,
+            "favorite_fail_rate": 0.0,
+            "draw_rate": 0.0,
+            "market_mood": "neutral",
+            "shift": 0.0,
+        }
+
+    fail_rate = float(favorite_failures / qualified)
+    draw_rate = float(draws / qualified)
+
+    if fail_rate >= 0.67:
+        mood = "dog_day"
+    elif fail_rate >= 0.50:
+        mood = "anti_favorite"
+    else:
+        mood = "neutral"
+
+    # Shift is in probability points moved away from the bookmaker favorite.
+    if fail_rate < 0.40:
+        shift = 0.0
+    else:
+        shift = min(0.07, 0.012 + (fail_rate - 0.40) * 0.12 + draw_rate * 0.02)
+
+    return {
+        "completed_games": int(len(prior_games)),
+        "qualified_games": int(qualified),
+        "favorite_fail_rate": fail_rate,
+        "draw_rate": draw_rate,
+        "market_mood": mood,
+        "shift": float(max(0.0, shift)),
+    }
+
+
+def _apply_intraday_favorite_shift(home_prob: float, away_prob: float, draw_prob: float, favorite_side: str | None, signal: dict):
+    shift = float((signal or {}).get("shift") or 0.0)
+    if shift <= 0.0 or favorite_side not in {"home", "away"}:
+        return {
+            "home_prob": home_prob,
+            "away_prob": away_prob,
+            "draw_prob": draw_prob,
+            "applied": False,
+            "applied_shift": 0.0,
+        }
+
+    if favorite_side == "home":
+        favorite_prob = float(home_prob)
+        dog_prob = float(away_prob)
+    else:
+        favorite_prob = float(away_prob)
+        dog_prob = float(home_prob)
+
+    applied_shift = min(shift, favorite_prob * 0.35)
+    if applied_shift <= 0.0:
+        return {
+            "home_prob": home_prob,
+            "away_prob": away_prob,
+            "draw_prob": draw_prob,
+            "applied": False,
+            "applied_shift": 0.0,
+        }
+
+    draw_boost = applied_shift * 0.60
+    dog_boost = applied_shift * 0.40
+
+    if favorite_side == "home":
+        home_new = home_prob - applied_shift
+        away_new = dog_prob + dog_boost
+    else:
+        away_new = away_prob - applied_shift
+        home_new = dog_prob + dog_boost
+
+    draw_new = draw_prob + draw_boost
+    home_new, away_new, draw_new = normalize_multiclass_probs(home_new, away_new, draw_new)
+
+    return {
+        "home_prob": home_new,
+        "away_prob": away_new,
+        "draw_prob": draw_new,
+        "applied": True,
+        "applied_shift": float(applied_shift),
+    }
+
+
 def tier_from_conf(conf: int) -> str:
     if conf >= 72:
         return "ELITE"
@@ -613,6 +824,38 @@ def build_output_rows(
             else:
                 full_adj_amount = 0.0
 
+        intraday_signal = _intraday_favorite_signal(
+            schedule_df=schedule_df,
+            date_str=date_str,
+            current_kickoff_minutes=_parse_kickoff_minutes(None if sched_row is None else sched_row.get("time", "")),
+        )
+        intraday_favorite_side = None if sched_row is None else _favorite_side_from_odds(
+            sched_row.get("home_moneyline_odds"),
+            sched_row.get("away_moneyline_odds"),
+        )
+        intraday_adj_info = _apply_intraday_favorite_shift(
+            home_prob=fg_prob_home_adj,
+            away_prob=fg_prob_away_adj,
+            draw_prob=fg_prob_draw_adj,
+            favorite_side=intraday_favorite_side,
+            signal=intraday_signal,
+        )
+        if intraday_adj_info["applied"]:
+            fg_prob_home_adj = intraday_adj_info["home_prob"]
+            fg_prob_away_adj = intraday_adj_info["away_prob"]
+            fg_prob_draw_adj = intraday_adj_info["draw_prob"]
+            full_adj_breakdown = list(full_adj_breakdown) if isinstance(full_adj_breakdown, list) else []
+            full_adj_breakdown.append(
+                {
+                    "event": "intraday_favorite_fail_regime",
+                    "impact": round(float(-intraday_adj_info["applied_shift"]), 6),
+                    "reason": (
+                        f"Intradia Liga MX: favoritos fallando ({intraday_signal['favorite_fail_rate']:.2f}) "
+                        f"en {intraday_signal['qualified_games']} juegos previos."
+                    ),
+                }
+            )
+
         fg_adj_idx = int(np.argmax([fg_prob_away_adj, fg_prob_home_adj, fg_prob_draw_adj]))
         if fg_adj_idx == 1:
             full_game_recommended_pick = home_team
@@ -688,6 +931,14 @@ def build_output_rows(
                 "adjustment_amount": round(float(full_game_adjusted_prob - full_game_base_prob), 6),
                 "adjustment_breakdown": full_adj_breakdown,
                 "detected_events": detected_events,
+                "intraday_market_mood": intraday_signal.get("market_mood", "neutral"),
+                "intraday_completed_games": int(intraday_signal.get("completed_games", 0) or 0),
+                "intraday_qualified_games": int(intraday_signal.get("qualified_games", 0) or 0),
+                "intraday_favorite_fail_rate": round(float(intraday_signal.get("favorite_fail_rate", 0.0) or 0.0), 4),
+                "intraday_draw_rate": round(float(intraday_signal.get("draw_rate", 0.0) or 0.0), 4),
+                "intraday_favorite_side": intraday_favorite_side,
+                "intraday_adjustment_applied": bool(intraday_adj_info.get("applied", False)),
+                "intraday_adjustment_shift": round(float(intraday_adj_info.get("applied_shift", 0.0) or 0.0), 6),
                 "detected_patterns": liga_patterns,
                 "pattern_edge": round(float(pattern_edge), 4),
                 "recommended_pick": full_game_recommended_pick,
