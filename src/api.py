@@ -1576,7 +1576,13 @@ def _event_hit_for_market(event: dict, market: str):
                 return None
             return total_points < line
 
-        if market == "spread":
+                if market == "spread":
+            pick_upper = pick_text.upper()
+
+            # NHL histórico viejo puede traer OVER/UNDER en spread_pick; no tratarlo como side pick
+            if "OVER" in pick_upper or "UNDER" in pick_upper:
+                return None
+
             if home_score > away_score:
                 winner = home_team
             elif away_score > home_score:
@@ -1584,7 +1590,6 @@ def _event_hit_for_market(event: dict, market: str):
             else:
                 winner = "TIE"
             return evaluate_team_pick(pick=pick_text, home_team=home_team, away_team=away_team, winner=winner)
-
         return None
 
     if market == "btts":
