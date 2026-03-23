@@ -871,172 +871,182 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             return not yes
         return None
 
-    def _hydrate_precomputed_result_flags(item: dict) -> bool:
-    # Some historical files (notably NHL) already include hit flags but no final score payload.
-    full_game_hit = _to_bool_or_none(item.get("full_game_hit"))
-    if full_game_hit is None:
-        full_game_hit = _to_bool_or_none(item.get("correct_full_game_adjusted"))
-    if full_game_hit is None:
-        full_game_hit = _to_bool_or_none(item.get("correct_full_game"))
-    if full_game_hit is None:
-        full_game_hit = _to_bool_or_none(item.get("correct_full_game_base"))
-    if full_game_hit is not None:
-        item["full_game_hit"] = full_game_hit
+        def _hydrate_precomputed_result_flags(item: dict) -> bool:
+        # Some historical files (notably NHL) already include hit flags but no final score payload.
+        full_game_hit = _to_bool_or_none(item.get("full_game_hit"))
+        if full_game_hit is None:
+            full_game_hit = _to_bool_or_none(item.get("correct_full_game_adjusted"))
+        if full_game_hit is None:
+            full_game_hit = _to_bool_or_none(item.get("correct_full_game"))
+        if full_game_hit is None:
+            full_game_hit = _to_bool_or_none(item.get("correct_full_game_base"))
+        if full_game_hit is not None:
+            item["full_game_hit"] = full_game_hit
 
-    spread_hit = _to_bool_or_none(item.get("correct_spread"))
-    total_hit = _to_bool_or_none(item.get("correct_total_adjusted"))
-    if total_hit is None:
-        total_hit = _to_bool_or_none(item.get("correct_total"))
-    q1_hit = _to_bool_or_none(item.get("q1_hit"))
+        spread_hit = _to_bool_or_none(item.get("correct_spread"))
+        total_hit = _to_bool_or_none(item.get("correct_total_adjusted"))
+        if total_hit is None:
+            total_hit = _to_bool_or_none(item.get("correct_total"))
+        q1_hit = _to_bool_or_none(item.get("q1_hit"))
 
-    has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit))
-    if not has_any_hit:
-        return False
+        has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit))
+        if not has_any_hit:
+            return False
 
-    home_score = item.get("home_score")
-    away_score = item.get("away_score")
-    home_team = item.get("home_team")
-    away_team = item.get("away_team")
+        home_score = item.get("home_score")
+        away_score = item.get("away_score")
+        home_team = item.get("home_team")
+        away_team = item.get("away_team")
 
-    if (
-        item.get("final_score_text") in (None, "", "N/A")
-        and home_score is not None
-        and away_score is not None
-        and home_team
-        and away_team
+        if (
+            item.get("final_score_text") in (None, "", "N/A")
+            and home_score is not None
+            and away_score is not None
+            and home_team
+            and away_team
+        ):
+            item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
+
+        item["result_available"] = True
+        item["status_state"] = "post"
+        item["status_description"] = item.get("status_description") or "Final"
+        item["status_completed"] = 1
+        return True
+
+    def _apply_market_hit_flags(
+        item: dict,
+        home_team: str,
+        away_team: str,
+        home_score: int,
+        away_score: int,
+        home_q1_score,
+        away_q1_score,
+        home_f5_score=None,
+        away_f5_score=None,
+        total_corners=None,
     ):
+        full_game_winner = _winner_from_score(home_team, away_team, home_score, away_score)
+        item["full_game_result_winner"] = full_game_winner
         item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
 
-    item["result_available"] = True
-    item["status_state"] = "post"
-    item["status_description"] = item.get("status_description") or "Final"
-    item["status_completed"] = 1
-    return True
+        item["full_game_hit"] = evaluate_team_pick(
+            pick=str(item.get("full_game_pick", "")),
+            home_team=home_team,
+            away_team=away_team,
+            winner=full_game_winner,
+        )
 
-    def _apply_market_hit_flags(item: dict, home_team: str, away_team: str, home_score: int, away_score: int, home_q1_score, away_q1_score, home_f5_score=None, away_f5_score=None, total_corners=None):
-    full_game_winner = _winner_from_score(home_team, away_team, home_score, away_score)
-    item["full_game_result_winner"] = full_game_winner
-    item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
-
-    item["full_game_hit"] = evaluate_team_pick(
-        pick=str(item.get("full_game_pick", "")),
-        home_team=home_team,
-        away_team=away_team,
-        winner=full_game_winner,
-    )
-
-    existing_q1 = _to_bool_or_none(item.get("q1_hit"))
-    if existing_q1 is None:
-        if sport in {"mlb", "kbo", "ncaa_baseball"} and home_q1_score is not None and away_q1_score is not None:
-            item["q1_hit"] = evaluate_mlb_q1_pick(
-                pick=str(item.get("q1_pick", "")),
-                home_r1=int(home_q1_score),
-                away_r1=int(away_q1_score),
-            )
-        elif sport in {"nba", "euroleague"} and home_q1_score is not None and away_q1_score is not None:
-            q1_winner = _winner_from_score(home_team, away_team, int(home_q1_score), int(away_q1_score))
-            item["q1_result_winner"] = q1_winner
-            item["q1_hit"] = evaluate_team_pick(
-                pick=str(item.get("q1_pick", "")),
-                home_team=home_team,
-                away_team=away_team,
-                winner=q1_winner,
-            )
-        elif sport == "nhl" and home_q1_score is not None and away_q1_score is not None:
-            q1_pick = str(item.get("q1_pick", "") or "").strip()
-            q1_line = item.get("q1_line", 1.5)
-            q1_hit = _evaluate_total_pick(q1_pick, int(home_q1_score) + int(away_q1_score), q1_line)
-            if q1_hit is not None:
-                item["q1_hit"] = q1_hit
-
-    # NHL: no evaluar spread como pick de equipo si realmente es un total disfrazado
-    if sport == "nhl":
-        spread_pick = str(item.get("spread_pick") or "").strip()
-        spread_pick_upper = spread_pick.upper()
-
-        if _to_bool_or_none(item.get("correct_spread")) is None:
-            if not spread_pick or spread_pick_upper in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
-                item["correct_spread"] = None
-            elif "OVER" in spread_pick_upper or "UNDER" in spread_pick_upper:
-                item["correct_spread"] = None
-            else:
-                item["correct_spread"] = _evaluate_team_like_pick(
-                    pick=spread_pick,
+        existing_q1 = _to_bool_or_none(item.get("q1_hit"))
+        if existing_q1 is None:
+            if sport in {"mlb", "kbo", "ncaa_baseball"} and home_q1_score is not None and away_q1_score is not None:
+                item["q1_hit"] = evaluate_mlb_q1_pick(
+                    pick=str(item.get("q1_pick", "")),
+                    home_r1=int(home_q1_score),
+                    away_r1=int(away_q1_score),
+                )
+            elif sport in {"nba", "euroleague"} and home_q1_score is not None and away_q1_score is not None:
+                q1_winner = _winner_from_score(home_team, away_team, int(home_q1_score), int(away_q1_score))
+                item["q1_result_winner"] = q1_winner
+                item["q1_hit"] = evaluate_team_pick(
+                    pick=str(item.get("q1_pick", "")),
                     home_team=home_team,
                     away_team=away_team,
-                    winner=full_game_winner,
+                    winner=q1_winner,
                 )
-    else:
-        if _to_bool_or_none(item.get("correct_spread")) is None:
+            elif sport == "nhl" and home_q1_score is not None and away_q1_score is not None:
+                q1_pick = str(item.get("q1_pick", "") or "").strip()
+                q1_line = item.get("q1_line", 1.5)
+                q1_hit = _evaluate_total_pick(q1_pick, int(home_q1_score) + int(away_q1_score), q1_line)
+                if q1_hit is not None:
+                    item["q1_hit"] = q1_hit
+
+        if sport == "nhl":
             spread_pick = str(item.get("spread_pick") or "").strip()
-            if spread_pick and spread_pick.upper() not in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
-                item["correct_spread"] = _evaluate_team_like_pick(
-                    pick=spread_pick,
+            spread_pick_upper = spread_pick.upper()
+
+            if _to_bool_or_none(item.get("correct_spread")) is None:
+                if not spread_pick or spread_pick_upper in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
+                    item["correct_spread"] = None
+                elif "OVER" in spread_pick_upper or "UNDER" in spread_pick_upper:
+                    item["correct_spread"] = None
+                else:
+                    item["correct_spread"] = _evaluate_team_like_pick(
+                        pick=spread_pick,
+                        home_team=home_team,
+                        away_team=away_team,
+                        winner=full_game_winner,
+                    )
+        else:
+            if _to_bool_or_none(item.get("correct_spread")) is None:
+                spread_pick = str(item.get("spread_pick") or "").strip()
+                if spread_pick and spread_pick.upper() not in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
+                    item["correct_spread"] = _evaluate_team_like_pick(
+                        pick=spread_pick,
+                        home_team=home_team,
+                        away_team=away_team,
+                        winner=full_game_winner,
+                    )
+
+        total_existing = _to_bool_or_none(item.get("correct_total_adjusted"))
+        if total_existing is None:
+            total_existing = _to_bool_or_none(item.get("correct_total"))
+        if total_existing is None:
+            total_pick = str(item.get("total_recommended_pick") or item.get("total_pick") or "").strip()
+
+            total_line = item.get("total_line")
+            if total_line in (None, "", "nan"):
+                total_line = item.get("odds_over_under")
+            if sport == "nhl" and total_line in (None, "", "nan", 0, 0.0):
+                total_line = 5.5
+
+            total_hit = _evaluate_total_pick(total_pick, home_score + away_score, total_line)
+            if total_hit is not None:
+                item["correct_total"] = total_hit
+
+        btts_existing = _to_bool_or_none(item.get("correct_btts_adjusted"))
+        if btts_existing is None:
+            btts_existing = _to_bool_or_none(item.get("correct_btts"))
+        if btts_existing is None:
+            btts_pick = str(item.get("btts_recommended_pick") or item.get("btts_pick") or "").strip()
+            btts_hit = _evaluate_btts_pick(btts_pick, home_score, away_score)
+            if btts_hit is not None:
+                item["correct_btts"] = btts_hit
+
+        corners_existing = _to_bool_or_none(item.get("correct_corners_adjusted"))
+        if corners_existing is None:
+            corners_existing = _to_bool_or_none(item.get("correct_corners_base"))
+        if corners_existing is None:
+            corners_pick = str(item.get("corners_recommended_pick") or item.get("corners_pick") or "").strip()
+            if corners_pick and total_corners is not None:
+                corners_hit = _evaluate_total_pick(corners_pick, int(total_corners), item.get("corners_line"))
+                if corners_hit is not None:
+                    item["correct_corners_adjusted"] = corners_hit
+
+        f5_existing = _to_bool_or_none(item.get("correct_home_win_f5"))
+        if f5_existing is None:
+            f5_existing = _to_bool_or_none(item.get("correct_f5"))
+        if f5_existing is None and home_f5_score is not None and away_f5_score is not None:
+            f5_pick = str(item.get("assists_pick") or item.get("f5_pick") or "").strip()
+            if f5_pick:
+                f5_winner = _winner_from_score(home_team, away_team, int(home_f5_score), int(away_f5_score))
+                f5_hit = _evaluate_team_like_pick(
+                    pick=f5_pick,
                     home_team=home_team,
                     away_team=away_team,
-                    winner=full_game_winner,
+                    winner=f5_winner,
                 )
+                if f5_hit is not None:
+                    item["correct_f5"] = f5_hit
 
-    total_existing = _to_bool_or_none(item.get("correct_total_adjusted"))
-    if total_existing is None:
-        total_existing = _to_bool_or_none(item.get("correct_total"))
-    if total_existing is None:
-        total_pick = str(item.get("total_recommended_pick") or item.get("total_pick") or "").strip()
-
-        total_line = item.get("total_line")
-        if total_line in (None, "", "nan"):
-            total_line = item.get("odds_over_under")
-        if sport == "nhl" and total_line in (None, "", "nan", 0, 0.0):
-            total_line = 5.5
-
-        total_hit = _evaluate_total_pick(total_pick, home_score + away_score, total_line)
-        if total_hit is not None:
-            item["correct_total"] = total_hit
-
-    btts_existing = _to_bool_or_none(item.get("correct_btts_adjusted"))
-    if btts_existing is None:
-        btts_existing = _to_bool_or_none(item.get("correct_btts"))
-    if btts_existing is None:
-        btts_pick = str(item.get("btts_recommended_pick") or item.get("btts_pick") or "").strip()
-        btts_hit = _evaluate_btts_pick(btts_pick, home_score, away_score)
-        if btts_hit is not None:
-            item["correct_btts"] = btts_hit
-
-    corners_existing = _to_bool_or_none(item.get("correct_corners_adjusted"))
-    if corners_existing is None:
-        corners_existing = _to_bool_or_none(item.get("correct_corners_base"))
-    if corners_existing is None:
-        corners_pick = str(item.get("corners_recommended_pick") or item.get("corners_pick") or "").strip()
-        if corners_pick and total_corners is not None:
-            corners_hit = _evaluate_total_pick(corners_pick, int(total_corners), item.get("corners_line"))
-            if corners_hit is not None:
-                item["correct_corners_adjusted"] = corners_hit
-
-    f5_existing = _to_bool_or_none(item.get("correct_home_win_f5"))
-    if f5_existing is None:
-        f5_existing = _to_bool_or_none(item.get("correct_f5"))
-    if f5_existing is None and home_f5_score is not None and away_f5_score is not None:
-        f5_pick = str(item.get("assists_pick") or item.get("f5_pick") or "").strip()
-        if f5_pick:
-            f5_winner = _winner_from_score(home_team, away_team, int(home_f5_score), int(away_f5_score))
-            f5_hit = _evaluate_team_like_pick(
-                pick=f5_pick,
-                home_team=home_team,
-                away_team=away_team,
-                winner=f5_winner,
-            )
-            if f5_hit is not None:
-                item["correct_f5"] = f5_hit
-
-    home_over_existing = _to_bool_or_none(item.get("correct_home_over"))
-    if home_over_existing is None:
-        home_over_existing = _to_bool_or_none(item.get("correct_home_total"))
-    if home_over_existing is None:
-        home_over_pick = str(item.get("home_over_pick") or "").strip()
-        if home_over_pick:
-            home_hit = _evaluate_total_pick(home_over_pick, int(home_score), None)
-            if home_hit is not None:
-                item["correct_home_over"] = home_hit
+        home_over_existing = _to_bool_or_none(item.get("correct_home_over"))
+        if home_over_existing is None:
+            home_over_existing = _to_bool_or_none(item.get("correct_home_total"))
+        if home_over_existing is None:
+            home_over_pick = str(item.get("home_over_pick") or "").strip()
+            if home_over_pick:
+                home_hit = _evaluate_total_pick(home_over_pick, int(home_score), None)
+                if home_hit is not None:
+                    item["correct_home_over"] = home_hit
                 
     for event in events:
         item = dict(event)
@@ -1536,7 +1546,7 @@ def _event_hit_for_market(event: dict, market: str):
     except Exception:
         return None
 
-    if market == "full_game":
+        if market == "full_game":
         pick = str(event.get("recommended_pick") or event.get("full_game_pick") or "").strip()
         if not pick:
             return None
@@ -1548,7 +1558,7 @@ def _event_hit_for_market(event: dict, market: str):
             winner = "TIE"
         return evaluate_team_pick(pick=pick, home_team=home_team, away_team=away_team, winner=winner)
 
-        if market in {"spread", "total"}:
+    if market in {"spread", "total"}:
         if market == "total":
             pick_text = str(
                 event.get("total_recommended_pick")
@@ -1558,8 +1568,10 @@ def _event_hit_for_market(event: dict, market: str):
             ).strip()
         else:
             pick_text = str(event.get("spread_pick") or "").strip()
+
         if not pick_text:
             return None
+
         pick_upper = pick_text.upper()
         total_points = home_score + away_score
 
@@ -1569,6 +1581,7 @@ def _event_hit_for_market(event: dict, market: str):
             if line <= 0:
                 return None
             return total_points > line
+
         if "UNDER" in pick_upper:
             m = re.search(r"(\d+(?:\.\d+)?)", pick_text)
             line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
@@ -1576,10 +1589,7 @@ def _event_hit_for_market(event: dict, market: str):
                 return None
             return total_points < line
 
-                if market == "spread":
-            pick_upper = pick_text.upper()
-
-            # NHL histórico viejo puede traer OVER/UNDER en spread_pick; no tratarlo como side pick
+        if market == "spread":
             if "OVER" in pick_upper or "UNDER" in pick_upper:
                 return None
 
@@ -1589,7 +1599,13 @@ def _event_hit_for_market(event: dict, market: str):
                 winner = away_team
             else:
                 winner = "TIE"
-            return evaluate_team_pick(pick=pick_text, home_team=home_team, away_team=away_team, winner=winner)
+            return evaluate_team_pick(
+                pick=pick_text,
+                home_team=home_team,
+                away_team=away_team,
+                winner=winner,
+            )
+
         return None
 
     if market == "btts":
