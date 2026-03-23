@@ -155,9 +155,8 @@ export async function fetchBestPicksToday(topN = 25, rankingMode = "best_hit_rat
       timeoutMs: 90000,
       retries: 2,
       errorMessage: "No se pudieron cargar los mejores picks del dia.",
-    },
+    }
   );
-
 }
 
 export async function fetchBestPicksByDate(dateStr, topN = 25, rankingMode = "best_hit_rate") {
@@ -168,7 +167,7 @@ export async function fetchBestPicksByDate(dateStr, topN = 25, rankingMode = "be
       retries: 2,
       errorMessage: "No se pudieron cargar los mejores picks para esa fecha.",
     },
-  });
+  );
 }
 
 export async function fetchBestPicksAvailableDates() {
