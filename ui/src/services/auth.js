@@ -1,29 +1,47 @@
-import { API_BASE } from "./api.js";
+const AUTH_BASE = (import.meta.env.VITE_AUTH_API_BASE || "/api").trim().replace(/\/$/, "");
+const AUTH_FALLBACK_BASE = "http://127.0.0.1:8010/api";
 
-export async function registerUser({ name, email, password }) {
+async function parseResponse(res) {
+  let payload = null;
   try {
-    const res = await fetch(`${API_BASE}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
-    return await res.json();
-  } catch (e) {
-    return { ok: false, error: "Error de red." };
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+  if (res.ok) {
+    return payload || { ok: true };
+  }
+  return payload || { ok: false, error: `Error ${res.status}` };
+}
+
+async function fetchAuth(path, options = undefined) {
+  try {
+    const res = await fetch(`${AUTH_BASE}${path}`, options);
+    return await parseResponse(res);
+  } catch {
+    try {
+      const res = await fetch(`${AUTH_FALLBACK_BASE}${path}`, options);
+      return await parseResponse(res);
+    } catch {
+      return { ok: false, error: "Error de red." };
+    }
   }
 }
 
+export async function registerUser({ name, email, password }) {
+  return fetchAuth("/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password }),
+  });
+}
+
 export async function loginUser({ email, password }) {
-  try {
-    const res = await fetch(`${API_BASE}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    return await res.json();
-  } catch (e) {
-    return { ok: false, error: "Error de red." };
-  }
+  return fetchAuth("/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
 }
 
 export function logoutUser() {
@@ -51,23 +69,13 @@ export function getActiveSession() {
 }
 
 export async function getPendingUsers(adminEmail) {
-  try {
-    const res = await fetch(`${API_BASE}/pending-users?admin_email=${encodeURIComponent(adminEmail)}`);
-    return await res.json();
-  } catch (e) {
-    return { ok: false, error: "Error de red." };
-  }
+  return fetchAuth(`/pending-users?admin_email=${encodeURIComponent(adminEmail)}`);
 }
 
 export async function approveUser(adminEmail, userId) {
-  try {
-    const res = await fetch(`${API_BASE}/approve-user`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_email: adminEmail, user_id: userId }),
-    });
-    return await res.json();
-  } catch (e) {
-    return { ok: false, error: "Error de red." };
-  }
+  return fetchAuth("/approve-user", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ admin_email: adminEmail, user_id: userId }),
+  });
 }
