@@ -3,7 +3,6 @@ import json
 import math
 import os
 from datetime import date, datetime, timedelta
-from datetime import timedelta
 import re
 import uuid
 import hashlib
@@ -271,7 +270,6 @@ def parse_date_str(date_str: str) -> date:
 
 
 def _kbo_source_date_from_local(date_str: str) -> str:
-    # KBO source data is effectively one day ahead vs local display timezone.
     d = parse_date_str(date_str)
     return (d + timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -458,7 +456,6 @@ def build_results_lookup_for_sport(sport: str):
     for _, row in df.iterrows():
         try:
             has_explicit_status = False
-            # Skip games that are not completed/final in raw history to avoid false result matches.
             if "status_completed" in row and not pd.isna(row.get("status_completed")):
                 has_explicit_status = True
                 try:
@@ -483,6 +480,7 @@ def build_results_lookup_for_sport(sport: str):
             game_id = str(row["game_id"])
             home_team = str(row["home_team"])
             away_team = str(row["away_team"])
+
             if sport in {"nba", "euroleague"}:
                 home_score = int(row["home_pts_total"])
                 away_score = int(row["away_pts_total"])
@@ -503,7 +501,6 @@ def build_results_lookup_for_sport(sport: str):
                 home_f5_score = None
                 away_f5_score = None
 
-            # Defensive guard: unresolved fixtures often appear as 0-0 in some raw feeds.
             if (not has_explicit_status) and home_score == 0 and away_score == 0:
                 continue
 
@@ -564,6 +561,12 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         except Exception:
             return None
 
+    def _to_int_or_none(value):
+        try:
+            return int(value)
+        except Exception:
+            return None
+
     def _fetch_live_lookup_espn(target_sport: str, target_date: str):
         base_url = ESPN_SCOREBOARD_URLS.get(target_sport)
         if not base_url:
@@ -606,8 +609,10 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     "status_completed": 1 if bool(stype.get("completed")) else 0,
                     "home_score": int(float(home.get("score", 0) or 0)),
                     "away_score": int(float(away.get("score", 0) or 0)),
-                    "home_q1_score": _to_int_or_none((home.get("linescores") or [{}])[0].get("value")) if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 0 else None,
-                    "away_q1_score": _to_int_or_none((away.get("linescores") or [{}])[0].get("value")) if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 0 else None,
+                    "home_q1_score": _to_int_or_none((home.get("linescores") or [{}])[0].get("value"))
+                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 0 else None,
+                    "away_q1_score": _to_int_or_none((away.get("linescores") or [{}])[0].get("value"))
+                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 0 else None,
                 }
             except Exception:
                 continue
@@ -626,9 +631,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             season_code = m.group(1)
             gamecode = m.group(2)
             try:
-                header_url = (
-                    f"https://live.euroleague.net/api/Header?gamecode={gamecode}&seasoncode={season_code}"
-                )
+                header_url = f"https://live.euroleague.net/api/Header?gamecode={gamecode}&seasoncode={season_code}"
                 header = requests.get(header_url, timeout=20).json() or {}
             except Exception:
                 continue
@@ -637,7 +640,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 home_score = int(float(header.get("ScoreA", 0) or 0))
                 away_score = int(float(header.get("ScoreB", 0) or 0))
                 game_date = str(header.get("Date") or "")
-                # Header date can come as dd/mm/yyyy.
                 if "/" in game_date:
                     day, month, year = game_date.split("/")
                     game_date = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
@@ -702,8 +704,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         return out
 
     def _fetch_live_lookup(target_sport: str, items: list[dict], target_date: str):
-        # Render runs in UTC; allow a one-day tolerance to avoid timezone drift
-        # where local "today" events can appear as yesterday/tomorrow on server date.
         try:
             target_dt = datetime.strptime(str(target_date), "%Y-%m-%d").date()
         except Exception:
@@ -741,7 +741,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         if state in {"post", "final", "completed"}:
             return True
 
-        # Historical prediction files may not include explicit status markers.
         item_date = str(item.get("date", "") or "")[:10]
         if item_date:
             try:
@@ -750,12 +749,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 return False
 
         return False
-
-    def _to_int_or_none(value):
-        try:
-            return int(value)
-        except Exception:
-            return None
 
     def _same_event_date(item_date, result_date) -> bool:
         item_str = str(item_date or "")[:10]
@@ -872,7 +865,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         return None
 
     def _hydrate_precomputed_result_flags(item: dict) -> bool:
-        # Some historical files (notably NHL) already include hit flags but no final score payload.
         full_game_hit = _to_bool_or_none(item.get("full_game_hit"))
         if full_game_hit is None:
             full_game_hit = _to_bool_or_none(item.get("correct_full_game_adjusted"))
@@ -1047,7 +1039,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 home_hit = _evaluate_total_pick(home_over_pick, int(home_score), None)
                 if home_hit is not None:
                     item["correct_home_over"] = home_hit
-                
+
     for event in events:
         item = dict(event)
         _synthesize_missing_market_picks(item)
@@ -1061,15 +1053,17 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             item["status_completed"] = int(live.get("status_completed", 0) or 0)
             item["home_score"] = live.get("home_score", item.get("home_score"))
             item["away_score"] = live.get("away_score", item.get("away_score"))
+            if live.get("home_q1_score") is not None:
+                item["home_q1_score"] = live.get("home_q1_score")
+            if live.get("away_q1_score") is not None:
+                item["away_q1_score"] = live.get("away_q1_score")
 
         result = lookup.get(game_id)
 
-        # Guard against accidental game_id collisions across different dates.
         if result and not _same_event_date(item.get("date"), result.get("date")):
             result = None
 
         if not result:
-            # Fallback for same-day finals not yet present in historical CSV.
             if _event_has_completed_result(item):
                 home_team = str(item.get("home_team", "") or "")
                 away_team = str(item.get("away_team", "") or "")
@@ -1097,6 +1091,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
                     item["full_game_result_winner"] = full_game_winner
                     item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
+
                     _apply_market_hit_flags(
                         item=item,
                         home_team=home_team,
@@ -1127,13 +1122,16 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         item["status_completed"] = 1
         item["home_score"] = result["home_score"]
         item["away_score"] = result["away_score"]
+
         if result["home_q1_score"] is not None:
             item["home_q1_score"] = result["home_q1_score"]
         if result["away_q1_score"] is not None:
             item["away_q1_score"] = result["away_q1_score"]
+
         item["full_game_result_winner"] = result["full_game_winner"]
         if result["q1_winner"] is not None:
             item["q1_result_winner"] = result["q1_winner"]
+
         item["final_score_text"] = (
             f"{result['away_team']} {result['away_score']} - {result['home_team']} {result['home_score']}"
         )
@@ -1164,7 +1162,6 @@ def enrich_predictions_if_available(sport: str, events: list, lookup: dict | Non
 
 
 def _event_market_hits(event: dict) -> dict:
-    """Extract normalized hit flags per market from heterogeneous event schemas."""
     def _to_bool_or_none(value):
         if value is None:
             return None
@@ -1525,7 +1522,6 @@ def _event_hit_for_market(event: dict, market: str):
             if hit is not None:
                 return hit
 
-    # Never infer hit/miss from score unless the event is clearly completed.
     status_completed = event.get("status_completed")
     try:
         if status_completed is not None and int(float(status_completed)) != 1:
@@ -1537,7 +1533,6 @@ def _event_hit_for_market(event: dict, market: str):
     if status_state and status_state not in {"post", "final", "completed"}:
         return None
 
-    # Fallback: infer result directly from final score when explicit flags are absent.
     try:
         home_team = str(event.get("home_team") or "").strip()
         away_team = str(event.get("away_team") or "").strip()
@@ -1546,7 +1541,7 @@ def _event_hit_for_market(event: dict, market: str):
     except Exception:
         return None
 
-        if market == "full_game":
+    if market == "full_game":
         pick = str(event.get("recommended_pick") or event.get("full_game_pick") or "").strip()
         if not pick:
             return None
@@ -1577,14 +1572,20 @@ def _event_hit_for_market(event: dict, market: str):
 
         if "OVER" in pick_upper:
             m = re.search(r"(\d+(?:\.\d+)?)", pick_text)
-            line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            try:
+                line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            except Exception:
+                line = 0.0
             if line <= 0:
                 return None
             return total_points > line
 
         if "UNDER" in pick_upper:
             m = re.search(r"(\d+(?:\.\d+)?)", pick_text)
-            line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            try:
+                line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            except Exception:
+                line = 0.0
             if line <= 0:
                 return None
             return total_points < line
@@ -1617,6 +1618,7 @@ def _event_hit_for_market(event: dict, market: str):
             return btts_yes
         if "NO" in pick_text:
             return not btts_yes
+        return None
 
     if market == "q1_yrfi":
         q1_pick = str(event.get("q1_pick") or "").strip()
@@ -1629,6 +1631,7 @@ def _event_hit_for_market(event: dict, market: str):
                 return evaluate_mlb_q1_pick(q1_pick, int(home_q1), int(away_q1))
         except Exception:
             return None
+        return None
 
     if market == "corners":
         pick_text = str(event.get("corners_recommended_pick") or event.get("corners_pick") or "").strip().upper()
@@ -1662,6 +1665,7 @@ def _event_hit_for_market(event: dict, market: str):
             return total_corners > line
         if "UNDER" in pick_text:
             return total_corners < line
+        return None
 
     return None
 
@@ -1798,22 +1802,16 @@ def resolve_prediction_file(predictions_dir: Path, historical_dir: Path, date_st
     today = date.today()
     live_file, hist_file = get_files_for_date(predictions_dir, historical_dir, date_str)
 
-    # Render uses UTC; around midnight, local "today" can look like "yesterday" on server.
-    # For near-today dates, prefer live board first to avoid serving stale historical snapshots.
     if selected_date >= (today - timedelta(days=1)):
         if live_file.exists():
             return live_file
         if hist_file.exists():
             return hist_file
-
-    # Pasado => prioriza histórico.
-    if selected_date < today:
+    elif selected_date < today:
         if hist_file.exists():
             return hist_file
         if live_file.exists():
             return live_file
-
-    # Hoy o futuro => prioriza predicciones live.
     else:
         if live_file.exists():
             return live_file
@@ -1908,7 +1906,6 @@ def _best_picks_load_events_raw_by_date(sport: str, date_str: str):
     live_file = predictions_dir / f"{source_date}.json"
     hist_file = historical_dir / f"{source_date}.json"
 
-    # Best Picks should prioritize upcoming/live boards. Only past dates can use historical fallback.
     if selected_date >= today:
         if not live_file.exists():
             return []
@@ -2013,17 +2010,15 @@ def _best_picks_trim_payload(payload: dict, top_n: int):
 
 
 def _best_picks_generate_snapshot(date_str: str, generation_top_n: int, ranking_mode: str = "balanced"):
-    selected_date = parse_date_str(date_str)
+    parse_date_str(date_str)
     events_by_sport = _best_picks_events_for_date(date_str)
     calibration_profiles = build_probability_calibration_profiles()
     mode = _best_picks_normalize_ranking_mode(ranking_mode)
-    # Best Picks is intended for actionable/upcoming markets only.
-    include_completed = False
     payload = build_daily_best_picks(
         events_by_sport,
         top_n=max(1, int(generation_top_n)),
         calibration_profiles=calibration_profiles,
-        include_completed=include_completed,
+        include_completed=False,
         ranking_mode=mode,
     )
     payload["snapshot_date"] = date_str
@@ -2188,6 +2183,7 @@ def _best_picks_with_results(payload: dict):
     out["picks"] = out_picks
     return out
 
+
 def _best_picks_get_or_create_snapshot(date_str: str, generation_top_n: int, force_refresh: bool, ranking_mode: str = "balanced"):
     mode = _best_picks_normalize_ranking_mode(ranking_mode)
     snapshot = None if force_refresh else _best_picks_load_snapshot(date_str, ranking_mode=mode)
@@ -2242,7 +2238,6 @@ def get_today_predictions(sport: str):
     try:
         events = enrich_predictions_if_available(sport, events)
     except Exception:
-        # Return base events rather than failing the endpoint when enrichment has transient issues.
         pass
     payload = _translate_event_dates_for_sport(sport, _normalize_events_payload(events))
     return _sanitize_json_values(payload)
@@ -2265,7 +2260,6 @@ def get_predictions_by_date(sport: str, date_str: str):
     try:
         events = enrich_predictions_if_available(sport, events)
     except Exception:
-        # Return base events rather than failing the endpoint when enrichment has transient issues.
         pass
     payload = _translate_event_dates_for_sport(sport, _normalize_events_payload(events))
     return _sanitize_json_values(payload)
