@@ -1,4 +1,8 @@
-const AUTH_BASE = (import.meta.env.VITE_AUTH_API_BASE || "/api").trim().replace(/\/$/, "");
+const AUTH_BASE = (
+  import.meta.env.VITE_AUTH_API_BASE ||
+  import.meta.env.VITE_API_BASE ||
+  "/api"
+).trim().replace(/\/$/, "");
 const AUTH_FALLBACK_BASE = "http://127.0.0.1:8010/api";
 const SESSION_STORAGE_KEY = "nba_gold_session";
 
@@ -18,6 +22,13 @@ function parseJsonSafe(text) {
 
 async function parseResponse(res) {
   const text = await res.text();
+  const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) {
+    if (res.ok) {
+      return { ok: false, error: "La respuesta del servidor no es JSON. Revisa la configuracion de auth en produccion." };
+    }
+    return { ok: false, error: `Error ${res.status}` };
+  }
   const payload = parseJsonSafe(text);
   if (res.ok) {
     return payload || { ok: true };
