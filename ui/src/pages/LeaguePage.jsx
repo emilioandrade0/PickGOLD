@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import EventCard from "../components/EventCard.jsx";
 import DetailModal from "../components/DetailModal.jsx";
-import { fetchAvailableDates, fetchPredictionsByDate, fetchTodayPredictions } from "../services/api.js";
+import {
+  fetchAvailableDates,
+  fetchSportUpdateStatus,
+  fetchPredictionsByDate,
+  fetchTodayPredictions,
+  startSportUpdateAll,
+} from "../services/api.js";
 
 function toYmdLocal(dateObj) {
   const y = dateObj.getFullYear();
@@ -12,9 +18,31 @@ function toYmdLocal(dateObj) {
   return `${y}-${m}-${d}`;
 }
 
+function toHitValue(value) {
+  if (value === true || value === false) return value;
+  if (value === 1 || value === "1") return true;
+  if (value === 0 || value === "0") return false;
+  if (typeof value === "string") {
+    const v = value.trim().toLowerCase();
+    if (["true", "yes", "si", "acierto", "win", "won"].includes(v)) return true;
+    if (["false", "no", "fallo", "lose", "lost"].includes(v)) return false;
+  }
+  return null;
+}
+
+function formatDecimalOdds(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return null;
+  if (n > 1 && n < 20) return n;
+  if (n > 0) return 1 + (n / 100);
+  if (n <= -100) return 1 + (100 / Math.abs(n));
+  return null;
+}
+
 export default function LeaguePage({ sportKey, sportLabel }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const supportsUpdatePipeline = ["nba", "mlb"].includes(sportKey);
 
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
@@ -23,6 +51,16 @@ export default function LeaguePage({ sportKey, sportLabel }) {
   const [error, setError] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [updateStatus, setUpdateStatus] = useState({
+    status: "idle",
+    percent: 0,
+    message: `Listo para actualizar ${sportLabel}.`,
+    completed_steps: 0,
+    total_steps: 0,
+    logs: [],
+  });
+  const previousUpdateStatusRef = useRef("idle");
 
   function findNearestDate(targetDate, availableDates) {
     if (!targetDate || availableDates.length === 0) return "";
@@ -31,6 +69,15 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     const sameOrAfter = sorted.find((d) => d >= targetDate);
     if (sameOrAfter) return sameOrAfter;
     return sorted[sorted.length - 1] || "";
+  }
+
+  async function refreshAvailableDates() {
+    try {
+      const dates = await fetchAvailableDates(sportKey);
+      setAvailableDates(Array.isArray(dates) ? dates : []);
+    } catch {
+      setAvailableDates([]);
+    }
   }
 
   async function loadToday() {
@@ -227,6 +274,37 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     }
   }
 
+  async function refreshCurrentBoardSilently() {
+    const targetDate = selectedDate || toYmdLocal(new Date());
+    try {
+      const rows = await fetchPredictionsByDate(sportKey, targetDate);
+      setEvents(rows);
+      if (rows.length > 0) {
+        setActiveEvent((current) => {
+          if (!current) return rows[0];
+          return rows.find((item) => String(item.game_id) === String(current.game_id)) || current;
+        });
+      }
+    } catch {
+      // Ignore silent refresh failures and keep the current board visible.
+    }
+  }
+
+  async function handleRunSportUpdate() {
+    try {
+      const nextStatus = await startSportUpdateAll(sportKey);
+      previousUpdateStatusRef.current = nextStatus?.status || "idle";
+      setUpdateStatus(nextStatus);
+    } catch (err) {
+      setUpdateStatus((current) => ({
+        ...current,
+        status: "failed",
+        message: `No se pudo iniciar la actualizacion ${sportLabel}.`,
+        error: err.message || "Error desconocido.",
+      }));
+    }
+  }
+
   useEffect(() => {
     const queryDate = searchParams.get("date");
 
@@ -237,10 +315,102 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     }
   }, [sportKey]);
 
+  useEffect(() => {
+    refreshAvailableDates();
+  }, [sportKey]);
+
+  useEffect(() => {
+    setUpdateStatus({
+      status: "idle",
+      percent: 0,
+      message: `Listo para actualizar ${sportLabel}.`,
+      completed_steps: 0,
+      total_steps: 0,
+      logs: [],
+    });
+    previousUpdateStatusRef.current = "idle";
+  }, [sportKey, sportLabel]);
+
+  useEffect(() => {
+    if (!supportsUpdatePipeline) return undefined;
+
+    let active = true;
+    let timerId = null;
+
+    const pollStatus = async () => {
+      try {
+        const status = await fetchSportUpdateStatus(sportKey);
+        if (!active) return;
+        setUpdateStatus(status);
+
+        if (status?.status === "running") {
+          timerId = setTimeout(pollStatus, 2000);
+        } else if (
+          previousUpdateStatusRef.current === "running" &&
+          status?.status === "completed"
+        ) {
+          await refreshAvailableDates();
+          if (selectedDate) {
+            await loadByDate(selectedDate);
+          } else {
+            await loadToday();
+          }
+        }
+
+        previousUpdateStatusRef.current = status?.status || "idle";
+      } catch {
+        if (!active) return;
+        timerId = setTimeout(pollStatus, 4000);
+      }
+    };
+
+    pollStatus();
+
+    return () => {
+      active = false;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [sportKey, selectedDate, updateStatus.status]);
+
+  useEffect(() => {
+    if (sportKey !== "nba") return undefined;
+    const localToday = toYmdLocal(new Date());
+    const hasLiveGames = events.some((event) => String(event.status_state || "").toLowerCase() === "in");
+    if (!hasLiveGames && selectedDate !== localToday) return undefined;
+
+    const intervalId = setInterval(() => {
+      refreshCurrentBoardSilently();
+    }, 25000);
+
+    return () => clearInterval(intervalId);
+  }, [sportKey, selectedDate, events]);
+
   function handleOpenEvent(event) {
     setActiveEvent(event);
     setModalOpen(true);
   }
+
+  const settledEvents = events.filter((event) => toHitValue(event.full_game_hit) !== null);
+  const wins = settledEvents.filter((event) => toHitValue(event.full_game_hit) === true).length;
+  const totalTracked = settledEvents.length;
+  const hitRate = totalTracked > 0 ? (wins / totalTracked) * 100 : 0;
+  const averageOddsSource = settledEvents
+    .map((event) => formatDecimalOdds(
+      event.closing_moneyline_odds
+      ?? event.home_moneyline_odds
+      ?? event.away_moneyline_odds
+      ?? event.moneyline_odds
+    ))
+    .filter((value) => Number.isFinite(value));
+  const averageOdds = averageOddsSource.length > 0
+    ? averageOddsSource.reduce((sum, value) => sum + value, 0) / averageOddsSource.length
+    : null;
+  const summaryCards = [
+    { label: "Total", value: String(totalTracked), accent: "text-cyan-200" },
+    { label: "Ganadas", value: String(wins), accent: "text-emerald-300" },
+    { label: "% Acierto", value: `${hitRate.toFixed(1)}%`, accent: "text-amber-200" },
+    { label: "Cuota media", value: averageOdds ? averageOdds.toFixed(2) : "-", accent: "text-fuchsia-200" },
+  ];
 
   return (
     <>
@@ -254,6 +424,11 @@ export default function LeaguePage({ sportKey, sportLabel }) {
             error={error}
             onSelectDate={loadByDate}
             onLoadToday={loadToday}
+            onRunUpdate={supportsUpdatePipeline ? handleRunSportUpdate : undefined}
+            updateStatus={supportsUpdatePipeline ? updateStatus : undefined}
+            availableDates={availableDates}
+            updateActionLabel={`Actualizar ${sportLabel} ahora`}
+            updateRunningLabel={`Actualizando ${sportLabel}...`}
           />
 
           <section className="min-w-0">
@@ -275,11 +450,43 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                 No hay predicciones disponibles para {sportLabel} en esta fecha.
               </div>
             ) : (
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {events.map((event) => (
-                  <EventCard key={event.game_id} event={event} onOpen={handleOpenEvent} sportKey={sportKey} />
-                ))}
-              </div>
+              <>
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {events.map((event) => (
+                    <EventCard key={event.game_id} event={event} onOpen={handleOpenEvent} sportKey={sportKey} />
+                  ))}
+                </div>
+
+                <div className="mt-8">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/55">
+                      Resumen del dia
+                    </h3>
+                    <span className="text-xs text-white/45">
+                      Basado en resultados del pick principal
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    {summaryCards.map((card) => (
+                      <div
+                        key={card.label}
+                        className="rounded-2xl border border-white/10 bg-[#262424] px-5 py-4 shadow-lg shadow-black/20"
+                      >
+                        <p className="text-xs uppercase tracking-[0.16em] text-white/45">{card.label}</p>
+                        <p className={`mt-2 text-3xl font-semibold ${card.accent}`}>{card.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/8">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-lime-300 transition-all duration-700"
+                      style={{ width: `${totalTracked > 0 ? Math.min(100, hitRate || 0) : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </section>
         </div>

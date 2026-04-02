@@ -1,0 +1,37 @@
+{
+  "rows": 558,
+  "accuracy": 0.482078853046595,
+  "brier": 0.2512069523119278,
+  "logloss": 0.6955705359087581,
+  "coverage": 0.07526881720430108,
+  "roc_auc": 0.4825438994362729,
+  "published_accuracy": 0.5476190476190477,
+  "splits": 53,
+  "fallback_splits": 44,
+  "published_coverage": 0.07526881720430108,
+  "avg_missing_pitchers_rate_test": 0.0,
+  "avg_prob_shrink": 0.09999999999999996,
+  "published_confidence_buckets": {
+    "0.53-0.56": {
+      "rows": 156,
+      "coverage": 0.0,
+      "accuracy": 0.5192307692307693,
+      "published_rows": 0,
+      "published_accuracy": 0.0
+    },
+    "0.56-0.60": {
+      "rows": 48,
+      "coverage": 0.875,
+      "accuracy": 0.5625,
+      "published_rows": 42,
+      "published_accuracy": 0.5476190476190477
+    },
+    "<=0.53": {
+      "rows": 354,
+      "coverage": 0.0,
+      "accuracy": 0.4548022598870056,
+      "published_rows": 0,
+      "published_accuracy": 0.0
+    }
+  }
+}

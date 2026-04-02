@@ -1,0 +1,138 @@
+{
+  "date": "2026-04-13",
+  "sport": "laliga",
+  "generated_at": "2026-04-01T20:06:28.536651",
+  "games": [
+    {
+      "game_id": "748446",
+      "date": "2026-04-13",
+      "time": "13:00",
+      "game_name": "GET @ LEV",
+      "home_team": "LEV",
+      "away_team": "GET",
+      "full_game_pick": "LEV",
+      "full_game_confidence": 72,
+      "full_game_tier": "ELITE",
+      "base_probability": 0.720546,
+      "adjusted_probability": 0.708599,
+      "adjustment_amount": -0.011947,
+      "adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_patterns": [],
+      "pattern_edge": 0.0,
+      "recommended_pick": "LEV",
+      "recommended_confidence": 71,
+      "recommended_score": 70.9,
+      "recommended": true,
+      "spread_pick": "DNB LEV",
+      "spread_market": "DNB / 1X",
+      "total_pick": "UNDER 2.5",
+      "total_confidence": 86,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.139852,
+      "total_adjusted_probability": 0.153165,
+      "total_adjustment_amount": 0.013313,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "total_recommended_pick": "UNDER 2.5",
+      "total_recommended_score": 84.7,
+      "odds_over_under": 1.5,
+      "closing_moneyline_odds": 160.0,
+      "home_moneyline_odds": 160.0,
+      "away_moneyline_odds": 180.0,
+      "closing_spread_odds": 140.0,
+      "closing_total_odds": -185.0,
+      "odds_data_quality": "real",
+      "btts_pick": "BTTS YES",
+      "btts_confidence": 89,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.889958,
+      "btts_adjusted_probability": 0.90327,
+      "btts_adjustment_amount": 0.013312,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "btts_recommended_pick": "BTTS YES",
+      "btts_recommended_score": 90.3,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "UNDER 9.5",
+      "corners_confidence": 86,
+      "corners_model_prob_over": 0.137941,
+      "corners_recommended_pick": "UNDER 9.5",
+      "corners_recommended_score": 86.2,
+      "corners_action": "JUGAR",
+      "status_state": "pre",
+      "status_description": "nan"
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "dow": [
+    {
+      "weekday": "Friday",
+      "total": 187,
+      "hits": 119,
+      "accuracy": 0.6363636363636364
+    },
+    {
+      "weekday": "Monday",
+      "total": 156,
+      "hits": 101,
+      "accuracy": 0.6474358974358975
+    },
+    {
+      "weekday": "Saturday",
+      "total": 152,
+      "hits": 89,
+      "accuracy": 0.5855263157894737
+    },
+    {
+      "weekday": "Sunday",
+      "total": 176,
+      "hits": 115,
+      "accuracy": 0.6534090909090909
+    },
+    {
+      "weekday": "Thursday",
+      "total": 133,
+      "hits": 88,
+      "accuracy": 0.6616541353383458
+    },
+    {
+      "weekday": "Tuesday",
+      "total": 140,
+      "hits": 104,
+      "accuracy": 0.7428571428571429
+    },
+    {
+      "weekday": "Wednesday",
+      "total": 180,
+      "hits": 119,
+      "accuracy": 0.6611111111111111
+    }
+  ],
+  "underdogs": {
+    "total": 0,
+    "hits": 0,
+    "accuracy": null
+  },
+  "calibration_bins": [
+    {
+      "bin": "(0.0, 0.1]",
+      "count": 0,
+      "avg_pred": NaN,
+      "obs_win": NaN
+    },
+    {
+      "bin": "(0.1, 0.2]",
+      "count": 0,
+      "avg_pred": NaN,
+      "obs_win": NaN
+    },
+    {
+      "bin": "(0.2, 0.3]",
+      "count": 0,
+      "avg_pred": NaN,
+      "obs_win": NaN
+    },
+    {
+      "bin": "(0.3, 0.4]",
+      "count": 0,
+      "avg_pred": NaN,
+      "obs_win": NaN
+    },
+    {
+      "bin": "(0.4, 0.5]",
+      "count": 29,
+      "avg_pred": 0.4922862068965518,
+      "obs_win": 0.6896551724137931
+    },
+    {
+      "bin": "(0.5, 0.6]",
+      "count": 399,
+      "avg_pred": 0.5528137844611529,
+      "obs_win": 0.531328320802005
+    },
+    {
+      "bin": "(0.6, 0.7]",
+      "count": 363,
+      "avg_pred": 0.650029476584022,
+      "obs_win": 0.6694214876033058
+    },
+    {
+      "bin": "(0.7, 0.8]",
+      "count": 253,
+      "avg_pred": 0.7440802371541502,
+      "obs_win": 0.766798418972332
+    },
+    {
+      "bin": "(0.8, 0.9]",
+      "count": 80,
+      "avg_pred": 0.82539125,
+      "obs_win": 0.825
+    },
+    {
+      "bin": "(0.9, 1.0]",
+      "count": 0,
+      "avg_pred": NaN,
+      "obs_win": NaN
+    }
+  ],
+  "spread_bins": [
+    {
+      "spread_bin": "0-3",
+      "total": 5,
+      "hits": 2,
+      "accuracy": 0.4
+    },
+    {
+      "spread_bin": "3-6",
+      "total": 5,
+      "hits": 3,
+      "accuracy": 0.6
+    },
+    {
+      "spread_bin": "6-9",
+      "total": 5,
+      "hits": 3,
+      "accuracy": 0.6
+    },
+    {
+      "spread_bin": "9+",
+      "total": 11,
+      "hits": 9,
+      "accuracy": 0.8181818181818182
+    },
+    {
+      "spread_bin": "PK-0",
+      "total": 1098,
+      "hits": 718,
+      "accuracy": 0.6539162112932605
+    }
+  ],
+  "b2b": [
+    {
+      "is_b2b": 0,
+      "total": 787,
+      "hits": 524,
+      "accuracy": 0.6658195679796697
+    },
+    {
+      "is_b2b": 1,
+      "total": 337,
+      "hits": 211,
+      "accuracy": 0.6261127596439169
+    }
+  ],
+  "injury_impact": [
+    {
+      "high_injury_imbalance": 0,
+      "total": 1124,
+      "hits": 735,
+      "accuracy": 0.6539145907473309
+    }
+  ],
+  "model_vs_market": [
+    {
+      "model_against_market": 0,
+      "total": 21,
+      "hits": 16,
+      "accuracy": 0.7619047619047619
+    },
+    {
+      "model_against_market": 1,
+      "total": 5,
+      "hits": 1,
+      "accuracy": 0.2
+    }
+  ]
+}

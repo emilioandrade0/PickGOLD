@@ -1,74 +1,74 @@
 {
-  "generated_at": "2026-03-22T23:22:07.161996",
+  "generated_at": "2026-03-29T21:53:33.852712",
   "sports": {
     "nba": {
-      "files": 140,
-      "events": 1024,
+      "files": 152,
+      "events": 1115,
       "markets": {
         "full_game": {
-          "picks": 1024,
-          "hits": 661,
-          "accuracy": 0.6455078125,
-          "brier": 0.22201564746093744,
-          "logloss": 0.6350552480432952,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
+          "picks": 1115,
+          "hits": 726,
+          "accuracy": 0.6511210762331838,
+          "brier": 0.21705322511210817,
+          "logloss": 0.6240260706333624,
+          "priced_picks": 21,
+          "priced_coverage_pct": 0.01883408071748879,
+          "total_return_units": -3.508948349532633,
+          "roi_per_bet": -0.16709277854917298,
+          "yield_pct": -16.7092778549173,
+          "max_drawdown_units": 3.908035482827504,
           "suspicious_high_accuracy": false,
           "buckets": [
             {
               "bucket": "50-54.9",
-              "picks": 157,
-              "hits": 89,
-              "accuracy": 0.5668789808917197
+              "picks": 210,
+              "hits": 111,
+              "accuracy": 0.5285714285714286
             },
             {
               "bucket": "55-59.9",
-              "picks": 185,
-              "hits": 98,
-              "accuracy": 0.5297297297297298
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 145,
-              "hits": 84,
-              "accuracy": 0.5793103448275863
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 175,
-              "hits": 114,
-              "accuracy": 0.6514285714285715
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 140,
+              "picks": 195,
               "hits": 105,
-              "accuracy": 0.75
+              "accuracy": 0.5384615384615384
+            },
+            {
+              "bucket": "60-64.9",
+              "picks": 223,
+              "hits": 143,
+              "accuracy": 0.6412556053811659
+            },
+            {
+              "bucket": "65-69.9",
+              "picks": 181,
+              "hits": 128,
+              "accuracy": 0.7071823204419889
+            },
+            {
+              "bucket": "70-74.9",
+              "picks": 146,
+              "hits": 110,
+              "accuracy": 0.7534246575342466
             },
             {
               "bucket": "75-79.9",
-              "picks": 106,
-              "hits": 79,
-              "accuracy": 0.7452830188679245
+              "picks": 109,
+              "hits": 88,
+              "accuracy": 0.8073394495412844
             },
             {
               "bucket": "80+",
-              "picks": 116,
-              "hits": 92,
-              "accuracy": 0.7931034482758621
+              "picks": 51,
+              "hits": 41,
+              "accuracy": 0.803921568627451
             }
           ]
         },
         "q1": {
-          "picks": 1024,
-          "hits": 525,
-          "accuracy": 0.5126953125,
-          "brier": 0.25628771289062535,
-          "logloss": 0.7075796506732337,
+          "picks": 1115,
+          "hits": 579,
+          "accuracy": 0.5192825112107623,
+          "brier": 0.24950962511210778,
+          "logloss": 0.6923036102995718,
           "priced_picks": 0,
           "priced_coverage_pct": 0.0,
           "total_return_units": 0.0,
@@ -79,841 +79,27 @@
           "buckets": [
             {
               "bucket": "50-54.9",
-              "picks": 254,
-              "hits": 117,
-              "accuracy": 0.46062992125984253
+              "picks": 503,
+              "hits": 241,
+              "accuracy": 0.47912524850894633
             },
             {
               "bucket": "55-59.9",
-              "picks": 265,
-              "hits": 124,
-              "accuracy": 0.4679245283018868
+              "picks": 325,
+              "hits": 169,
+              "accuracy": 0.52
             },
             {
               "bucket": "60-64.9",
-              "picks": 222,
-              "hits": 120,
-              "accuracy": 0.5405405405405406
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 139,
-              "hits": 72,
-              "accuracy": 0.5179856115107914
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 79,
-              "hits": 50,
-              "accuracy": 0.6329113924050633
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 42,
-              "hits": 27,
-              "accuracy": 0.6428571428571429
-            },
-            {
-              "bucket": "80+",
-              "picks": 23,
-              "hits": 15,
-              "accuracy": 0.6521739130434783
-            }
-          ]
-        }
-      }
-    },
-    "mlb": {
-      "files": 461,
-      "events": 5547,
-      "markets": {
-        "full_game": {
-          "picks": 5547,
-          "hits": 4340,
-          "accuracy": 0.7824049035514693,
-          "brier": 0.1610394627726673,
-          "logloss": 0.5029856389330196,
-          "priced_picks": 13,
-          "priced_coverage_pct": 0.0023436091581034795,
-          "total_return_units": 0.27040843286064975,
-          "roi_per_bet": 0.020800648681588443,
-          "yield_pct": 2.0800648681588445,
-          "max_drawdown_units": 2.64895498027837,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 665,
-              "hits": 265,
-              "accuracy": 0.39849624060150374
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 893,
-              "hits": 399,
-              "accuracy": 0.44680851063829785
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 1086,
-              "hits": 929,
-              "accuracy": 0.8554327808471455
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 1081,
-              "hits": 1009,
-              "accuracy": 0.9333950046253469
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 902,
-              "hits": 853,
-              "accuracy": 0.9456762749445676
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 530,
-              "hits": 510,
-              "accuracy": 0.9622641509433962
-            },
-            {
-              "bucket": "80+",
-              "picks": 390,
-              "hits": 375,
-              "accuracy": 0.9615384615384616
-            }
-          ]
-        },
-        "q1": {
-          "picks": 5547,
-          "hits": 4752,
-          "accuracy": 0.856679286100595,
-          "brier": 0.14713126014061434,
-          "logloss": 0.4735507078223497,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 615,
-              "hits": 325,
-              "accuracy": 0.5284552845528455
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 907,
-              "hits": 654,
-              "accuracy": 0.721058434399118
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 1077,
-              "hits": 950,
-              "accuracy": 0.8820798514391829
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 1044,
-              "hits": 976,
-              "accuracy": 0.9348659003831418
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 858,
-              "hits": 820,
-              "accuracy": 0.9557109557109557
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 612,
-              "hits": 597,
-              "accuracy": 0.9754901960784313
-            },
-            {
-              "bucket": "80+",
-              "picks": 434,
-              "hits": 430,
-              "accuracy": 0.9907834101382489
-            }
-          ]
-        },
-        "spread": {
-          "picks": 5547,
-          "hits": 4340,
-          "accuracy": 0.7824049035514693,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 5547,
-              "hits": 4340,
-              "accuracy": 0.7824049035514693
-            }
-          ]
-        },
-        "f5": {
-          "picks": 5547,
-          "hits": 3858,
-          "accuracy": 0.6955110870740941,
-          "brier": 0.19223598341445497,
-          "logloss": 0.5707211723933664,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 570,
-              "hits": 219,
-              "accuracy": 0.38421052631578945
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 768,
-              "hits": 272,
-              "accuracy": 0.3541666666666667
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 990,
-              "hits": 714,
-              "accuracy": 0.7212121212121212
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 1044,
-              "hits": 844,
-              "accuracy": 0.8084291187739464
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 919,
-              "hits": 754,
-              "accuracy": 0.8204570184983678
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 699,
-              "hits": 601,
-              "accuracy": 0.8597997138769671
-            },
-            {
-              "bucket": "80+",
-              "picks": 557,
-              "hits": 454,
-              "accuracy": 0.8150807899461401
-            }
-          ]
-        }
-      }
-    },
-    "kbo": {
-      "files": 387,
-      "events": 1606,
-      "markets": {
-        "full_game": {
-          "picks": 1606,
-          "hits": 1412,
-          "accuracy": 0.8792029887920298,
-          "brier": 0.10862316313823167,
-          "logloss": 0.37579109439532166,
-          "priced_picks": 1,
-          "priced_coverage_pct": 0.0006226650062266501,
-          "total_return_units": 0.5494505494505495,
-          "roi_per_bet": 0.5494505494505495,
-          "yield_pct": 54.94505494505495,
-          "max_drawdown_units": 0.0,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 48,
-              "hits": 30,
-              "accuracy": 0.625
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 57,
-              "hits": 31,
-              "accuracy": 0.543859649122807
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 91,
-              "hits": 57,
-              "accuracy": 0.6263736263736264
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 162,
-              "hits": 134,
-              "accuracy": 0.8271604938271605
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 227,
-              "hits": 197,
-              "accuracy": 0.8678414096916299
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 378,
-              "hits": 342,
-              "accuracy": 0.9047619047619048
-            },
-            {
-              "bucket": "80+",
-              "picks": 643,
-              "hits": 621,
-              "accuracy": 0.9657853810264385
-            }
-          ]
-        },
-        "q1": {
-          "picks": 1606,
-          "hits": 1269,
-          "accuracy": 0.790161892901619,
-          "brier": 0.1458929638854293,
-          "logloss": 0.44978799306613443,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 148,
-              "hits": 83,
-              "accuracy": 0.5608108108108109
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 145,
+              "picks": 167,
               "hits": 90,
-              "accuracy": 0.6206896551724138
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 149,
-              "hits": 95,
-              "accuracy": 0.6375838926174496
+              "accuracy": 0.5389221556886228
             },
             {
               "bucket": "65-69.9",
-              "picks": 127,
-              "hits": 80,
-              "accuracy": 0.6299212598425197
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 137,
-              "hits": 103,
-              "accuracy": 0.7518248175182481
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 166,
-              "hits": 134,
-              "accuracy": 0.8072289156626506
-            },
-            {
-              "bucket": "80+",
-              "picks": 734,
-              "hits": 684,
-              "accuracy": 0.9318801089918256
-            }
-          ]
-        },
-        "spread": {
-          "picks": 1606,
-          "hits": 1412,
-          "accuracy": 0.8792029887920298,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 1606,
-              "hits": 1412,
-              "accuracy": 0.8792029887920298
-            }
-          ]
-        },
-        "f5": {
-          "picks": 1606,
-          "hits": 148,
-          "accuracy": 0.0921544209215442,
-          "brier": 0.5290079078455803,
-          "logloss": 1.4850574356916495,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 124,
-              "hits": 3,
-              "accuracy": 0.024193548387096774
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 145,
-              "hits": 4,
-              "accuracy": 0.027586206896551724
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 152,
-              "hits": 1,
-              "accuracy": 0.006578947368421052
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 155,
-              "hits": 3,
-              "accuracy": 0.01935483870967742
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 169,
-              "hits": 4,
-              "accuracy": 0.023668639053254437
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 133,
-              "hits": 4,
-              "accuracy": 0.03007518796992481
-            },
-            {
-              "bucket": "80+",
-              "picks": 728,
-              "hits": 129,
-              "accuracy": 0.1771978021978022
-            }
-          ]
-        }
-      }
-    },
-    "nhl": {
-      "files": 171,
-      "events": 1339,
-      "markets": {
-        "full_game": {
-          "picks": 252,
-          "hits": 49,
-          "accuracy": 0.19444444444444445,
-          "brier": 0.16735793650793646,
-          "logloss": 0.49214942550190327,
-          "priced_picks": 10,
-          "priced_coverage_pct": 0.03968253968253968,
-          "total_return_units": -10.0,
-          "roi_per_bet": -1.0,
-          "yield_pct": -100.0,
-          "max_drawdown_units": 10.0,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 203,
-              "hits": 0,
-              "accuracy": 0.0
-            },
-            {
-              "bucket": "80+",
-              "picks": 49,
-              "hits": 49,
-              "accuracy": 1.0
-            }
-          ]
-        },
-        "total_goals_55": {
-          "picks": 252,
-          "hits": 250,
-          "accuracy": 0.9920634920634921,
-          "brier": 0.027519444444444433,
-          "logloss": 0.1535709793428447,
-          "priced_picks": 10,
-          "priced_coverage_pct": 0.03968253968253968,
-          "total_return_units": 9.059287282238103,
-          "roi_per_bet": 0.9059287282238102,
-          "yield_pct": 90.59287282238103,
-          "max_drawdown_units": 0.0,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 1,
-              "hits": 0,
-              "accuracy": 0.0
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 1,
-              "hits": 1,
-              "accuracy": 1.0
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 6,
-              "hits": 6,
-              "accuracy": 1.0
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 22,
-              "hits": 21,
-              "accuracy": 0.9545454545454546
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 19,
-              "hits": 19,
-              "accuracy": 1.0
-            },
-            {
-              "bucket": "80+",
-              "picks": 203,
-              "hits": 203,
-              "accuracy": 1.0
-            }
-          ]
-        }
-      }
-    },
-    "liga_mx": {
-      "files": 155,
-      "events": 437,
-      "markets": {
-        "full_game": {
-          "picks": 437,
-          "hits": 394,
-          "accuracy": 0.9016018306636155,
-          "brier": 0.07351762013729976,
-          "logloss": 0.28381449776347084,
-          "priced_picks": 7,
-          "priced_coverage_pct": 0.016018306636155607,
-          "total_return_units": -2.4,
-          "roi_per_bet": -0.34285714285714286,
-          "yield_pct": -34.285714285714285,
-          "max_drawdown_units": 2.85,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 14,
-              "hits": 5,
-              "accuracy": 0.35714285714285715
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 13,
-              "hits": 4,
-              "accuracy": 0.3076923076923077
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 13,
-              "hits": 4,
-              "accuracy": 0.3076923076923077
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 15,
-              "hits": 8,
-              "accuracy": 0.5333333333333333
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 15,
-              "hits": 12,
-              "accuracy": 0.8
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 70,
-              "hits": 70,
-              "accuracy": 1.0
-            },
-            {
-              "bucket": "80+",
-              "picks": 297,
-              "hits": 291,
-              "accuracy": 0.9797979797979798
-            }
-          ]
-        },
-        "total": {
-          "picks": 437,
-          "hits": 398,
-          "accuracy": 0.9107551487414187,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 7,
-          "priced_coverage_pct": 0.016018306636155607,
-          "total_return_units": 2.1832944638791716,
-          "roi_per_bet": 0.31189920912559593,
-          "yield_pct": 31.189920912559593,
-          "max_drawdown_units": 1.1666666666666665,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 437,
-              "hits": 398,
-              "accuracy": 0.9107551487414187
-            }
-          ]
-        },
-        "btts": {
-          "picks": 437,
-          "hits": 403,
-          "accuracy": 0.9221967963386728,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 437,
-              "hits": 403,
-              "accuracy": 0.9221967963386728
-            }
-          ]
-        },
-        "corners": {
-          "picks": 437,
-          "hits": 230,
-          "accuracy": 0.5263157894736842,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 437,
-              "hits": 230,
-              "accuracy": 0.5263157894736842
-            }
-          ]
-        }
-      }
-    },
-    "laliga": {
-      "files": 180,
-      "events": 474,
-      "markets": {
-        "full_game": {
-          "picks": 474,
-          "hits": 422,
-          "accuracy": 0.890295358649789,
-          "brier": 0.06905527426160972,
-          "logloss": 0.23277501784388216,
-          "priced_picks": 9,
-          "priced_coverage_pct": 0.0189873417721519,
-          "total_return_units": -1.6623249299719889,
-          "roi_per_bet": -0.18470276999688764,
-          "yield_pct": -18.470276999688764,
-          "max_drawdown_units": 2.85,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 15,
-              "hits": 7,
-              "accuracy": 0.4666666666666667
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 7,
-              "hits": 2,
-              "accuracy": 0.2857142857142857
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 10,
-              "hits": 4,
-              "accuracy": 0.4
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 9,
-              "hits": 3,
-              "accuracy": 0.3333333333333333
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 12,
-              "hits": 8,
-              "accuracy": 0.6666666666666666
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 5,
-              "hits": 2,
-              "accuracy": 0.4
-            },
-            {
-              "bucket": "80+",
-              "picks": 416,
-              "hits": 396,
-              "accuracy": 0.9519230769230769
-            }
-          ]
-        },
-        "total": {
-          "picks": 474,
-          "hits": 432,
-          "accuracy": 0.9113924050632911,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 9,
-          "priced_coverage_pct": 0.0189873417721519,
-          "total_return_units": 1.165151515151515,
-          "roi_per_bet": 0.12946127946127944,
-          "yield_pct": 12.946127946127945,
-          "max_drawdown_units": 2.0,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 474,
-              "hits": 432,
-              "accuracy": 0.9113924050632911
-            }
-          ]
-        },
-        "btts": {
-          "picks": 474,
-          "hits": 434,
-          "accuracy": 0.9156118143459916,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 474,
-              "hits": 434,
-              "accuracy": 0.9156118143459916
-            }
-          ]
-        },
-        "corners": {
-          "picks": 474,
-          "hits": 359,
-          "accuracy": 0.7573839662447257,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 474,
-              "hits": 359,
-              "accuracy": 0.7573839662447257
-            }
-          ]
-        }
-      }
-    },
-    "euroleague": {
-      "files": 70,
-      "events": 304,
-      "markets": {
-        "full_game": {
-          "picks": 304,
-          "hits": 179,
-          "accuracy": 0.5888157894736842,
-          "brier": 0.27224854934212833,
-          "logloss": 0.8944984627501656,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 35,
-              "hits": 16,
-              "accuracy": 0.45714285714285713
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 31,
-              "hits": 21,
-              "accuracy": 0.6774193548387096
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 37,
-              "hits": 23,
-              "accuracy": 0.6216216216216216
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 37,
-              "hits": 16,
-              "accuracy": 0.43243243243243246
+              "picks": 82,
+              "hits": 55,
+              "accuracy": 0.6707317073170732
             },
             {
               "bucket": "70-74.9",
@@ -923,207 +109,48 @@
             },
             {
               "bucket": "75-79.9",
-              "picks": 22,
-              "hits": 12,
-              "accuracy": 0.5454545454545454
-            },
-            {
-              "bucket": "80+",
-              "picks": 110,
-              "hits": 71,
-              "accuracy": 0.6454545454545455
-            }
-          ]
-        },
-        "q1": {
-          "picks": 304,
-          "hits": 151,
-          "accuracy": 0.4967105263157895,
-          "brier": 0.2940501315789472,
-          "logloss": 0.8389092111393609,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 47,
-              "hits": 16,
-              "accuracy": 0.3404255319148936
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 46,
-              "hits": 21,
-              "accuracy": 0.45652173913043476
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 24,
-              "hits": 12,
-              "accuracy": 0.5
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 37,
-              "hits": 16,
-              "accuracy": 0.43243243243243246
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 28,
-              "hits": 15,
-              "accuracy": 0.5357142857142857
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 32,
-              "hits": 19,
-              "accuracy": 0.59375
-            },
-            {
-              "bucket": "80+",
-              "picks": 90,
-              "hits": 52,
-              "accuracy": 0.5777777777777777
+              "picks": 6,
+              "hits": 4,
+              "accuracy": 0.6666666666666666
             }
           ]
         }
       }
     },
+    "mlb": {
+      "markets": {},
+      "files": 0,
+      "events": 0
+    },
+    "kbo": {
+      "markets": {},
+      "files": 0,
+      "events": 0
+    },
+    "nhl": {
+      "markets": {},
+      "files": 0,
+      "events": 0
+    },
+    "liga_mx": {
+      "markets": {},
+      "files": 0,
+      "events": 0
+    },
+    "laliga": {
+      "markets": {},
+      "files": 0,
+      "events": 0
+    },
+    "euroleague": {
+      "markets": {},
+      "files": 0,
+      "events": 0
+    },
     "ncaa_baseball": {
-      "files": 27,
-      "events": 2194,
-      "markets": {
-        "full_game": {
-          "picks": 2194,
-          "hits": 2007,
-          "accuracy": 0.914767547857794,
-          "brier": 0.09810173199635366,
-          "logloss": 0.34711735453853615,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "50-54.9",
-              "picks": 106,
-              "hits": 80,
-              "accuracy": 0.7547169811320755
-            },
-            {
-              "bucket": "55-59.9",
-              "picks": 136,
-              "hits": 103,
-              "accuracy": 0.7573529411764706
-            },
-            {
-              "bucket": "60-64.9",
-              "picks": 167,
-              "hits": 138,
-              "accuracy": 0.8263473053892215
-            },
-            {
-              "bucket": "65-69.9",
-              "picks": 211,
-              "hits": 184,
-              "accuracy": 0.8720379146919431
-            },
-            {
-              "bucket": "70-74.9",
-              "picks": 238,
-              "hits": 216,
-              "accuracy": 0.907563025210084
-            },
-            {
-              "bucket": "75-79.9",
-              "picks": 308,
-              "hits": 289,
-              "accuracy": 0.9383116883116883
-            },
-            {
-              "bucket": "80+",
-              "picks": 1028,
-              "hits": 997,
-              "accuracy": 0.9698443579766537
-            }
-          ]
-        },
-        "q1": {
-          "picks": 2194,
-          "hits": 2194,
-          "accuracy": 1.0,
-          "brier": 1.0000000000575167e-12,
-          "logloss": 1.000000500029116e-06,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "80+",
-              "picks": 2194,
-              "hits": 2194,
-              "accuracy": 1.0
-            }
-          ]
-        },
-        "spread": {
-          "picks": 2194,
-          "hits": 2005,
-          "accuracy": 0.9138559708295351,
-          "brier": null,
-          "logloss": null,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": true,
-          "buckets": [
-            {
-              "bucket": "unknown",
-              "picks": 2194,
-              "hits": 2005,
-              "accuracy": 0.9138559708295351
-            }
-          ]
-        },
-        "f5": {
-          "picks": 2194,
-          "hits": 0,
-          "accuracy": 0.0,
-          "brier": 0.9999980000009794,
-          "logloss": 13.815510557935355,
-          "priced_picks": 0,
-          "priced_coverage_pct": 0.0,
-          "total_return_units": 0.0,
-          "roi_per_bet": null,
-          "yield_pct": null,
-          "max_drawdown_units": null,
-          "suspicious_high_accuracy": false,
-          "buckets": [
-            {
-              "bucket": "80+",
-              "picks": 2194,
-              "hits": 0,
-              "accuracy": 0.0
-            }
-          ]
-        }
-      }
+      "markets": {},
+      "files": 0,
+      "events": 0
     }
   }
 }

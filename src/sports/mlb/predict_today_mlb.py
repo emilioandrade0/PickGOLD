@@ -1,0 +1,842 @@
+import json
+import sys
+import os
+from pathlib import Path
+from datetime import datetime
+
+# Ensure project `src` root is on sys.path so imports of shared modules work
+SRC_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+import joblib
+import numpy as np
+import pandas as pd
+from calibration import calibrate_probability, load_calibration_config
+from pattern_engine import aggregate_pattern_edge
+from pattern_engine_mlb import generate_mlb_patterns
+from pick_selector import recommendation_score
+from pick_selector import fuse_with_pattern_score
+
+# Base directory should point to the project `src` root so data lives under src/data
+BASE_DIR = SRC_ROOT
+
+FEATURES_FILE = BASE_DIR / "data" / "mlb" / "processed" / "model_ready_features_mlb.csv"
+UPCOMING_FILE = BASE_DIR / "data" / "mlb" / "raw" / "mlb_upcoming_schedule.csv"
+LINE_MOVEMENT_FILE = BASE_DIR / "data" / "mlb" / "cache" / "line_movement.csv"
+MODELS_DIR = BASE_DIR / "data" / "mlb" / "models"
+PREDICTIONS_DIR = BASE_DIR / "data" / "mlb" / "predictions"
+PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
+CALIBRATION_FILE = MODELS_DIR / "calibration_params.json"
+
+
+def load_json(path: Path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_market_assets(market_key: str):
+    market_dir = MODELS_DIR / market_key
+    xgb = joblib.load(market_dir / "xgb_model.pkl")
+    lgbm = joblib.load(market_dir / "lgbm_model.pkl")
+    feature_columns = load_json(market_dir / "feature_columns.json")
+    metadata = load_json(market_dir / "metadata.json")
+    threshold = metadata.get("ensemble_threshold", 0.5)
+    return xgb, lgbm, feature_columns, metadata, threshold
+
+
+def load_regression_assets(market_key: str):
+    market_dir = MODELS_DIR / market_key
+    xgb = joblib.load(market_dir / "xgb_model.pkl")
+    lgbm = joblib.load(market_dir / "lgbm_model.pkl")
+    feature_columns = load_json(market_dir / "feature_columns.json")
+    metadata = load_json(market_dir / "metadata.json")
+    weights = metadata.get("ensemble_weights", {"xgboost": 0.5, "lightgbm": 0.5})
+    return xgb, lgbm, feature_columns, metadata, weights
+
+
+def align_features_for_market(df: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+    out = df.copy()
+    for col in feature_columns:
+        if col not in out.columns:
+            out[col] = 0.0
+    return out
+
+def predict_market(df: pd.DataFrame, market_key: str):
+    xgb, lgbm, feature_columns, metadata, threshold = load_market_assets(market_key)
+
+    df = align_features_for_market(df, feature_columns)
+    X = df[feature_columns].replace([np.inf, -np.inf], np.nan).fillna(0)
+    xgb_probs = xgb.predict_proba(X)[:, 1]
+    lgbm_probs = lgbm.predict_proba(X)[:, 1]
+    weights = metadata.get("ensemble_weights", {"xgboost": 0.5, "lightgbm": 0.5})
+    wx = float(weights.get("xgboost", 0.5))
+    wl = float(weights.get("lightgbm", 0.5))
+    probs = wx * xgb_probs + wl * lgbm_probs
+    preds = (probs >= threshold).astype(int)
+    return probs, preds, threshold, metadata
+
+
+def predict_regression_market(df: pd.DataFrame, market_key: str):
+    xgb, lgbm, feature_columns, metadata, weights = load_regression_assets(market_key)
+    df = align_features_for_market(df, feature_columns)
+    X = df[feature_columns].replace([np.inf, -np.inf], np.nan).fillna(0)
+    xgb_preds = np.asarray(xgb.predict(X), dtype=float)
+    lgbm_preds = np.asarray(lgbm.predict(X), dtype=float)
+    wx = float(weights.get("xgboost", 0.5))
+    wl = float(weights.get("lightgbm", 0.5))
+    preds = (wx * xgb_preds) + (wl * lgbm_preds)
+    return preds, metadata
+
+
+def confidence_from_prob(prob: float) -> int:
+    return int(round(max(prob, 1 - prob) * 100))
+
+
+def confidence_from_edge(edge: float, base: int = 52, scale: float = 11.0, cap: int = 82) -> int:
+    edge_value = max(0.0, float(edge))
+    return int(max(50, min(cap, round(base + (edge_value * scale)))))
+
+
+def tier_from_conf(conf: int) -> str:
+    if conf >= 72:
+        return "ELITE"
+    if conf >= 66:
+        return "PREMIUM"
+    if conf >= 60:
+        return "STRONG"
+    if conf >= 54:
+        return "NORMAL"
+    return "PASS"
+
+
+def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
+    """
+    Devuelve el último snapshot pregame disponible del equipo antes de cutoff_date.
+    `cutoff_date` puede ser 'YYYY-MM-DD' o 'YYYY-MM-DD HH:MM'.
+    Se intenta usar la columna `time` de `history_df` si está disponible
+    para resolver juegos múltiples el mismo día (doubleheaders).
+    """
+    if history_df.empty:
+        return None
+
+    # Build datetime index for history rows (use 'time' when available)
+    hist = history_df.copy()
+    if "time" in hist.columns:
+        hist["_date_dt"] = pd.to_datetime(hist["date"].astype(str) + " " + hist["time"].astype(str), errors="coerce")
+    else:
+        hist["_date_dt"] = pd.to_datetime(hist["date"].astype(str), errors="coerce")
+
+    # Parse cutoff into datetime; if cutoff lacks time, it will be midnight
+    try:
+        cutoff_dt = pd.to_datetime(str(cutoff_date), errors="coerce")
+    except Exception:
+        cutoff_dt = None
+
+    if cutoff_dt is not None and pd.notna(cutoff_dt):
+        prior = hist[hist["_date_dt"] < cutoff_dt].copy()
+    else:
+        # fallback to date-only comparison
+        prior = hist[hist["date"] < str(cutoff_date)].copy()
+
+    if prior.empty:
+        return None
+
+    home_rows = prior[prior["home_team"] == team].copy()
+    away_rows = prior[prior["away_team"] == team].copy()
+
+    candidates = []
+
+    if not home_rows.empty:
+        # prefer ordering by parsed datetime if available
+        if "_date_dt" in home_rows.columns:
+            row = home_rows.sort_values(["_date_dt", "game_id"]).iloc[-1]
+        else:
+            row = home_rows.sort_values(["date", "game_id"]).iloc[-1]
+        snap = {
+            "elo_pre": row["home_elo_pre"],
+            "rest_days": row["home_rest_days"],
+            "is_b2b": row["home_is_b2b"],
+            "games_last_3_days": row["home_games_last_3_days"],
+            "games_last_5_days": row["home_games_last_5_days"],
+            "games_last_7_days": row["home_games_last_7_days"],
+            "win_pct_L5": row["home_win_pct_L5"],
+            "win_pct_L10": row["home_win_pct_L10"],
+            "run_diff_L5": row["home_run_diff_L5"],
+            "run_diff_L10": row["home_run_diff_L10"],
+            "runs_scored_L5": row["home_runs_scored_L5"],
+            "runs_allowed_L5": row["home_runs_allowed_L5"],
+            "yrfi_rate_L10": row["home_yrfi_rate_L10"],
+            "r1_scored_rate_L10": row["home_r1_scored_rate_L10"],
+            "r1_allowed_rate_L10": row["home_r1_allowed_rate_L10"],
+            "f5_win_pct_L5": row["home_f5_win_pct_L5"],
+            "f5_diff_L5": row["home_f5_diff_L5"],
+            "hits_L5": row["home_hits_L5"],
+            "hits_allowed_L5": row["home_hits_allowed_L5"],
+            "surface_win_pct_L5": row.get("home_home_only_win_pct_L5", 0),
+            "surface_run_diff_L5": row.get("home_home_only_run_diff_L5", 0),
+            "surface_yrfi_rate_L10": row.get("home_home_only_yrfi_rate_L10", 0),
+            "surface_f5_win_pct_L5": row.get("home_home_only_f5_win_pct_L5", 0),
+            "_date": row["date"],
+            "_game_id": row["game_id"],
+
+            "pitcher_data_available": row.get("home_pitcher_data_available", 0),
+            "pitcher_rest_days": row.get("home_pitcher_rest_days", 5),
+            "pitcher_games_started_L5": row.get("home_pitcher_games_started_L5", 0),
+            "pitcher_games_started_L10": row.get("home_pitcher_games_started_L10", 0),
+            "pitcher_era_L5": row.get("home_pitcher_era_L5", 0),
+            "pitcher_whip_L5": row.get("home_pitcher_whip_L5", 0),
+            "pitcher_k_bb_L5": row.get("home_pitcher_k_bb_L5", 0),
+            "pitcher_hr9_L5": row.get("home_pitcher_hr9_L5", 0),
+            "pitcher_runs_allowed_L5": row.get("home_pitcher_runs_allowed_L5", 0),
+            "pitcher_runs_allowed_L10": row.get("home_pitcher_runs_allowed_L10", 0),
+            "pitcher_r1_allowed_rate_L10": row.get("home_pitcher_r1_allowed_rate_L10", 0),
+            "pitcher_r1_allowed_rate_L5": row.get("home_pitcher_r1_allowed_rate_L5", 0),
+            "pitcher_f5_runs_allowed_L5": row.get("home_pitcher_f5_runs_allowed_L5", 0),
+            "pitcher_team_run_support_L5": row.get("home_pitcher_team_run_support_L5", 0),
+            "pitcher_start_win_rate_L10": row.get("home_pitcher_start_win_rate_L10", 0),
+
+            "bullpen_runs_allowed_L5": row.get("home_bullpen_runs_allowed_L5", 0),
+            "bullpen_runs_allowed_L10": row.get("home_bullpen_runs_allowed_L10", 0),
+            "bullpen_load_L3": row.get("home_bullpen_load_L3", 0),
+            "bullpen_load_L5": row.get("home_bullpen_load_L5", 0),
+
+            "offense_vs_pitcher": row.get("home_offense_vs_away_pitcher", 0),
+            "r1_vs_pitcher": row.get("home_r1_vs_away_pitcher", 0),
+            "r1_vs_pitcher_L5_proxy": row.get("home_r1_vs_away_pitcher_L5_proxy", 0),
+            "f5_vs_pitcher": row.get("home_f5_vs_away_pitcher", 0),
+
+            "r1_scored_rate_L5": row.get("home_r1_scored_rate_L5", row.get("home_r1_scored_rate_L10", 0)),
+            "r1_allowed_rate_L5": row.get("home_r1_allowed_rate_L5", row.get("home_r1_allowed_rate_L10", 0)),
+            "r1_scored_std_L10": row.get("home_r1_scored_std_L10", 0),
+            "r1_allowed_std_L10": row.get("home_r1_allowed_std_L10", 0),
+
+            "yrfi_pressure": row.get("yrfi_pressure_home", 0),
+            "yrfi_pressure_L5": row.get("yrfi_pressure_home_L5", 0),
+            "yrfi_consistency_L10": row.get("home_yrfi_consistency_L10", 0),
+        }
+        candidates.append(snap)
+
+    if not away_rows.empty:
+        if "_date_dt" in away_rows.columns:
+            row = away_rows.sort_values(["_date_dt", "game_id"]).iloc[-1]
+        else:
+            row = away_rows.sort_values(["date", "game_id"]).iloc[-1]
+        snap = {
+            "elo_pre": row["away_elo_pre"],
+            "rest_days": row["away_rest_days"],
+            "is_b2b": row["away_is_b2b"],
+            "games_last_3_days": row["away_games_last_3_days"],
+            "games_last_5_days": row["away_games_last_5_days"],
+            "games_last_7_days": row["away_games_last_7_days"],
+            "win_pct_L5": row["away_win_pct_L5"],
+            "win_pct_L10": row["away_win_pct_L10"],
+            "run_diff_L5": row["away_run_diff_L5"],
+            "run_diff_L10": row["away_run_diff_L10"],
+            "runs_scored_L5": row["away_runs_scored_L5"],
+            "runs_allowed_L5": row["away_runs_allowed_L5"],
+            "yrfi_rate_L10": row["away_yrfi_rate_L10"],
+            "r1_scored_rate_L10": row["away_r1_scored_rate_L10"],
+            "r1_allowed_rate_L10": row["away_r1_allowed_rate_L10"],
+            "f5_win_pct_L5": row["away_f5_win_pct_L5"],
+            "f5_diff_L5": row["away_f5_diff_L5"],
+            "hits_L5": row["away_hits_L5"],
+            "hits_allowed_L5": row["away_hits_allowed_L5"],
+            "surface_win_pct_L5": row.get("away_away_only_win_pct_L5", 0),
+            "surface_run_diff_L5": row.get("away_away_only_run_diff_L5", 0),
+            "surface_yrfi_rate_L10": row.get("away_away_only_yrfi_rate_L10", 0),
+            "surface_f5_win_pct_L5": row.get("away_away_only_f5_win_pct_L5", 0),
+            "_date": row["date"],
+            "_game_id": row["game_id"],
+          
+            "pitcher_data_available": row.get("away_pitcher_data_available", 0),
+            "pitcher_rest_days": row.get("away_pitcher_rest_days", 5),
+            "pitcher_games_started_L5": row.get("away_pitcher_games_started_L5", 0),
+            "pitcher_games_started_L10": row.get("away_pitcher_games_started_L10", 0),
+            "pitcher_era_L5": row.get("away_pitcher_era_L5", 0),
+            "pitcher_whip_L5": row.get("away_pitcher_whip_L5", 0),
+            "pitcher_k_bb_L5": row.get("away_pitcher_k_bb_L5", 0),
+            "pitcher_hr9_L5": row.get("away_pitcher_hr9_L5", 0),
+            "pitcher_runs_allowed_L5": row.get("away_pitcher_runs_allowed_L5", 0),
+            "pitcher_runs_allowed_L10": row.get("away_pitcher_runs_allowed_L10", 0),
+            "pitcher_r1_allowed_rate_L10": row.get("away_pitcher_r1_allowed_rate_L10", 0),
+            "pitcher_r1_allowed_rate_L5": row.get("away_pitcher_r1_allowed_rate_L5", 0),
+            "pitcher_f5_runs_allowed_L5": row.get("away_pitcher_f5_runs_allowed_L5", 0),
+            "pitcher_team_run_support_L5": row.get("away_pitcher_team_run_support_L5", 0),
+            "pitcher_start_win_rate_L10": row.get("away_pitcher_start_win_rate_L10", 0),
+
+            "bullpen_runs_allowed_L5": row.get("away_bullpen_runs_allowed_L5", 0),
+            "bullpen_runs_allowed_L10": row.get("away_bullpen_runs_allowed_L10", 0),
+            "bullpen_load_L3": row.get("away_bullpen_load_L3", 0),
+            "bullpen_load_L5": row.get("away_bullpen_load_L5", 0),
+
+            "offense_vs_pitcher": row.get("away_offense_vs_home_pitcher", 0),
+            "r1_vs_pitcher": row.get("away_r1_vs_home_pitcher", 0),
+            "r1_vs_pitcher_L5_proxy": row.get("away_r1_vs_home_pitcher_L5_proxy", 0),
+            "f5_vs_pitcher": row.get("away_f5_vs_home_pitcher", 0),
+
+            "r1_scored_rate_L5": row.get("away_r1_scored_rate_L5", row.get("away_r1_scored_rate_L10", 0)),
+            "r1_allowed_rate_L5": row.get("away_r1_allowed_rate_L5", row.get("away_r1_allowed_rate_L10", 0)),
+            "r1_scored_std_L10": row.get("away_r1_scored_std_L10", 0),
+            "r1_allowed_std_L10": row.get("away_r1_allowed_std_L10", 0),
+
+            "yrfi_pressure": row.get("yrfi_pressure_away", 0),
+            "yrfi_pressure_L5": row.get("yrfi_pressure_away_L5", 0),
+            "yrfi_consistency_L10": row.get("away_yrfi_consistency_L10", 0),
+        }
+        candidates.append(snap)
+
+    if not candidates:
+        return None
+
+    candidates = sorted(candidates, key=lambda x: (x["_date"], str(x["_game_id"])))
+    best = candidates[-1].copy()
+    best.pop("_date", None)
+    best.pop("_game_id", None)
+    return best
+
+
+def get_league_means_before_date(history_df: pd.DataFrame, cutoff_date: str):
+    prior = history_df[history_df["date"] < cutoff_date].copy()
+    if prior.empty:
+        return {
+            "league_win_pct_L10": 0.5,
+            "league_run_diff_L10": 0.0,
+            "league_yrfi_rate_L10": 0.5,
+            "league_f5_win_pct_L5": 0.5,
+        }
+
+    win_vals = pd.concat([prior["home_win_pct_L10"], prior["away_win_pct_L10"]], ignore_index=True)
+    run_vals = pd.concat([prior["home_run_diff_L10"], prior["away_run_diff_L10"]], ignore_index=True)
+    yrfi_vals = pd.concat([prior["home_yrfi_rate_L10"], prior["away_yrfi_rate_L10"]], ignore_index=True)
+    f5_vals = pd.concat([prior["home_f5_win_pct_L5"], prior["away_f5_win_pct_L5"]], ignore_index=True)
+
+    return {
+        "league_win_pct_L10": float(win_vals.mean()) if not win_vals.empty else 0.5,
+        "league_run_diff_L10": float(run_vals.mean()) if not run_vals.empty else 0.0,
+        "league_yrfi_rate_L10": float(yrfi_vals.mean()) if not yrfi_vals.empty else 0.5,
+        "league_f5_win_pct_L5": float(f5_vals.mean()) if not f5_vals.empty else 0.5,
+    }
+
+
+def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series):
+    date_str = str(schedule_row["date"])
+    home_team = str(schedule_row["home_team"])
+    away_team = str(schedule_row["away_team"])
+
+    # build cutoff including time when available to handle same-day ordering (doubleheaders)
+    time_str = str(schedule_row.get("time", "")).strip()
+    if time_str:
+        cutoff = f"{date_str} {time_str}"
+    else:
+        cutoff = date_str
+
+    home_snap = get_team_snapshot(history_df, home_team, cutoff)
+    away_snap = get_team_snapshot(history_df, away_team, cutoff)
+    league_means = get_league_means_before_date(history_df, date_str)
+
+    if home_snap is None or away_snap is None:
+        return None
+
+    row = {
+        "game_id": str(schedule_row["game_id"]),
+        "date": date_str,
+        "season": str(date_str[:4]),
+        "home_team": home_team,
+        "away_team": away_team,
+
+        "home_elo_pre": home_snap["elo_pre"],
+        "away_elo_pre": away_snap["elo_pre"],
+        "diff_elo": home_snap["elo_pre"] - away_snap["elo_pre"],
+
+        "home_rest_days": home_snap["rest_days"],
+        "away_rest_days": away_snap["rest_days"],
+        "diff_rest_days": home_snap["rest_days"] - away_snap["rest_days"],
+
+        "home_is_b2b": home_snap["is_b2b"],
+        "away_is_b2b": away_snap["is_b2b"],
+        "diff_is_b2b": home_snap["is_b2b"] - away_snap["is_b2b"],
+
+        "home_games_last_3_days": home_snap["games_last_3_days"],
+        "away_games_last_3_days": away_snap["games_last_3_days"],
+        "diff_games_last_3_days": home_snap["games_last_3_days"] - away_snap["games_last_3_days"],
+
+        "home_games_last_5_days": home_snap["games_last_5_days"],
+        "away_games_last_5_days": away_snap["games_last_5_days"],
+        "diff_games_last_5_days": home_snap["games_last_5_days"] - away_snap["games_last_5_days"],
+
+        "home_games_last_7_days": home_snap["games_last_7_days"],
+        "away_games_last_7_days": away_snap["games_last_7_days"],
+        "diff_games_last_7_days": home_snap["games_last_7_days"] - away_snap["games_last_7_days"],
+
+        "home_win_pct_L5": home_snap["win_pct_L5"],
+        "away_win_pct_L5": away_snap["win_pct_L5"],
+        "diff_win_pct_L5": home_snap["win_pct_L5"] - away_snap["win_pct_L5"],
+
+        "home_win_pct_L10": home_snap["win_pct_L10"],
+        "away_win_pct_L10": away_snap["win_pct_L10"],
+        "diff_win_pct_L10": home_snap["win_pct_L10"] - away_snap["win_pct_L10"],
+
+        "home_run_diff_L5": home_snap["run_diff_L5"],
+        "away_run_diff_L5": away_snap["run_diff_L5"],
+        "diff_run_diff_L5": home_snap["run_diff_L5"] - away_snap["run_diff_L5"],
+
+        "home_run_diff_L10": home_snap["run_diff_L10"],
+        "away_run_diff_L10": away_snap["run_diff_L10"],
+        "diff_run_diff_L10": home_snap["run_diff_L10"] - away_snap["run_diff_L10"],
+
+        "home_runs_scored_L5": home_snap["runs_scored_L5"],
+        "away_runs_scored_L5": away_snap["runs_scored_L5"],
+        "diff_runs_scored_L5": home_snap["runs_scored_L5"] - away_snap["runs_scored_L5"],
+
+        "home_runs_allowed_L5": home_snap["runs_allowed_L5"],
+        "away_runs_allowed_L5": away_snap["runs_allowed_L5"],
+        "diff_runs_allowed_L5": home_snap["runs_allowed_L5"] - away_snap["runs_allowed_L5"],
+
+        "home_yrfi_rate_L10": home_snap["yrfi_rate_L10"],
+        "away_yrfi_rate_L10": away_snap["yrfi_rate_L10"],
+        "diff_yrfi_rate_L10": home_snap["yrfi_rate_L10"] - away_snap["yrfi_rate_L10"],
+
+        "home_r1_scored_rate_L10": home_snap["r1_scored_rate_L10"],
+        "away_r1_scored_rate_L10": away_snap["r1_scored_rate_L10"],
+        "diff_r1_scored_rate_L10": home_snap["r1_scored_rate_L10"] - away_snap["r1_scored_rate_L10"],
+
+        "home_r1_allowed_rate_L10": home_snap["r1_allowed_rate_L10"],
+        "away_r1_allowed_rate_L10": away_snap["r1_allowed_rate_L10"],
+        "diff_r1_allowed_rate_L10": home_snap["r1_allowed_rate_L10"] - away_snap["r1_allowed_rate_L10"],
+
+        "home_f5_win_pct_L5": home_snap["f5_win_pct_L5"],
+        "away_f5_win_pct_L5": away_snap["f5_win_pct_L5"],
+        "diff_f5_win_pct_L5": home_snap["f5_win_pct_L5"] - away_snap["f5_win_pct_L5"],
+
+        "home_f5_diff_L5": home_snap["f5_diff_L5"],
+        "away_f5_diff_L5": away_snap["f5_diff_L5"],
+        "diff_f5_diff_L5": home_snap["f5_diff_L5"] - away_snap["f5_diff_L5"],
+
+        "home_hits_L5": home_snap["hits_L5"],
+        "away_hits_L5": away_snap["hits_L5"],
+        "diff_hits_L5": home_snap["hits_L5"] - away_snap["hits_L5"],
+
+        "home_hits_allowed_L5": home_snap["hits_allowed_L5"],
+        "away_hits_allowed_L5": away_snap["hits_allowed_L5"],
+        "diff_hits_allowed_L5": home_snap["hits_allowed_L5"] - away_snap["hits_allowed_L5"],
+
+        "home_home_only_win_pct_L5": home_snap["surface_win_pct_L5"],
+        "away_away_only_win_pct_L5": away_snap["surface_win_pct_L5"],
+        "diff_surface_win_pct_L5": home_snap["surface_win_pct_L5"] - away_snap["surface_win_pct_L5"],
+
+        "home_home_only_run_diff_L5": home_snap["surface_run_diff_L5"],
+        "away_away_only_run_diff_L5": away_snap["surface_run_diff_L5"],
+        "diff_surface_run_diff_L5": home_snap["surface_run_diff_L5"] - away_snap["surface_run_diff_L5"],
+
+        "home_home_only_yrfi_rate_L10": home_snap["surface_yrfi_rate_L10"],
+        "away_away_only_yrfi_rate_L10": away_snap["surface_yrfi_rate_L10"],
+        "diff_surface_yrfi_rate_L10": home_snap["surface_yrfi_rate_L10"] - away_snap["surface_yrfi_rate_L10"],
+
+        "home_home_only_f5_win_pct_L5": home_snap["surface_f5_win_pct_L5"],
+        "away_away_only_f5_win_pct_L5": away_snap["surface_f5_win_pct_L5"],
+        "diff_surface_f5_win_pct_L5": home_snap["surface_f5_win_pct_L5"] - away_snap["surface_f5_win_pct_L5"],
+
+        "home_win_pct_L10_vs_league": home_snap["win_pct_L10"] - league_means["league_win_pct_L10"],
+        "away_win_pct_L10_vs_league": away_snap["win_pct_L10"] - league_means["league_win_pct_L10"],
+        "diff_win_pct_L10_vs_league": (
+            (home_snap["win_pct_L10"] - league_means["league_win_pct_L10"])
+            - (away_snap["win_pct_L10"] - league_means["league_win_pct_L10"])
+        ),
+
+        "home_run_diff_L10_vs_league": home_snap["run_diff_L10"] - league_means["league_run_diff_L10"],
+        "away_run_diff_L10_vs_league": away_snap["run_diff_L10"] - league_means["league_run_diff_L10"],
+        "diff_run_diff_L10_vs_league": (
+            (home_snap["run_diff_L10"] - league_means["league_run_diff_L10"])
+            - (away_snap["run_diff_L10"] - league_means["league_run_diff_L10"])
+        ),
+
+        "home_yrfi_rate_L10_vs_league": home_snap["yrfi_rate_L10"] - league_means["league_yrfi_rate_L10"],
+        "away_yrfi_rate_L10_vs_league": away_snap["yrfi_rate_L10"] - league_means["league_yrfi_rate_L10"],
+        "diff_yrfi_rate_L10_vs_league": (
+            (home_snap["yrfi_rate_L10"] - league_means["league_yrfi_rate_L10"])
+            - (away_snap["yrfi_rate_L10"] - league_means["league_yrfi_rate_L10"])
+        ),
+
+        "home_f5_win_pct_L5_vs_league": home_snap["f5_win_pct_L5"] - league_means["league_f5_win_pct_L5"],
+        "away_f5_win_pct_L5_vs_league": away_snap["f5_win_pct_L5"] - league_means["league_f5_win_pct_L5"],
+        "diff_f5_win_pct_L5_vs_league": (
+            (home_snap["f5_win_pct_L5"] - league_means["league_f5_win_pct_L5"])
+            - (away_snap["f5_win_pct_L5"] - league_means["league_f5_win_pct_L5"])
+        ),
+
+        "home_momentum_win": home_snap["win_pct_L5"] - home_snap["win_pct_L10"],
+        "away_momentum_win": away_snap["win_pct_L5"] - away_snap["win_pct_L10"],
+        "diff_momentum_win": (
+            (home_snap["win_pct_L5"] - home_snap["win_pct_L10"])
+            - (away_snap["win_pct_L5"] - away_snap["win_pct_L10"])
+        ),
+
+        "home_momentum_run_diff": home_snap["run_diff_L5"] - home_snap["run_diff_L10"],
+        "away_momentum_run_diff": away_snap["run_diff_L5"] - away_snap["run_diff_L10"],
+        "diff_momentum_run_diff": (
+            (home_snap["run_diff_L5"] - home_snap["run_diff_L10"])
+            - (away_snap["run_diff_L5"] - away_snap["run_diff_L10"])
+        ),
+
+        "home_surface_edge": home_snap["surface_win_pct_L5"] - home_snap["win_pct_L10"],
+        "away_surface_edge": away_snap["surface_win_pct_L5"] - away_snap["win_pct_L10"],
+        "diff_surface_edge": (
+            (home_snap["surface_win_pct_L5"] - home_snap["win_pct_L10"])
+            - (away_snap["surface_win_pct_L5"] - away_snap["win_pct_L10"])
+        ),
+
+        "home_fatigue_index": home_snap["games_last_5_days"] - home_snap["rest_days"],
+        "away_fatigue_index": away_snap["games_last_5_days"] - away_snap["rest_days"],
+        "diff_fatigue_index": (
+            (home_snap["games_last_5_days"] - home_snap["rest_days"])
+            - (away_snap["games_last_5_days"] - away_snap["rest_days"])
+        ),
+
+        "home_form_power": home_snap["win_pct_L10"] * home_snap["run_diff_L10"],
+        "away_form_power": away_snap["win_pct_L10"] * away_snap["run_diff_L10"],
+        "diff_form_power": (
+            (home_snap["win_pct_L10"] * home_snap["run_diff_L10"])
+            - (away_snap["win_pct_L10"] * away_snap["run_diff_L10"])
+        ),
+
+        # Nuevas columnas de disponibilidad y diferenciales de pitchers, bullpen y matchup
+        "both_pitchers_available": int(
+            float(home_snap.get("pitcher_data_available", 0)) > 0
+            and float(away_snap.get("pitcher_data_available", 0)) > 0
+        ),
+        "diff_pitcher_data_available": float(home_snap.get("pitcher_data_available", 0)) - float(away_snap.get("pitcher_data_available", 0)),
+
+        # Diferenciales de pitcher
+        "diff_pitcher_rest_days": float(home_snap.get("pitcher_rest_days", 0)) - float(away_snap.get("pitcher_rest_days", 0)),
+        "diff_pitcher_games_started_L5": float(home_snap.get("pitcher_games_started_L5", 0)) - float(away_snap.get("pitcher_games_started_L5", 0)),
+        "diff_pitcher_games_started_L10": float(home_snap.get("pitcher_games_started_L10", 0)) - float(away_snap.get("pitcher_games_started_L10", 0)),
+        "diff_pitcher_era_L5": float(home_snap.get("pitcher_era_L5", 0)) - float(away_snap.get("pitcher_era_L5", 0)),
+        "diff_pitcher_whip_L5": float(home_snap.get("pitcher_whip_L5", 0)) - float(away_snap.get("pitcher_whip_L5", 0)),
+        "diff_pitcher_k_bb_L5": float(home_snap.get("pitcher_k_bb_L5", 0)) - float(away_snap.get("pitcher_k_bb_L5", 0)),
+        "diff_pitcher_hr9_L5": float(home_snap.get("pitcher_hr9_L5", 0)) - float(away_snap.get("pitcher_hr9_L5", 0)),
+        "diff_pitcher_runs_allowed_L5": float(home_snap.get("pitcher_runs_allowed_L5", 0)) - float(away_snap.get("pitcher_runs_allowed_L5", 0)),
+        "diff_pitcher_runs_allowed_L10": float(home_snap.get("pitcher_runs_allowed_L10", 0)) - float(away_snap.get("pitcher_runs_allowed_L10", 0)),
+        "diff_pitcher_r1_allowed_rate_L10": float(home_snap.get("pitcher_r1_allowed_rate_L10", 0)) - float(away_snap.get("pitcher_r1_allowed_rate_L10", 0)),
+        "diff_pitcher_r1_allowed_rate_L5": float(home_snap.get("pitcher_r1_allowed_rate_L5", 0)) - float(away_snap.get("pitcher_r1_allowed_rate_L5", 0)),
+        "diff_pitcher_f5_runs_allowed_L5": float(home_snap.get("pitcher_f5_runs_allowed_L5", 0)) - float(away_snap.get("pitcher_f5_runs_allowed_L5", 0)),
+        "diff_pitcher_team_run_support_L5": float(home_snap.get("pitcher_team_run_support_L5", 0)) - float(away_snap.get("pitcher_team_run_support_L5", 0)),
+        "diff_pitcher_start_win_rate_L10": float(home_snap.get("pitcher_start_win_rate_L10", 0)) - float(away_snap.get("pitcher_start_win_rate_L10", 0)),
+
+        # Diferenciales de bullpen
+        "diff_bullpen_runs_allowed_L5": float(home_snap.get("bullpen_runs_allowed_L5", 0)) - float(away_snap.get("bullpen_runs_allowed_L5", 0)),
+        "diff_bullpen_runs_allowed_L10": float(home_snap.get("bullpen_runs_allowed_L10", 0)) - float(away_snap.get("bullpen_runs_allowed_L10", 0)),
+        "diff_bullpen_load_L3": float(home_snap.get("bullpen_load_L3", 0)) - float(away_snap.get("bullpen_load_L3", 0)),
+        "diff_bullpen_load_L5": float(home_snap.get("bullpen_load_L5", 0)) - float(away_snap.get("bullpen_load_L5", 0)),
+
+        # Diferenciales matchup vs pitcher
+        "diff_offense_vs_pitcher": float(home_snap.get("offense_vs_pitcher", 0)) - float(away_snap.get("offense_vs_pitcher", 0)),
+        "diff_r1_vs_pitcher": float(home_snap.get("r1_vs_pitcher", 0)) - float(away_snap.get("r1_vs_pitcher", 0)),
+        "diff_r1_vs_pitcher_L5": float(home_snap.get("r1_vs_pitcher_L5_proxy", 0)) - float(away_snap.get("r1_vs_pitcher_L5_proxy", 0)),
+        "diff_f5_vs_pitcher": float(home_snap.get("f5_vs_pitcher", 0)) - float(away_snap.get("f5_vs_pitcher", 0)),
+
+        # Diferenciales R1 nuevos
+        "diff_r1_scored_rate_L5": float(home_snap.get("r1_scored_rate_L5", 0)) - float(away_snap.get("r1_scored_rate_L5", 0)),
+        "diff_r1_allowed_rate_L5": float(home_snap.get("r1_allowed_rate_L5", 0)) - float(away_snap.get("r1_allowed_rate_L5", 0)),
+        "diff_r1_scored_std_L10": float(home_snap.get("r1_scored_std_L10", 0)) - float(away_snap.get("r1_scored_std_L10", 0)),
+        "diff_r1_allowed_std_L10": float(home_snap.get("r1_allowed_std_L10", 0)) - float(away_snap.get("r1_allowed_std_L10", 0)),
+
+        # YRFI pressure y consistencia
+        "yrfi_pressure_home": float(home_snap.get("yrfi_pressure", 0)),
+        "yrfi_pressure_away": float(away_snap.get("yrfi_pressure", 0)),
+        "diff_yrfi_pressure": float(home_snap.get("yrfi_pressure", 0)) - float(away_snap.get("yrfi_pressure", 0)),
+        "total_yrfi_pressure": float(home_snap.get("yrfi_pressure", 0)) + float(away_snap.get("yrfi_pressure", 0)),
+
+        "yrfi_pressure_home_L5": float(home_snap.get("yrfi_pressure_L5", 0)),
+        "yrfi_pressure_away_L5": float(away_snap.get("yrfi_pressure_L5", 0)),
+        "diff_yrfi_pressure_L5": float(home_snap.get("yrfi_pressure_L5", 0)) - float(away_snap.get("yrfi_pressure_L5", 0)),
+        "total_yrfi_pressure_L5": float(home_snap.get("yrfi_pressure_L5", 0)) + float(away_snap.get("yrfi_pressure_L5", 0)),
+
+        "home_yrfi_consistency_L10": float(home_snap.get("yrfi_consistency_L10", 0)),
+        "away_yrfi_consistency_L10": float(away_snap.get("yrfi_consistency_L10", 0)),
+        "diff_yrfi_consistency_L10": float(home_snap.get("yrfi_consistency_L10", 0)) - float(away_snap.get("yrfi_consistency_L10", 0)),
+
+        # Mercado pregame desde ingest.
+        "home_is_favorite": float(pd.to_numeric(schedule_row.get("home_is_favorite", 0), errors="coerce") or 0),
+        "odds_over_under": float(pd.to_numeric(schedule_row.get("odds_over_under", 0), errors="coerce") or 0),
+        "market_missing": int(not np.isfinite(pd.to_numeric(schedule_row.get("odds_over_under", np.nan), errors="coerce"))),
+    }
+
+    return row
+
+
+def load_line_movement_frame() -> pd.DataFrame:
+    if not LINE_MOVEMENT_FILE.exists():
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(LINE_MOVEMENT_FILE, dtype={"game_id": str})
+        if "game_id" in df.columns:
+            df["game_id"] = df["game_id"].astype(str)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+def resolve_total_market_line(sched_row, line_row) -> float:
+    candidates = []
+    if sched_row is not None:
+        candidates.extend([
+            sched_row.get("odds_over_under", np.nan),
+            sched_row.get("closing_total_line", np.nan),
+        ])
+    if line_row is not None:
+        candidates.extend([
+            line_row.get("current_total_line", np.nan),
+            line_row.get("open_total", np.nan),
+        ])
+
+    for value in candidates:
+        try:
+            numeric = float(value)
+        except Exception:
+            continue
+        if np.isfinite(numeric) and numeric > 0:
+            return numeric
+    return 0.0
+
+
+def resolve_home_spread_line(sched_row, line_row, home_is_favorite: float) -> float:
+    candidates = []
+    if sched_row is not None:
+        candidates.extend([
+            sched_row.get("closing_spread_line", np.nan),
+            sched_row.get("home_spread", np.nan),
+        ])
+    if line_row is not None:
+        candidates.extend([
+            line_row.get("current_home_spread", np.nan),
+            line_row.get("open_line", np.nan),
+        ])
+
+    for value in candidates:
+        try:
+            numeric = float(value)
+        except Exception:
+            continue
+        if np.isfinite(numeric) and numeric != 0:
+            return numeric
+
+    if float(home_is_favorite) > 0:
+        return -1.5
+    if float(home_is_favorite) < 0:
+        return 1.5
+    return 0.0
+
+
+def build_run_line_pick(home_team: str, away_team: str, home_spread_line: float, predicted_margin: float):
+    line_abs = abs(float(home_spread_line)) if float(home_spread_line) != 0 else 1.5
+    cover_edge = float(predicted_margin) + float(home_spread_line)
+    if cover_edge >= 0:
+        return f"{home_team} {-line_abs:.1f}", home_team, line_abs
+    return f"{away_team} +{line_abs:.1f}", away_team, line_abs
+
+
+def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_movement_df: pd.DataFrame):
+    calibration_cfg = load_calibration_config(CALIBRATION_FILE)
+
+    fg_probs, fg_preds, _, _ = predict_market(df_day, "full_game")
+    yrfi_probs, yrfi_preds, _, _ = predict_market(df_day, "yrfi")
+    f5_probs, f5_preds, _, _ = predict_market(df_day, "f5")
+    total_preds, _ = predict_regression_market(df_day, "totals")
+    margin_preds, _ = predict_regression_market(df_day, "run_line")
+
+    output = []
+
+    for i, row in df_day.reset_index(drop=True).iterrows():
+        sched = schedule_df[schedule_df["game_id"].astype(str) == str(row["game_id"])]
+        sched_row = sched.iloc[0] if not sched.empty else None
+        line = line_movement_df[line_movement_df["game_id"].astype(str) == str(row["game_id"])] if not line_movement_df.empty else pd.DataFrame()
+        line_row = line.iloc[0] if not line.empty else None
+
+        home_team = row["home_team"]
+        away_team = row["away_team"]
+        date_str = row["date"]
+
+        fg_model_prob_home = float(fg_probs[i])
+        f5_model_prob_home = float(f5_probs[i])
+        yrfi_model_prob_yes = float(yrfi_probs[i])
+        predicted_total_runs = float(total_preds[i])
+        predicted_home_margin = float(margin_preds[i])
+
+        fg_prob_home = calibrate_probability(fg_model_prob_home, "mlb", "full_game", calibration_cfg)
+        f5_prob_home = calibrate_probability(f5_model_prob_home, "mlb", "f5", calibration_cfg)
+        yrfi_prob_yes = calibrate_probability(yrfi_model_prob_yes, "mlb", "yrfi", calibration_cfg)
+
+        mlb_patterns = generate_mlb_patterns(row.to_dict())
+        pattern_edge = aggregate_pattern_edge(mlb_patterns)
+
+        full_game_pick = home_team if fg_preds[i] == 1 else away_team
+        full_game_conf = confidence_from_prob(fg_prob_home)
+        full_game_score = fuse_with_pattern_score(recommendation_score(fg_prob_home), pattern_edge)
+
+        f5_pick = home_team if f5_preds[i] == 1 else away_team
+        f5_conf = confidence_from_prob(f5_prob_home)
+        f5_score = fuse_with_pattern_score(recommendation_score(f5_prob_home), pattern_edge)
+
+        yrfi_pick = "YRFI" if yrfi_preds[i] == 1 else "NRFI"
+        yrfi_conf = confidence_from_prob(yrfi_prob_yes)
+        yrfi_score = fuse_with_pattern_score(recommendation_score(yrfi_prob_yes), pattern_edge)
+
+        total_line = resolve_total_market_line(sched_row, line_row)
+        home_spread_line = resolve_home_spread_line(sched_row, line_row, row.get("home_is_favorite", 0))
+
+        if total_line > 0:
+            total_pick = "OVER" if predicted_total_runs >= total_line else "UNDER"
+            total_confidence = confidence_from_edge(abs(predicted_total_runs - total_line))
+        else:
+            total_pick = "PASS"
+            total_confidence = 50
+
+        spread_pick, spread_side_team, spread_line_abs = build_run_line_pick(
+            home_team=home_team,
+            away_team=away_team,
+            home_spread_line=home_spread_line,
+            predicted_margin=predicted_home_margin,
+        )
+        spread_confidence = confidence_from_edge(abs(predicted_home_margin + home_spread_line))
+        selected_spread_line = -spread_line_abs if spread_side_team == home_team else spread_line_abs
+
+        game_name = f"{away_team} @ {home_team}"
+
+        output.append(
+            {
+                "game_id": str(row["game_id"]),
+                "date": str(date_str),
+                "time": "" if sched_row is None else str(sched_row.get("time", "") or ""),
+                "game_name": game_name,
+                "home_team": home_team,
+                "away_team": away_team,
+
+                "full_game_pick": full_game_pick,
+                "full_game_confidence": full_game_conf,
+                "full_game_tier": tier_from_conf(full_game_conf),
+                "full_game_model_prob_home": round(fg_model_prob_home, 4),
+                "full_game_calibrated_prob_home": round(fg_prob_home, 4),
+                "full_game_pattern_edge": round(pattern_edge, 4),
+                "full_game_detected_patterns": mlb_patterns,
+                "full_game_recommended_score": round(full_game_score, 1),
+                "full_game_recommended": bool(full_game_score >= 56.0),
+
+                "q1_pick": yrfi_pick,
+                "q1_confidence": yrfi_conf,
+                "q1_action": "JUGAR" if yrfi_conf >= 56 else "PASS",
+                "q1_model_prob_yes": round(yrfi_model_prob_yes, 4),
+                "q1_calibrated_prob_yes": round(yrfi_prob_yes, 4),
+                "q1_recommended_score": round(yrfi_score, 1),
+
+                "f5_pick": f5_pick,
+                "f5_confidence": f5_conf,
+                "f5_tier": tier_from_conf(f5_conf),
+                "f5_model_prob_home": round(f5_model_prob_home, 4),
+                "f5_calibrated_prob_home": round(f5_prob_home, 4),
+                "f5_recommended_score": round(f5_score, 1),
+
+                "total_pick": total_pick,
+                "total_recommended_pick": f"{total_pick.title()} {total_line:.1f}" if total_line > 0 else total_pick.title(),
+                "total_confidence": total_confidence,
+                "predicted_total_runs": round(predicted_total_runs, 2),
+                "odds_over_under": total_line,
+                "closing_total_line": total_line,
+
+                "spread_pick": spread_pick,
+                "spread_confidence": spread_confidence,
+                "spread_market": "RUN_LINE",
+                "predicted_home_margin": round(predicted_home_margin, 2),
+                "closing_spread_line": round(selected_spread_line, 2),
+                "home_spread": round(home_spread_line, 2),
+                "spread_abs": round(spread_line_abs, 1),
+                "spread_side_team": spread_side_team,
+
+                "status_state": "" if sched_row is None else str(sched_row.get("status_state", "") or ""),
+                "status_description": "" if sched_row is None else str(sched_row.get("status_description", "") or ""),
+            }
+        )
+
+    return output
+
+
+def main():
+    if not FEATURES_FILE.exists():
+        raise FileNotFoundError(f"No existe el archivo: {FEATURES_FILE}")
+    if not UPCOMING_FILE.exists():
+        raise FileNotFoundError(
+            f"No existe el archivo de agenda del día: {UPCOMING_FILE}\n"
+            f"Primero corre data_ingest_mlb.py"
+        )
+
+    history_df = pd.read_csv(FEATURES_FILE)
+    history_df["date"] = history_df["date"].astype(str)
+
+    schedule_df = pd.read_csv(UPCOMING_FILE, dtype={"game_id": str})
+    if schedule_df.empty:
+        raise ValueError("La agenda del día está vacía.")
+
+    schedule_df["date"] = schedule_df["date"].astype(str)
+    line_movement_df = load_line_movement_frame()
+
+    schedule_df["status_completed"] = pd.to_numeric(
+        schedule_df.get("status_completed", 0), errors="coerce"
+    ).fillna(0).astype(int)
+
+    total_rows = 0
+    total_skipped = 0
+
+    for date_str, sched in schedule_df.groupby("date"):
+        sched = sched.sort_values(["time", "game_id"]).copy()
+
+        pregame_rows = []
+        skipped = []
+
+        for _, srow in sched.iterrows():
+            row = build_pregame_feature_row(history_df, srow)
+            if row is None:
+                skipped.append(f"{srow['away_team']} @ {srow['home_team']}")
+                continue
+            pregame_rows.append(row)
+
+        output_path = PREDICTIONS_DIR / f"{date_str}.json"
+
+        # Incremental: skip generation if output exists and is newer than features file
+        try:
+            features_mtime = FEATURES_FILE.stat().st_mtime
+        except Exception:
+            features_mtime = 0
+        if output_path.exists():
+            try:
+                out_mtime = output_path.stat().st_mtime
+            except Exception:
+                out_mtime = 0
+            if out_mtime >= features_mtime:
+                print(f"ℹ️ {date_str}: predicción ya existente y actualizada, se omite")
+                total_skipped += len(skipped)
+                continue
+
+        if not pregame_rows:
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump([], f, indent=2, ensure_ascii=False)
+            print(f"⚠️ {date_str}: sin features suficientes, se guardó archivo vacío")
+            total_skipped += len(skipped)
+            continue
+
+        df_day = pd.DataFrame(pregame_rows)
+        rows = build_output_rows(df_day, sched, line_movement_df)
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(rows, f, indent=2, ensure_ascii=False)
+
+        print(f"✅ {date_str}: predicciones MLB {len(rows)} juegos -> {output_path.name}")
+        total_rows += len(rows)
+        total_skipped += len(skipped)
+
+    print(f"📦 Total predicciones MLB generadas: {total_rows}")
+    if total_skipped:
+        print(f"⚠️ Juegos omitidos por falta de histórico: {total_skipped}")
+
+
+if __name__ == "__main__":
+    main()

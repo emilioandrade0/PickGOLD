@@ -146,6 +146,17 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   return null;
 }
 
+function resolveFirstHalfCard(event, sportKey, teams) {
+  const h1PickRaw = String(event?.h1_pick || "").trim();
+  if (isPendingPick(h1PickRaw)) return null;
+  return {
+    pick: expandTeamCodeInText(sportKey, resolveSidePick(h1PickRaw, teams)) || h1PickRaw,
+    confidence: event?.h1_confidence,
+    action: event?.h1_action || "N/A",
+    hit: toHitValue(event?.h1_hit),
+  };
+}
+
 function normalizeBetAction(actionValue) {
   const txt = String(actionValue || "").trim().toUpperCase();
   if (!txt) return "No apostar";
@@ -159,6 +170,83 @@ function normalizeTotalDirection(rawPick) {
   if (txt.includes("OVER")) return "Over";
   if (txt.includes("UNDER")) return "Under";
   return null;
+}
+
+function marketBorderClass(hit, base = "border-white/10") {
+  if (hit === true) return "border-emerald-400/70";
+  if (hit === false) return "border-rose-400/70";
+  return base;
+}
+
+function extractNumericFromText(value) {
+  const match = String(value ?? "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function parseFinalTotalPoints(event) {
+  const homeScore = Number(event?.home_score);
+  const awayScore = Number(event?.away_score);
+  if (Number.isFinite(homeScore) && Number.isFinite(awayScore) && (homeScore > 0 || awayScore > 0)) {
+    return homeScore + awayScore;
+  }
+
+  const text = String(event?.final_score_text || "");
+  const matches = [...text.matchAll(/(\d+)/g)].map((m) => Number(m[1]));
+  if (matches.length >= 2) {
+    return matches[matches.length - 2] + matches[matches.length - 1];
+  }
+  return null;
+}
+
+function resolveTotalHit(event, direction, totalLineValue) {
+  const storedHit = toHitValue(event.correct_total_adjusted ?? event.correct_total);
+  if (storedHit !== null) return storedHit;
+  if (!direction || !Number.isFinite(totalLineValue) || event.result_available !== true) return null;
+
+  const finalTotal = parseFinalTotalPoints(event);
+  if (!Number.isFinite(finalTotal)) return null;
+  if (direction === "Over") return finalTotal > totalLineValue;
+  if (direction === "Under") return finalTotal < totalLineValue;
+  return null;
+}
+
+function buildTotalPickDisplay(rawPick, direction, totalLineDisplay) {
+  if (direction && totalLineDisplay !== "Por definir") {
+    return `${direction} ${totalLineDisplay} puntos`;
+  }
+  if (direction) return direction;
+  if (totalLineDisplay !== "Por definir") {
+    return `Total ${totalLineDisplay} puntos`;
+  }
+  return rawPick || "N/A";
+}
+
+function formatLiveClock(event) {
+  const parts = [];
+  const shortState = String(event?.status_description || "").trim();
+  const detail = String(event?.status_detail || "").trim();
+  if (shortState) parts.push(shortState);
+  if (detail && detail !== shortState) parts.push(detail);
+  return parts.join(" · ") || "En vivo";
+}
+
+function CompactScoreRow({ sportKey, abbr, score }) {
+  const logoUrl = getTeamLogoUrl(sportKey, abbr);
+  const fullName = getTeamDisplayName(sportKey, abbr);
+
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2">
+      <div className="flex items-center gap-3">
+        <img
+          src={logoUrl || "/logos/default-team.svg"}
+          alt={`Logo ${fullName}`}
+          className="h-8 w-8 rounded-full bg-white/95 p-1 object-contain"
+        />
+        <span className="text-sm font-semibold text-white">{fullName}</span>
+      </div>
+      <span className="text-2xl font-bold text-rose-100">{score}</span>
+    </div>
+  );
 }
 
 function TeamRow({ sportKey, abbr }) {
@@ -200,6 +288,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
     (event.away_score !== undefined && event.away_score !== null);
   const gameHit = event.full_game_hit;
   const secondaryMarket = resolveSecondaryMarket(event, sportKey, teams);
+  const firstHalfCard = resolveFirstHalfCard(event, sportKey, teams);
   const secondaryPick = secondaryMarket?.pick;
   const secondaryAction = secondaryMarket?.action;
   const fullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
@@ -225,17 +314,12 @@ export default function EventCard({ event, onOpen, sportKey }) {
     ? spreadPickFromEvent
     : ((spreadLineDisplay !== "Por definir" || hasMlSpreadMarket) ? fullGamePick : null);
   const spreadHit = toHitValue(event.correct_spread);
-  const totalHit = toHitValue(event.correct_total_adjusted ?? event.correct_total);
   const totalPickRaw = event.total_recommended_pick || event.total_pick;
   const totalDirection = normalizeTotalDirection(totalPickRaw);
-  const totalPickDisplay = totalDirection && totalLineDisplay !== "Por definir"
-    ? `${totalDirection} de ${totalLineDisplay}`
-    : (isPendingPick(totalPickRaw) && totalLineDisplay !== "Por definir"
-      ? `Over/Under de ${totalLineDisplay}`
-      : (totalPickRaw || "N/A"));
-  const spreadPredictionLabel = hasResult
-    ? (spreadHit === true ? "Si cubrio" : spreadHit === false ? "No cubrio" : (spreadPick || fullGamePick || "N/A"))
-    : (spreadPick || fullGamePick || "N/A");
+  const totalLineValue = extractNumericFromText(totalLineDisplay);
+  const totalHit = resolveTotalHit(event, totalDirection, totalLineValue);
+  const totalPickDisplay = buildTotalPickDisplay(totalPickRaw, totalDirection, totalLineDisplay);
+  const spreadPredictionLabel = spreadPick || fullGamePick || "N/A";
   const q1BetActionLabel = normalizeBetAction(secondaryAction);
   const cornersPick = event.corners_pick;
   const cornersConfidence = event.corners_confidence;
@@ -259,23 +343,47 @@ export default function EventCard({ event, onOpen, sportKey }) {
       : cornersHit === false
         ? "border-rose-400/70"
         : "border-cyan-400/40";
+  const spreadResultBorderClass = marketBorderClass(spreadHit);
+  const totalResultBorderClass = marketBorderClass(totalHit);
+  const cardBorderClass = isLive ? "border-rose-400/70 shadow-[0_0_30px_rgba(251,113,133,0.12)]" : "border-white/15";
+  const cardHoverClass = isLive ? "hover:border-rose-300/80" : "hover:border-amber-300/70";
+  const liveClock = formatLiveClock(event);
 
   return (
     <button
       onClick={() => onOpen(event)}
-      className="rounded-3xl border border-white/15 bg-[#171a21] p-0 text-left transition hover:-translate-y-0.5 hover:border-amber-300/70 hover:shadow-2xl hover:shadow-black/35"
+      className={`rounded-3xl border bg-[#171a21] p-0 text-left transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/35 ${cardBorderClass} ${cardHoverClass} ${isLive ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
     >
-      <div className="rounded-t-3xl border-b border-white/10 bg-black/35 px-4 py-2 text-sm text-white/85">
-        {event.date.split("-").reverse().join("/")} {event.time || ""}
+      <div className={`rounded-t-3xl border-b px-4 py-2 text-sm text-white/85 ${isLive ? "border-rose-400/30 bg-rose-500/10" : "border-white/10 bg-black/35"}`}>
+        <div className="flex items-center justify-between gap-3">
+          <span>{event.date.split("-").reverse().join("/")} {event.time || ""}</span>
+          {isLive && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-rose-400/50 bg-rose-500/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.9)]" />
+              Live
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="space-y-5 px-4 py-4">
-        <div className="min-h-[92px] text-xl leading-tight">
-          <TeamRow sportKey={sportKey} abbr={teams.awayTeam} />
-          <div className="mt-4">
-            <TeamRow sportKey={sportKey} abbr={teams.homeTeam} />
+        {isLive && hasLiveScore ? (
+          <div className="space-y-2 rounded-2xl border border-rose-400/30 bg-gradient-to-br from-rose-500/10 via-white/[0.03] to-transparent p-3 shadow-[0_0_24px_rgba(251,113,133,0.12)]">
+            <div className="flex items-center justify-between text-[11px] text-rose-200/85">
+              <span className="uppercase tracking-[0.18em]">Marcador en vivo</span>
+              <span className="normal-case text-white/70">{liveClock}</span>
+            </div>
+            <CompactScoreRow sportKey={sportKey} abbr={teams.awayTeam} score={event.away_score} />
+            <CompactScoreRow sportKey={sportKey} abbr={teams.homeTeam} score={event.home_score} />
           </div>
-        </div>
+        ) : (
+          <div className="min-h-[92px] text-xl leading-tight">
+            <TeamRow sportKey={sportKey} abbr={teams.awayTeam} />
+            <div className="mt-4">
+              <TeamRow sportKey={sportKey} abbr={teams.homeTeam} />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -290,8 +398,8 @@ export default function EventCard({ event, onOpen, sportKey }) {
         </div>
 
         <div className="grid gap-2 text-xs sm:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/80">
-            <p className="text-white/60">Spread</p>
+          <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${spreadResultBorderClass}`}>
+            <p className="text-white/60">Handicap</p>
             <p className="mt-1">Pick: {spreadPredictionLabel}</p>
             <p className="mt-1">Linea: {spreadLineDisplay}</p>
             <p className="mt-1">Cuota: {spreadOddsDisplay}</p>
@@ -301,8 +409,8 @@ export default function EventCard({ event, onOpen, sportKey }) {
               </p>
             )}
           </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white/80">
-            <p className="text-white/60">Total</p>
+          <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${totalResultBorderClass}`}>
+            <p className="text-white/60">Over/Under</p>
             <p className="mt-1">Pick: {totalPickDisplay}</p>
             <p className="mt-1">Linea: {totalLineDisplay}</p>
             <p className="mt-1">Cuota: {totalOddsDisplay}</p>
@@ -313,13 +421,6 @@ export default function EventCard({ event, onOpen, sportKey }) {
             )}
           </div>
         </div>
-
-        {isLive && hasLiveScore && (
-          <div className="rounded-xl border border-sky-400/60 bg-sky-500/10 px-3 py-2 text-xs">
-            <p className="text-sky-200">En vivo: {awayName} {event.away_score} - {homeName} {event.home_score}</p>
-            <p className="mt-1 font-semibold text-sky-100">{event.status_description || "In Progress"}</p>
-          </div>
-        )}
 
         {secondaryPick && (
           <div className={`rounded-xl border bg-black/15 px-3 py-2 ${secondaryResultBorderClass}`}>
@@ -334,6 +435,22 @@ export default function EventCard({ event, onOpen, sportKey }) {
             {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
               <p className="mt-1 text-xs font-semibold text-white/85">
                 Resultado: {secondaryHit === true ? "ACIERTO" : "FALLO"}
+              </p>
+            )}
+          </div>
+        )}
+
+        {firstHalfCard && (
+          <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(firstHalfCard.hit)}`}>
+            <p className="text-xs text-white/60">Primera Mitad</p>
+            <p className="mt-1 text-sm font-semibold text-white">{firstHalfCard.pick}</p>
+            {firstHalfCard.confidence !== undefined && firstHalfCard.confidence !== null && (
+              <p className="mt-1 text-xs text-white/70">Confianza: {firstHalfCard.confidence}%</p>
+            )}
+            <p className="mt-1 text-xs text-white/70">Accion: {firstHalfCard.action}</p>
+            {hasResult && firstHalfCard.hit !== undefined && firstHalfCard.hit !== null && (
+              <p className="mt-1 text-xs font-semibold text-white/85">
+                Resultado: {firstHalfCard.hit === true ? "ACIERTO" : "FALLO"}
               </p>
             )}
           </div>

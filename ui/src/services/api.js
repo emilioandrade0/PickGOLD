@@ -54,6 +54,21 @@ async function fetchWithFallback(path, options = undefined) {
   return fetch(`${API_FALLBACK_BASE}${path}`, options);
 }
 
+async function fetchJsonPost(path, body = {}) {
+  const res = await fetchWithFallback(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error("No se pudo iniciar la actualizacion.");
+  }
+  return await res.json();
+}
+
 function normalizeEventsPayload(payload) {
   if (Array.isArray(payload)) return payload;
   if (payload && Array.isArray(payload.games)) return payload.games;
@@ -130,6 +145,19 @@ export async function fetchAvailableDates(sport) {
     throw new Error("No se pudieron cargar las fechas disponibles.");
   }
   return await res.json();
+}
+
+export async function startSportUpdateAll(sport) {
+  return await fetchJsonPost(`/${sport}/update-all`);
+}
+
+export async function fetchSportUpdateStatus(sport) {
+  return await fetchJsonWithRetry(`/${sport}/update-status`, {
+    timeoutMs: 30000,
+    retries: 1,
+    retryDelayMs: 1500,
+    errorMessage: `No se pudo consultar el progreso de actualizacion ${String(sport || "").toUpperCase()}.`,
+  });
 }
 
 export async function fetchInsightsSummary() {

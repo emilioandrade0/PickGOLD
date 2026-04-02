@@ -1,0 +1,351 @@
+import json
+from pathlib import Path
+
+import pandas as pd
+
+
+def _first_existing(paths):
+    for p in paths:
+        pp = Path(p)
+        if pp.exists():
+            return pp
+    return None
+
+
+SPORT_CONFIG = {
+    "euroleague": {
+        "label": "EuroLeague",
+        "raw_candidates": [
+            "src/data/euroleague/raw/euroleague_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/euroleague/historical_predictions",
+            "src/data/euroleague/predictions",
+        ],
+    },
+    "kbo": {
+        "label": "KBO",
+        "raw_candidates": [
+            "src/data/kbo/raw/kbo_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/kbo/historical_predictions",
+            "src/data/kbo/predictions",
+        ],
+    },
+    "laliga": {
+        "label": "LaLiga",
+        "raw_candidates": [
+            "src/data/laliga/raw/laliga_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/laliga/historical_predictions",
+            "src/data/laliga/predictions",
+        ],
+    },
+    "ligamx": {
+        "label": "Liga MX",
+        "raw_candidates": [
+            "src/data/liga_mx/raw/liga_mx_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/liga_mx/historical_predictions",
+            "src/data/liga_mx/predictions",
+        ],
+    },
+    "mlb": {
+        "label": "MLB",
+        "raw_candidates": [
+            "src/data/mlb/raw/mlb_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/mlb/historical_predictions",
+            "src/data/mlb/predictions",
+        ],
+    },
+    "nba": {
+        "label": "NBA",
+        "raw_candidates": [
+            "src/data/raw/nba_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/historical_predictions",
+            "src/data/predictions",
+        ],
+    },
+    "ncaa_baseball": {
+        "label": "NCAA Baseball",
+        "raw_candidates": [
+            "src/data/ncaa_baseball/raw/ncaa_baseball_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/ncaa_baseball/historical_predictions",
+            "src/data/ncaa_baseball/predictions",
+        ],
+    },
+    "nhl": {
+        "label": "NHL",
+        "raw_candidates": [
+            "src/data/nhl/raw/nhl_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/nhl/historical_predictions",
+            "src/data/nhl/predictions",
+        ],
+    },
+}
+
+
+def _resolve_paths(base_dir: Path, sport_key: str):
+    cfg = SPORT_CONFIG[sport_key]
+    raw = _first_existing([base_dir / p for p in cfg["raw_candidates"]])
+    pred_dir = _first_existing([base_dir / p for p in cfg["pred_dir_candidates"]])
+    return raw, pred_dir
+
+
+def _safe_pct(value):
+    try:
+        return float(value) * 100.0
+    except Exception:
+        return 0.0
+
+
+def _format_ratio_from_pct(pct_value: float, total: int):
+    if total <= 0:
+        return "0/0"
+    hits = int(round((pct_value / 100.0) * total))
+    return f"{hits}/{total}"
+
+
+def _evaluate_mlb_from_walkforward(base_dir: Path):
+    summary_path = base_dir / "src" / "data" / "mlb" / "walkforward" / "walkforward_summary_mlb.json"
+    if not summary_path.exists():
+        return False
+
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+
+    full_game = summary.get("full_game") or {}
+    yrfi = summary.get("yrfi") or {}
+    f5 = summary.get("f5") or {}
+    totals = summary.get("totals") or {}
+    run_line = summary.get("run_line") or {}
+    if not full_game:
+        return False
+
+    total_rows = int(full_game.get("rows", 0) or 0)
+    full_acc = _safe_pct(full_game.get("accuracy", 0.0))
+    full_pub_acc = _safe_pct(full_game.get("published_accuracy", 0.0))
+    full_pub_cov = _safe_pct(full_game.get("published_coverage", 0.0))
+    yrfi_acc = _safe_pct(yrfi.get("accuracy", 0.0))
+    yrfi_pub_acc = _safe_pct(yrfi.get("published_accuracy", 0.0))
+    yrfi_pub_cov = _safe_pct(yrfi.get("published_coverage", 0.0))
+    f5_acc = _safe_pct(f5.get("accuracy", 0.0))
+    f5_pub_acc = _safe_pct(f5.get("published_accuracy", 0.0))
+    f5_pub_cov = _safe_pct(f5.get("published_coverage", 0.0))
+    totals_acc = _safe_pct(totals.get("accuracy", 0.0))
+    totals_pub_acc = _safe_pct(totals.get("published_accuracy", 0.0))
+    totals_pub_cov = _safe_pct(totals.get("published_coverage", 0.0))
+    run_line_acc = _safe_pct(run_line.get("accuracy", 0.0))
+    run_line_pub_acc = _safe_pct(run_line.get("published_accuracy", 0.0))
+    run_line_pub_cov = _safe_pct(run_line.get("published_coverage", 0.0))
+
+    print("=" * 54)
+    print(f"REPORTE ACCURACY BASE - MLB (WALK-FORWARD, MUESTRA: {total_rows} JUEGOS)")
+    print("=" * 54)
+    print(f"FULL GAME Global    : {full_acc:.2f}% ({_format_ratio_from_pct(full_acc, total_rows)})")
+    print(f"FULL GAME Publicado : {full_pub_acc:.2f}% | Cobertura {full_pub_cov:.2f}%")
+    print(f"YRFI Global         : {yrfi_acc:.2f}%")
+    print(f"YRFI Publicado      : {yrfi_pub_acc:.2f}% | Cobertura {yrfi_pub_cov:.2f}%")
+    print(f"F5 Global           : {f5_acc:.2f}%")
+    print(f"F5 Publicado        : {f5_pub_acc:.2f}% | Cobertura {f5_pub_cov:.2f}%")
+    if totals:
+        print(f"TOTALS Global       : {totals_acc:.2f}%")
+        print(f"TOTALS Publicado    : {totals_pub_acc:.2f}% | Cobertura {totals_pub_cov:.2f}%")
+    if run_line:
+        print(f"RUN LINE Global     : {run_line_acc:.2f}%")
+        print(f"RUN LINE Publicado  : {run_line_pub_acc:.2f}% | Cobertura {run_line_pub_cov:.2f}%")
+    print("-" * 54)
+    print("BUCKETS PUBLICADOS (FULL GAME)")
+    for bucket_name, bucket in (full_game.get("published_confidence_buckets") or {}).items():
+        published_rows = int(bucket.get("published_rows", 0) or 0)
+        if published_rows <= 0:
+            continue
+        bucket_acc = _safe_pct(bucket.get("published_accuracy", 0.0))
+        print(f"   {bucket_name.ljust(8)} : {bucket_acc:.2f}% ({_format_ratio_from_pct(bucket_acc, published_rows)})")
+    print("=" * 54)
+    print(f"Fuente: {summary_path}")
+    return True
+
+
+def _parse_actual_row(row: pd.Series):
+    home_team = str(row.get("home_team", ""))
+    away_team = str(row.get("away_team", ""))
+
+    winner = None
+    score_pairs = [
+        ("home_pts_total", "away_pts_total"),
+        ("home_runs_total", "away_runs_total"),
+        ("home_score", "away_score"),
+    ]
+    for h_col, a_col in score_pairs:
+        if h_col in row and a_col in row and pd.notna(row[h_col]) and pd.notna(row[a_col]):
+            h_val = float(row[h_col])
+            a_val = float(row[a_col])
+            if h_val > a_val:
+                winner = home_team
+            elif a_val > h_val:
+                winner = away_team
+            else:
+                winner = "DRAW"
+            break
+
+    q1_type = None
+    q1_value = None
+
+    if "home_q1" in row and "away_q1" in row and pd.notna(row["home_q1"]) and pd.notna(row["away_q1"]):
+        q1_type = "team"
+        hq = float(row["home_q1"])
+        aq = float(row["away_q1"])
+        if hq > aq:
+            q1_value = home_team
+        elif aq > hq:
+            q1_value = away_team
+        else:
+            q1_value = "TIE"
+    elif "home_r1" in row and "away_r1" in row and pd.notna(row["home_r1"]) and pd.notna(row["away_r1"]):
+        q1_type = "yrfi"
+        q1_value = "YRFI" if (float(row["home_r1"]) + float(row["away_r1"])) > 0 else "NRFI"
+    elif "home_p1_goals" in row and "away_p1_goals" in row and pd.notna(row["home_p1_goals"]) and pd.notna(row["away_p1_goals"]):
+        q1_type = "ou15"
+        q1_value = "OVER" if (float(row["home_p1_goals"]) + float(row["away_p1_goals"])) > 1.5 else "UNDER"
+
+    return {"winner": winner, "q1_type": q1_type, "q1_value": q1_value}
+
+
+def _is_q1_hit(pred_q1, q1_type, q1_value):
+    if pred_q1 is None or q1_type is None or q1_value is None:
+        return None
+
+    pred_str = str(pred_q1).strip().upper()
+    if q1_type == "team":
+        if q1_value == "TIE":
+            return None
+        return pred_str == str(q1_value).strip().upper()
+    if q1_type == "yrfi":
+        if "YRFI" in pred_str:
+            return q1_value == "YRFI"
+        if "NRFI" in pred_str:
+            return q1_value == "NRFI"
+        return None
+    if q1_type == "ou15":
+        if "OVER" in pred_str:
+            return q1_value == "OVER"
+        if "UNDER" in pred_str:
+            return q1_value == "UNDER"
+        return None
+    return None
+
+
+def evaluate_for_sport(sport_key: str):
+    if sport_key not in SPORT_CONFIG:
+        print(f"ERROR: sport_key no soportado: {sport_key}")
+        return
+
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    label = SPORT_CONFIG[sport_key]["label"]
+
+    # MLB usa walk-forward como referencia seria; los JSON historicos legacy pueden inflar el baseline.
+    if sport_key == "mlb" and _evaluate_mlb_from_walkforward(base_dir):
+        return
+
+    raw_path, pred_dir = _resolve_paths(base_dir, sport_key)
+
+    print(f"Calculando accuracy base para {label}...")
+    if raw_path is None or not raw_path.exists():
+        print(f"ERROR: No encontre RAW para {label}.")
+        return
+    if pred_dir is None or not pred_dir.exists():
+        print(f"ERROR: No encontre carpeta de predicciones para {label}.")
+        return
+
+    json_files = sorted(pred_dir.glob("*.json"))
+    if not json_files:
+        print(f"ERROR: No hay JSONs en {pred_dir}.")
+        return
+
+    df_raw = pd.read_csv(raw_path, dtype={"game_id": str})
+    if "game_id" not in df_raw.columns:
+        print("ERROR: El RAW no tiene game_id.")
+        return
+
+    actual = {}
+    for _, row in df_raw.iterrows():
+        gid = str(row.get("game_id"))
+        parsed = _parse_actual_row(row)
+        actual[gid] = parsed
+
+    total_full = 0
+    hit_full = 0
+    total_q1 = 0
+    hit_q1 = 0
+    tiers = {}
+
+    for jf in json_files:
+        try:
+            picks = json.loads(jf.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(picks, list):
+            continue
+
+        for p in picks:
+            gid = str(p.get("game_id"))
+            if gid not in actual:
+                continue
+
+            pred_full = p.get("full_game_pick", p.get("moneyline_pick"))
+            pred_q1 = p.get("q1_pick")
+            pred_tier = str(p.get("full_game_tier", p.get("tier", "PASS"))).upper()
+
+            a = actual[gid]
+            real_winner = a["winner"]
+            if real_winner is not None and pred_full is not None:
+                total_full += 1
+                if pred_tier not in tiers:
+                    tiers[pred_tier] = [0, 0]
+                tiers[pred_tier][1] += 1
+
+                if str(pred_full).strip().upper() == str(real_winner).strip().upper():
+                    hit_full += 1
+                    tiers[pred_tier][0] += 1
+
+            q1_hit = _is_q1_hit(pred_q1, a["q1_type"], a["q1_value"])
+            if q1_hit is not None:
+                total_q1 += 1
+                hit_q1 += int(q1_hit)
+
+    if total_full == 0:
+        print("No hay cruces evaluables entre picks y resultados.")
+        return
+
+    acc_full = 100.0 * hit_full / total_full
+    acc_q1 = (100.0 * hit_q1 / total_q1) if total_q1 > 0 else None
+
+    print("=" * 54)
+    print(f"REPORTE ACCURACY BASE - {label} (MUESTRA: {total_full} JUEGOS)")
+    print("=" * 54)
+    print(f"FULL GAME Global : {acc_full:.2f}% ({hit_full}/{total_full})")
+    if acc_q1 is None:
+        print("Q1 Global        : N/A (sin mercado comparable)")
+    else:
+        print(f"Q1 Global        : {acc_q1:.2f}% ({hit_q1}/{total_q1})")
+    print("-" * 54)
+    print("ACCURACY POR TIER (FULL GAME)")
+    for tier_name in sorted(tiers.keys()):
+        h, t = tiers[tier_name]
+        tier_acc = (100.0 * h / t) if t > 0 else 0.0
+        print(f"   {tier_name.ljust(8)} : {tier_acc:.2f}% ({h}/{t})")
+    print("=" * 54)

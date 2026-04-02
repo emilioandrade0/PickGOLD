@@ -2,8 +2,10 @@ from pathlib import Path
 import json
 import math
 import os
+import subprocess
+import sys
+import threading
 from datetime import date, datetime, timedelta
-from datetime import timedelta
 import re
 import uuid
 import hashlib
@@ -108,6 +110,111 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+DEFAULT_THE_ODDS_API_KEY = os.getenv("THE_ODDS_API_KEY", "2c7887cad91583f20215b7d590c617e4").strip()
+
+SPORT_UPDATE_PIPELINES = {
+    "nba": {
+        "label": "NBA",
+        "steps": [
+            {
+                "key": "ingest",
+                "label": "Ingesta NBA",
+                "script": BASE_DIR / "sports" / "nba" / "data_ingest.py",
+            },
+            {
+                "key": "features",
+                "label": "Features NBA",
+                "script": BASE_DIR / "sports" / "nba" / "feature_engineering.py",
+            },
+            {
+                "key": "train",
+                "label": "Entrenamiento NBA",
+                "script": BASE_DIR / "sports" / "nba" / "train_models.py",
+            },
+            {
+                "key": "historical",
+                "label": "Historicas NBA",
+                "script": BASE_DIR / "sports" / "nba" / "historical_predictions.py",
+            },
+            {
+                "key": "today",
+                "label": "Predicciones de hoy NBA",
+                "script": BASE_DIR / "sports" / "nba" / "predict_today.py",
+            },
+        ],
+        "env": {},
+    },
+    "mlb": {
+        "label": "MLB",
+        "steps": [
+            {
+                "key": "ingest",
+                "label": "Ingesta MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "data_ingest_mlb.py",
+            },
+            {
+                "key": "lineup_strength",
+                "label": "Lineup strength MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "ingest_lineup_strength.py",
+            },
+            {
+                "key": "line_movement",
+                "label": "Line movement MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "ingest_line_movement.py",
+            },
+            {
+                "key": "umpire_stats",
+                "label": "Umpire stats MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "ingest_umpire_stats.py",
+            },
+            {
+                "key": "features",
+                "label": "Features MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "feature_engineering_mlb_core.py",
+            },
+            {
+                "key": "train",
+                "label": "Entrenamiento MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "train_models_mlb.py",
+            },
+            {
+                "key": "historical",
+                "label": "Walk-forward MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "historical_predictions_mlb_walkforward.py",
+            },
+            {
+                "key": "today",
+                "label": "Predicciones de hoy MLB",
+                "script": BASE_DIR / "sports" / "mlb" / "predict_today_mlb.py",
+            },
+        ],
+        "env": {
+            "THE_ODDS_API_KEY": DEFAULT_THE_ODDS_API_KEY,
+        },
+    },
+}
+
+
+def _initial_update_state(sport: str):
+    pipeline = SPORT_UPDATE_PIPELINES[sport]
+    return {
+        "status": "idle",
+        "percent": 0,
+        "message": f"Listo para actualizar {pipeline['label']}.",
+        "current_step": None,
+        "current_step_label": None,
+        "completed_steps": 0,
+        "total_steps": len(pipeline["steps"]),
+        "started_at": None,
+        "finished_at": None,
+        "error": None,
+        "logs": [],
+    }
+
+
+SPORT_UPDATE_STATES = {sport: _initial_update_state(sport) for sport in SPORT_UPDATE_PIPELINES}
+SPORT_UPDATE_LOCKS = {sport: threading.Lock() for sport in SPORT_UPDATE_PIPELINES}
 
 
 @app.get("/health")
@@ -260,6 +367,130 @@ def ensure_sport_exists(sport: str):
     return SPORTS_CONFIG[sport]
 
 
+def _copy_update_state(sport: str):
+    state = SPORT_UPDATE_STATES[sport]
+    lock = SPORT_UPDATE_LOCKS[sport]
+    with lock:
+        return dict(state)
+
+
+def _append_update_log(sport: str, line: str):
+    if not line:
+        return
+    state = SPORT_UPDATE_STATES[sport]
+    lock = SPORT_UPDATE_LOCKS[sport]
+    with lock:
+        logs = list(state.get("logs", []))
+        logs.append(str(line))
+        state["logs"] = logs[-8:]
+
+
+def _set_update_state(sport: str, **updates):
+    state = SPORT_UPDATE_STATES[sport]
+    lock = SPORT_UPDATE_LOCKS[sport]
+    with lock:
+        state.update(updates)
+
+
+def _run_update_pipeline(sport: str):
+    pipeline = SPORT_UPDATE_PIPELINES[sport]
+    total_steps = len(pipeline["steps"])
+    sport_label = pipeline["label"]
+
+    _set_update_state(
+        sport,
+        status="running",
+        percent=0,
+        message=f"Preparando actualizacion {sport_label}...",
+        current_step=None,
+        current_step_label=None,
+        completed_steps=0,
+        total_steps=total_steps,
+        started_at=datetime.now().isoformat(timespec="seconds"),
+        finished_at=None,
+        error=None,
+        logs=[],
+    )
+
+    try:
+        process_env = os.environ.copy()
+        process_env["PYTHONIOENCODING"] = "utf-8"
+        process_env["PYTHONUTF8"] = "1"
+        for env_key, env_value in pipeline.get("env", {}).items():
+            if env_value:
+                process_env[env_key] = str(env_value)
+
+        for idx, step in enumerate(pipeline["steps"], start=1):
+            start_percent = int(round(((idx - 1) / total_steps) * 100))
+            end_percent = int(round((idx / total_steps) * 100))
+            _set_update_state(
+                sport,
+                current_step=step["key"],
+                current_step_label=step["label"],
+                percent=start_percent,
+                message=f"Ejecutando {step['label']}...",
+            )
+            _append_update_log(sport, f"[RUN] {step['label']}")
+
+            result = subprocess.run(
+                [sys.executable, "-X", "utf8", str(step["script"])],
+                cwd=str(BASE_DIR),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=process_env,
+            )
+
+            stdout_lines = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+            stderr_lines = [line.strip() for line in (result.stderr or "").splitlines() if line.strip()]
+            for line in stdout_lines[-3:]:
+                _append_update_log(sport, line)
+            for line in stderr_lines[-2:]:
+                _append_update_log(sport, f"[stderr] {line}")
+
+            if result.returncode != 0:
+                error_line = stderr_lines[-1] if stderr_lines else (stdout_lines[-1] if stdout_lines else "Error desconocido.")
+                _set_update_state(
+                    sport,
+                    status="failed",
+                    percent=start_percent,
+                    message=f"Fallo en {step['label']}.",
+                    current_step=step["key"],
+                    current_step_label=step["label"],
+                    completed_steps=idx - 1,
+                    finished_at=datetime.now().isoformat(timespec="seconds"),
+                    error=error_line,
+                )
+                return
+
+            _set_update_state(
+                sport,
+                percent=end_percent,
+                completed_steps=idx,
+                message=f"{step['label']} completado.",
+            )
+
+        _set_update_state(
+            sport,
+            status="completed",
+            percent=100,
+            message=f"Actualizacion {sport_label} completada.",
+            current_step=None,
+            current_step_label=None,
+            finished_at=datetime.now().isoformat(timespec="seconds"),
+            error=None,
+        )
+    except Exception as exc:
+        _set_update_state(
+            sport,
+            status="failed",
+            message=f"La actualizacion {sport_label} se detuvo por un error inesperado.",
+            finished_at=datetime.now().isoformat(timespec="seconds"),
+            error=str(exc),
+        )
+
+
 def parse_date_str(date_str: str) -> date:
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -271,7 +502,6 @@ def parse_date_str(date_str: str) -> date:
 
 
 def _kbo_source_date_from_local(date_str: str) -> str:
-    # KBO source data is effectively one day ahead vs local display timezone.
     d = parse_date_str(date_str)
     return (d + timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -395,7 +625,7 @@ def build_results_lookup_for_sport(sport: str):
         file_path = NBA_RAW_HISTORY
         use_cols = [
             "game_id", "date", "home_team", "away_team",
-            "home_pts_total", "away_pts_total", "home_q1", "away_q1",
+            "home_pts_total", "away_pts_total", "home_q1", "away_q1", "home_q2", "away_q2", "home_q3", "away_q3", "home_q4", "away_q4",
         ]
     elif sport == "mlb":
         file_path = MLB_RAW_HISTORY
@@ -458,7 +688,6 @@ def build_results_lookup_for_sport(sport: str):
     for _, row in df.iterrows():
         try:
             has_explicit_status = False
-            # Skip games that are not completed/final in raw history to avoid false result matches.
             if "status_completed" in row and not pd.isna(row.get("status_completed")):
                 has_explicit_status = True
                 try:
@@ -483,16 +712,31 @@ def build_results_lookup_for_sport(sport: str):
             game_id = str(row["game_id"])
             home_team = str(row["home_team"])
             away_team = str(row["away_team"])
+
             if sport in {"nba", "euroleague"}:
                 home_score = int(row["home_pts_total"])
                 away_score = int(row["away_pts_total"])
                 home_q1_score = int(row["home_q1"])
                 away_q1_score = int(row["away_q1"])
+                home_q2_score = int(row["home_q2"]) if "home_q2" in row and not pd.isna(row["home_q2"]) else None
+                away_q2_score = int(row["away_q2"]) if "away_q2" in row and not pd.isna(row["away_q2"]) else None
+                home_q3_score = int(row["home_q3"]) if "home_q3" in row and not pd.isna(row["home_q3"]) else None
+                away_q3_score = int(row["away_q3"]) if "away_q3" in row and not pd.isna(row["away_q3"]) else None
+                home_q4_score = int(row["home_q4"]) if "home_q4" in row and not pd.isna(row["home_q4"]) else None
+                away_q4_score = int(row["away_q4"]) if "away_q4" in row and not pd.isna(row["away_q4"]) else None
+                home_f5_score = None
+                away_f5_score = None
             elif sport in {"mlb", "kbo", "ncaa_baseball"}:
                 home_score = int(row["home_runs_total"])
                 away_score = int(row["away_runs_total"])
                 home_q1_score = int(row["home_r1"])
                 away_q1_score = int(row["away_r1"])
+                home_q2_score = None
+                away_q2_score = None
+                home_q3_score = None
+                away_q3_score = None
+                home_q4_score = None
+                away_q4_score = None
                 home_f5_score = int(row["home_runs_f5"])
                 away_f5_score = int(row["away_runs_f5"])
             else:
@@ -500,10 +744,15 @@ def build_results_lookup_for_sport(sport: str):
                 away_score = int(row["away_score"])
                 home_q1_score = None
                 away_q1_score = None
+                home_q2_score = None
+                away_q2_score = None
+                home_q3_score = None
+                away_q3_score = None
+                home_q4_score = None
+                away_q4_score = None
                 home_f5_score = None
                 away_f5_score = None
 
-            # Defensive guard: unresolved fixtures often appear as 0-0 in some raw feeds.
             if (not has_explicit_status) and home_score == 0 and away_score == 0:
                 continue
 
@@ -539,6 +788,12 @@ def build_results_lookup_for_sport(sport: str):
                 "away_score": away_score,
                 "home_q1_score": home_q1_score,
                 "away_q1_score": away_q1_score,
+                "home_q2_score": home_q2_score,
+                "away_q2_score": away_q2_score,
+                "home_q3_score": home_q3_score,
+                "away_q3_score": away_q3_score,
+                "home_q4_score": home_q4_score,
+                "away_q4_score": away_q4_score,
                 "home_f5_score": home_f5_score,
                 "away_f5_score": away_f5_score,
                 "home_corners": home_corners,
@@ -561,6 +816,12 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         try:
             datetime.strptime(first, "%Y-%m-%d")
             return first
+        except Exception:
+            return None
+
+    def _to_int_or_none(value):
+        try:
+            return int(value)
         except Exception:
             return None
 
@@ -606,8 +867,22 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     "status_completed": 1 if bool(stype.get("completed")) else 0,
                     "home_score": int(float(home.get("score", 0) or 0)),
                     "away_score": int(float(away.get("score", 0) or 0)),
-                    "home_q1_score": _to_int_or_none((home.get("linescores") or [{}])[0].get("value")) if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 0 else None,
-                    "away_q1_score": _to_int_or_none((away.get("linescores") or [{}])[0].get("value")) if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 0 else None,
+                    "home_q1_score": _to_int_or_none((home.get("linescores") or [{}])[0].get("value"))
+                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 0 else None,
+                    "away_q1_score": _to_int_or_none((away.get("linescores") or [{}])[0].get("value"))
+                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 0 else None,
+                    "home_q2_score": _to_int_or_none((home.get("linescores") or [{}, {}])[1].get("value"))
+                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 1 else None,
+                    "away_q2_score": _to_int_or_none((away.get("linescores") or [{}, {}])[1].get("value"))
+                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 1 else None,
+                    "home_q3_score": _to_int_or_none((home.get("linescores") or [{}, {}, {}])[2].get("value"))
+                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 2 else None,
+                    "away_q3_score": _to_int_or_none((away.get("linescores") or [{}, {}, {}])[2].get("value"))
+                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 2 else None,
+                    "home_q4_score": _to_int_or_none((home.get("linescores") or [{}, {}, {}, {}])[3].get("value"))
+                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 3 else None,
+                    "away_q4_score": _to_int_or_none((away.get("linescores") or [{}, {}, {}, {}])[3].get("value"))
+                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 3 else None,
                 }
             except Exception:
                 continue
@@ -626,9 +901,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             season_code = m.group(1)
             gamecode = m.group(2)
             try:
-                header_url = (
-                    f"https://live.euroleague.net/api/Header?gamecode={gamecode}&seasoncode={season_code}"
-                )
+                header_url = f"https://live.euroleague.net/api/Header?gamecode={gamecode}&seasoncode={season_code}"
                 header = requests.get(header_url, timeout=20).json() or {}
             except Exception:
                 continue
@@ -637,7 +910,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 home_score = int(float(header.get("ScoreA", 0) or 0))
                 away_score = int(float(header.get("ScoreB", 0) or 0))
                 game_date = str(header.get("Date") or "")
-                # Header date can come as dd/mm/yyyy.
                 if "/" in game_date:
                     day, month, year = game_date.split("/")
                     game_date = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
@@ -702,8 +974,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         return out
 
     def _fetch_live_lookup(target_sport: str, items: list[dict], target_date: str):
-        # Render runs in UTC; allow a one-day tolerance to avoid timezone drift
-        # where local "today" events can appear as yesterday/tomorrow on server date.
         try:
             target_dt = datetime.strptime(str(target_date), "%Y-%m-%d").date()
         except Exception:
@@ -741,7 +1011,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         if state in {"post", "final", "completed"}:
             return True
 
-        # Historical prediction files may not include explicit status markers.
         item_date = str(item.get("date", "") or "")[:10]
         if item_date:
             try:
@@ -750,12 +1019,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 return False
 
         return False
-
-    def _to_int_or_none(value):
-        try:
-            return int(value)
-        except Exception:
-            return None
 
     def _same_event_date(item_date, result_date) -> bool:
         item_str = str(item_date or "")[:10]
@@ -872,7 +1135,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         return None
 
     def _hydrate_precomputed_result_flags(item: dict) -> bool:
-        # Some historical files (notably NHL) already include hit flags but no final score payload.
         full_game_hit = _to_bool_or_none(item.get("full_game_hit"))
         if full_game_hit is None:
             full_game_hit = _to_bool_or_none(item.get("correct_full_game_adjusted"))
@@ -888,10 +1150,25 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         if total_hit is None:
             total_hit = _to_bool_or_none(item.get("correct_total"))
         q1_hit = _to_bool_or_none(item.get("q1_hit"))
+        h1_hit = _to_bool_or_none(item.get("h1_hit"))
 
-        has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit))
+        has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit, h1_hit))
         if not has_any_hit:
             return False
+
+        home_score = item.get("home_score")
+        away_score = item.get("away_score")
+        home_team = item.get("home_team")
+        away_team = item.get("away_team")
+
+        if (
+            item.get("final_score_text") in (None, "", "N/A")
+            and home_score is not None
+            and away_score is not None
+            and home_team
+            and away_team
+        ):
+            item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
 
         item["result_available"] = True
         item["status_state"] = "post"
@@ -899,9 +1176,24 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         item["status_completed"] = 1
         return True
 
-    def _apply_market_hit_flags(item: dict, home_team: str, away_team: str, home_score: int, away_score: int, home_q1_score, away_q1_score, home_f5_score=None, away_f5_score=None, total_corners=None):
+    def _apply_market_hit_flags(
+        item: dict,
+        home_team: str,
+        away_team: str,
+        home_score: int,
+        away_score: int,
+        home_q1_score,
+        away_q1_score,
+        home_q2_score=None,
+        away_q2_score=None,
+        home_f5_score=None,
+        away_f5_score=None,
+        total_corners=None,
+    ):
         full_game_winner = _winner_from_score(home_team, away_team, home_score, away_score)
         item["full_game_result_winner"] = full_game_winner
+        item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
+
         item["full_game_hit"] = evaluate_team_pick(
             pick=str(item.get("full_game_pick", "")),
             home_team=home_team,
@@ -926,6 +1218,18 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     away_team=away_team,
                     winner=q1_winner,
                 )
+                if home_q2_score is not None and away_q2_score is not None:
+                    h1_home = int(home_q1_score) + int(home_q2_score)
+                    h1_away = int(away_q1_score) + int(away_q2_score)
+                    h1_winner = _winner_from_score(home_team, away_team, h1_home, h1_away)
+                    item["h1_result_winner"] = h1_winner
+                    if _to_bool_or_none(item.get("h1_hit")) is None:
+                        item["h1_hit"] = evaluate_team_pick(
+                            pick=str(item.get("h1_pick", "")),
+                            home_team=home_team,
+                            away_team=away_team,
+                            winner=h1_winner,
+                        )
             elif sport == "nhl" and home_q1_score is not None and away_q1_score is not None:
                 q1_pick = str(item.get("q1_pick", "") or "").strip()
                 q1_line = item.get("q1_line", 1.5)
@@ -933,22 +1237,46 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 if q1_hit is not None:
                     item["q1_hit"] = q1_hit
 
-        if _to_bool_or_none(item.get("correct_spread")) is None:
+        if sport == "nhl":
             spread_pick = str(item.get("spread_pick") or "").strip()
-            if spread_pick and spread_pick.upper() not in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
-                item["correct_spread"] = _evaluate_team_like_pick(
-                    pick=spread_pick,
-                    home_team=home_team,
-                    away_team=away_team,
-                    winner=full_game_winner,
-                )
+            spread_pick_upper = spread_pick.upper()
+
+            if _to_bool_or_none(item.get("correct_spread")) is None:
+                if not spread_pick or spread_pick_upper in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
+                    item["correct_spread"] = None
+                elif "OVER" in spread_pick_upper or "UNDER" in spread_pick_upper:
+                    item["correct_spread"] = None
+                else:
+                    item["correct_spread"] = _evaluate_team_like_pick(
+                        pick=spread_pick,
+                        home_team=home_team,
+                        away_team=away_team,
+                        winner=full_game_winner,
+                    )
+        else:
+            if _to_bool_or_none(item.get("correct_spread")) is None:
+                spread_pick = str(item.get("spread_pick") or "").strip()
+                if spread_pick and spread_pick.upper() not in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
+                    item["correct_spread"] = _evaluate_team_like_pick(
+                        pick=spread_pick,
+                        home_team=home_team,
+                        away_team=away_team,
+                        winner=full_game_winner,
+                    )
 
         total_existing = _to_bool_or_none(item.get("correct_total_adjusted"))
         if total_existing is None:
             total_existing = _to_bool_or_none(item.get("correct_total"))
         if total_existing is None:
             total_pick = str(item.get("total_recommended_pick") or item.get("total_pick") or "").strip()
-            total_hit = _evaluate_total_pick(total_pick, home_score + away_score, item.get("odds_over_under"))
+
+            total_line = item.get("total_line")
+            if total_line in (None, "", "nan"):
+                total_line = item.get("odds_over_under")
+            if sport == "nhl" and total_line in (None, "", "nan", 0, 0.0):
+                total_line = 5.5
+
+            total_hit = _evaluate_total_pick(total_pick, home_score + away_score, total_line)
             if total_hit is not None:
                 item["correct_total"] = total_hit
 
@@ -1010,15 +1338,37 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             item["status_completed"] = int(live.get("status_completed", 0) or 0)
             item["home_score"] = live.get("home_score", item.get("home_score"))
             item["away_score"] = live.get("away_score", item.get("away_score"))
+            if live.get("home_q1_score") is not None:
+                item["home_q1_score"] = live.get("home_q1_score")
+            if live.get("away_q1_score") is not None:
+                item["away_q1_score"] = live.get("away_q1_score")
+            if live.get("home_q2_score") is not None:
+                item["home_q2_score"] = live.get("home_q2_score")
+            if live.get("away_q2_score") is not None:
+                item["away_q2_score"] = live.get("away_q2_score")
+            if live.get("home_q3_score") is not None:
+                item["home_q3_score"] = live.get("home_q3_score")
+            if live.get("away_q3_score") is not None:
+                item["away_q3_score"] = live.get("away_q3_score")
+            if live.get("home_q4_score") is not None:
+                item["home_q4_score"] = live.get("home_q4_score")
+            if live.get("away_q4_score") is not None:
+                item["away_q4_score"] = live.get("away_q4_score")
 
         result = lookup.get(game_id)
 
-        # Guard against accidental game_id collisions across different dates.
+        # If ESPN says the game is still pre/live, do not overwrite it with raw-history
+        # rows that may already contain partial scores for the same date.
+        if live:
+            live_state = str(live.get("status_state") or "").strip().lower()
+            live_completed = int(live.get("status_completed", 0) or 0)
+            if live_completed != 1 and live_state in {"pre", "in"}:
+                result = None
+
         if result and not _same_event_date(item.get("date"), result.get("date")):
             result = None
 
         if not result:
-            # Fallback for same-day finals not yet present in historical CSV.
             if _event_has_completed_result(item):
                 home_team = str(item.get("home_team", "") or "")
                 away_team = str(item.get("away_team", "") or "")
@@ -1026,6 +1376,12 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 away_score = _to_int_or_none(item.get("away_score"))
                 home_q1_score = _to_int_or_none(item.get("home_q1_score"))
                 away_q1_score = _to_int_or_none(item.get("away_q1_score"))
+                home_q2_score = _to_int_or_none(item.get("home_q2_score"))
+                away_q2_score = _to_int_or_none(item.get("away_q2_score"))
+                home_q3_score = _to_int_or_none(item.get("home_q3_score"))
+                away_q3_score = _to_int_or_none(item.get("away_q3_score"))
+                home_q4_score = _to_int_or_none(item.get("home_q4_score"))
+                away_q4_score = _to_int_or_none(item.get("away_q4_score"))
 
                 if home_score is not None and away_score is not None and home_team and away_team:
                     item["result_available"] = True
@@ -1036,6 +1392,18 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                         item["home_q1_score"] = home_q1_score
                     if away_q1_score is not None:
                         item["away_q1_score"] = away_q1_score
+                    if home_q2_score is not None:
+                        item["home_q2_score"] = home_q2_score
+                    if away_q2_score is not None:
+                        item["away_q2_score"] = away_q2_score
+                    if home_q3_score is not None:
+                        item["home_q3_score"] = home_q3_score
+                    if away_q3_score is not None:
+                        item["away_q3_score"] = away_q3_score
+                    if home_q4_score is not None:
+                        item["home_q4_score"] = home_q4_score
+                    if away_q4_score is not None:
+                        item["away_q4_score"] = away_q4_score
 
                     if home_score > away_score:
                         full_game_winner = home_team
@@ -1046,6 +1414,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
                     item["full_game_result_winner"] = full_game_winner
                     item["final_score_text"] = f"{away_team} {away_score} - {home_team} {home_score}"
+
                     _apply_market_hit_flags(
                         item=item,
                         home_team=home_team,
@@ -1054,6 +1423,8 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                         away_score=away_score,
                         home_q1_score=home_q1_score,
                         away_q1_score=away_q1_score,
+                        home_q2_score=home_q2_score,
+                        away_q2_score=away_q2_score,
                         home_f5_score=None,
                         away_f5_score=None,
                         total_corners=None,
@@ -1076,13 +1447,28 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         item["status_completed"] = 1
         item["home_score"] = result["home_score"]
         item["away_score"] = result["away_score"]
+
         if result["home_q1_score"] is not None:
             item["home_q1_score"] = result["home_q1_score"]
         if result["away_q1_score"] is not None:
             item["away_q1_score"] = result["away_q1_score"]
+        if result.get("home_q2_score") is not None:
+            item["home_q2_score"] = result["home_q2_score"]
+        if result.get("away_q2_score") is not None:
+            item["away_q2_score"] = result["away_q2_score"]
+        if result.get("home_q3_score") is not None:
+            item["home_q3_score"] = result["home_q3_score"]
+        if result.get("away_q3_score") is not None:
+            item["away_q3_score"] = result["away_q3_score"]
+        if result.get("home_q4_score") is not None:
+            item["home_q4_score"] = result["home_q4_score"]
+        if result.get("away_q4_score") is not None:
+            item["away_q4_score"] = result["away_q4_score"]
+
         item["full_game_result_winner"] = result["full_game_winner"]
         if result["q1_winner"] is not None:
             item["q1_result_winner"] = result["q1_winner"]
+
         item["final_score_text"] = (
             f"{result['away_team']} {result['away_score']} - {result['home_team']} {result['home_score']}"
         )
@@ -1095,6 +1481,8 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             away_score=result["away_score"],
             home_q1_score=result.get("home_q1_score"),
             away_q1_score=result.get("away_q1_score"),
+            home_q2_score=result.get("home_q2_score"),
+            away_q2_score=result.get("away_q2_score"),
             home_f5_score=result.get("home_f5_score"),
             away_f5_score=result.get("away_f5_score"),
             total_corners=result.get("total_corners"),
@@ -1113,7 +1501,6 @@ def enrich_predictions_if_available(sport: str, events: list, lookup: dict | Non
 
 
 def _event_market_hits(event: dict) -> dict:
-    """Extract normalized hit flags per market from heterogeneous event schemas."""
     def _to_bool_or_none(value):
         if value is None:
             return None
@@ -1146,6 +1533,10 @@ def _event_market_hits(event: dict) -> dict:
     q1_hit = _to_bool_or_none(event.get("q1_hit"))
     if q1_hit is not None:
         markets["q1_or_yrfi"] = q1_hit
+
+    h1_hit = _to_bool_or_none(event.get("h1_hit"))
+    if h1_hit is not None:
+        markets["first_half"] = h1_hit
 
     spread_hit = _to_bool_or_none(event.get("correct_spread"))
     if spread_hit is not None:
@@ -1460,6 +1851,7 @@ def _event_hit_for_market(event: dict, market: str):
     keys_by_market = {
         "full_game": ["correct_full_game_adjusted", "correct_full_game", "full_game_hit", "correct_full_game_base"],
         "q1_yrfi": ["q1_hit"],
+        "first_half": ["h1_hit"],
         "spread": ["correct_spread"],
         "total": ["correct_total_adjusted", "correct_total"],
         "btts": ["correct_btts_adjusted", "correct_btts"],
@@ -1474,7 +1866,6 @@ def _event_hit_for_market(event: dict, market: str):
             if hit is not None:
                 return hit
 
-    # Never infer hit/miss from score unless the event is clearly completed.
     status_completed = event.get("status_completed")
     try:
         if status_completed is not None and int(float(status_completed)) != 1:
@@ -1486,7 +1877,6 @@ def _event_hit_for_market(event: dict, market: str):
     if status_state and status_state not in {"post", "final", "completed"}:
         return None
 
-    # Fallback: infer result directly from final score when explicit flags are absent.
     try:
         home_team = str(event.get("home_team") or "").strip()
         away_team = str(event.get("away_team") or "").strip()
@@ -1508,38 +1898,58 @@ def _event_hit_for_market(event: dict, market: str):
         return evaluate_team_pick(pick=pick, home_team=home_team, away_team=away_team, winner=winner)
 
     if market in {"spread", "total"}:
-        pick_text = str(
-            event.get("spread_pick")
-            or event.get("total_recommended_pick")
-            or event.get("total_pick")
-            or ""
-        ).strip()
+        if market == "total":
+            pick_text = str(
+                event.get("total_recommended_pick")
+                or event.get("total_pick")
+                or event.get("spread_pick")
+                or ""
+            ).strip()
+        else:
+            pick_text = str(event.get("spread_pick") or "").strip()
+
         if not pick_text:
             return None
+
         pick_upper = pick_text.upper()
         total_points = home_score + away_score
 
         if "OVER" in pick_upper:
             m = re.search(r"(\d+(?:\.\d+)?)", pick_text)
-            line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            try:
+                line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            except Exception:
+                line = 0.0
             if line <= 0:
                 return None
             return total_points > line
+
         if "UNDER" in pick_upper:
             m = re.search(r"(\d+(?:\.\d+)?)", pick_text)
-            line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            try:
+                line = float(m.group(1)) if m else float(event.get("odds_over_under") or 0.0)
+            except Exception:
+                line = 0.0
             if line <= 0:
                 return None
             return total_points < line
 
         if market == "spread":
+            if "OVER" in pick_upper or "UNDER" in pick_upper:
+                return None
+
             if home_score > away_score:
                 winner = home_team
             elif away_score > home_score:
                 winner = away_team
             else:
                 winner = "TIE"
-            return evaluate_team_pick(pick=pick_text, home_team=home_team, away_team=away_team, winner=winner)
+            return evaluate_team_pick(
+                pick=pick_text,
+                home_team=home_team,
+                away_team=away_team,
+                winner=winner,
+            )
 
         return None
 
@@ -1552,6 +1962,7 @@ def _event_hit_for_market(event: dict, market: str):
             return btts_yes
         if "NO" in pick_text:
             return not btts_yes
+        return None
 
     if market == "q1_yrfi":
         q1_pick = str(event.get("q1_pick") or "").strip()
@@ -1564,6 +1975,7 @@ def _event_hit_for_market(event: dict, market: str):
                 return evaluate_mlb_q1_pick(q1_pick, int(home_q1), int(away_q1))
         except Exception:
             return None
+        return None
 
     if market == "corners":
         pick_text = str(event.get("corners_recommended_pick") or event.get("corners_pick") or "").strip().upper()
@@ -1597,6 +2009,7 @@ def _event_hit_for_market(event: dict, market: str):
             return total_corners > line
         if "UNDER" in pick_text:
             return total_corners < line
+        return None
 
     return None
 
@@ -1733,22 +2146,16 @@ def resolve_prediction_file(predictions_dir: Path, historical_dir: Path, date_st
     today = date.today()
     live_file, hist_file = get_files_for_date(predictions_dir, historical_dir, date_str)
 
-    # Render uses UTC; around midnight, local "today" can look like "yesterday" on server.
-    # For near-today dates, prefer live board first to avoid serving stale historical snapshots.
     if selected_date >= (today - timedelta(days=1)):
         if live_file.exists():
             return live_file
         if hist_file.exists():
             return hist_file
-
-    # Pasado => prioriza histórico.
-    if selected_date < today:
+    elif selected_date < today:
         if hist_file.exists():
             return hist_file
         if live_file.exists():
             return live_file
-
-    # Hoy o futuro => prioriza predicciones live.
     else:
         if live_file.exists():
             return live_file
@@ -1787,6 +2194,7 @@ def merge_result_hints_from_historical(events: list, historical_file: Path):
         "correct_total",
         "correct_total_adjusted",
         "q1_hit",
+        "h1_hit",
         "actual_result",
         "final_score_text",
     ]
@@ -1843,7 +2251,6 @@ def _best_picks_load_events_raw_by_date(sport: str, date_str: str):
     live_file = predictions_dir / f"{source_date}.json"
     hist_file = historical_dir / f"{source_date}.json"
 
-    # Best Picks should prioritize upcoming/live boards. Only past dates can use historical fallback.
     if selected_date >= today:
         if not live_file.exists():
             return []
@@ -1948,17 +2355,15 @@ def _best_picks_trim_payload(payload: dict, top_n: int):
 
 
 def _best_picks_generate_snapshot(date_str: str, generation_top_n: int, ranking_mode: str = "balanced"):
-    selected_date = parse_date_str(date_str)
+    parse_date_str(date_str)
     events_by_sport = _best_picks_events_for_date(date_str)
     calibration_profiles = build_probability_calibration_profiles()
     mode = _best_picks_normalize_ranking_mode(ranking_mode)
-    # Best Picks is intended for actionable/upcoming markets only.
-    include_completed = False
     payload = build_daily_best_picks(
         events_by_sport,
         top_n=max(1, int(generation_top_n)),
         calibration_profiles=calibration_profiles,
-        include_completed=include_completed,
+        include_completed=False,
         ranking_mode=mode,
     )
     payload["snapshot_date"] = date_str
@@ -2061,6 +2466,7 @@ def _best_picks_with_results(payload: dict):
         "correct_total",
         "correct_total_adjusted",
         "q1_hit",
+        "h1_hit",
         "actual_result",
         "final_score_text",
         "status_state",
@@ -2123,6 +2529,7 @@ def _best_picks_with_results(payload: dict):
     out["picks"] = out_picks
     return out
 
+
 def _best_picks_get_or_create_snapshot(date_str: str, generation_top_n: int, force_refresh: bool, ranking_mode: str = "balanced"):
     mode = _best_picks_normalize_ranking_mode(ranking_mode)
     snapshot = None if force_refresh else _best_picks_load_snapshot(date_str, ranking_mode=mode)
@@ -2177,7 +2584,6 @@ def get_today_predictions(sport: str):
     try:
         events = enrich_predictions_if_available(sport, events)
     except Exception:
-        # Return base events rather than failing the endpoint when enrichment has transient issues.
         pass
     payload = _translate_event_dates_for_sport(sport, _normalize_events_payload(events))
     return _sanitize_json_values(payload)
@@ -2200,7 +2606,6 @@ def get_predictions_by_date(sport: str, date_str: str):
     try:
         events = enrich_predictions_if_available(sport, events)
     except Exception:
-        # Return base events rather than failing the endpoint when enrichment has transient issues.
         pass
     payload = _translate_event_dates_for_sport(sport, _normalize_events_payload(events))
     return _sanitize_json_values(payload)
@@ -2226,6 +2631,41 @@ def get_available_dates(sport: str):
     if sport == "kbo":
         out_dates = sorted({_kbo_local_date_from_source(d) for d in out_dates})
     return out_dates
+
+
+@app.get("/api/{sport}/update-status")
+def get_sport_update_status(sport: str):
+    if sport not in SPORT_UPDATE_PIPELINES:
+        raise HTTPException(status_code=404, detail=f"Actualizacion no soportada para: {sport}")
+    return _copy_update_state(sport)
+
+
+@app.post("/api/{sport}/update-all")
+def start_sport_update_all(sport: str):
+    if sport not in SPORT_UPDATE_PIPELINES:
+        raise HTTPException(status_code=404, detail=f"Actualizacion no soportada para: {sport}")
+
+    pipeline = SPORT_UPDATE_PIPELINES[sport]
+    sport_label = pipeline["label"]
+    state = _copy_update_state(sport)
+    if state.get("status") == "running":
+        return state
+
+    worker = threading.Thread(target=_run_update_pipeline, args=(sport,), daemon=True)
+    worker.start()
+    return {
+        "status": "running",
+        "percent": 0,
+        "message": f"Actualizacion {sport_label} iniciada.",
+        "current_step": None,
+        "current_step_label": None,
+        "completed_steps": 0,
+        "total_steps": len(pipeline["steps"]),
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+        "finished_at": None,
+        "error": None,
+        "logs": [],
+    }
 
 
 @app.get("/api/{sport}/prediction-detail/{date_str}/{game_id}")

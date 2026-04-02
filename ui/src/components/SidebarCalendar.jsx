@@ -8,10 +8,14 @@ export default function SidebarCalendar({
   error,
   onSelectDate,
   onLoadToday,
+  onRunUpdate,
+  updateStatus,
   availableDates,
   title = "Calendario",
-  subtitle = "Consulta predicciones históricas por fecha.",
+  subtitle = "Consulta predicciones historicas por fecha.",
   todayButtonLabel = "Cargar hoy",
+  updateActionLabel = "Actualizar ahora",
+  updateRunningLabel = "Actualizando...",
 }) {
   const calendarDays = buildCalendarDays(calendarMonth);
   const enabledDateSet = new Set(Array.isArray(availableDates) ? availableDates : []);
@@ -20,6 +24,16 @@ export default function SidebarCalendar({
     month: "long",
     year: "numeric",
   });
+  const updatePercent = Number(updateStatus?.percent);
+  const safeUpdatePercent = Number.isFinite(updatePercent)
+    ? Math.max(0, Math.min(100, updatePercent))
+    : 0;
+  const updateIsRunning = updateStatus?.status === "running";
+  const updateIsDone = updateStatus?.status === "completed";
+  const updateIsFailed = updateStatus?.status === "failed";
+  const showUpdatePanel = typeof onRunUpdate === "function";
+  const updateLabel = updateStatus?.current_step_label || updateStatus?.message || "Listo para actualizar.";
+  const updateLogs = Array.isArray(updateStatus?.logs) ? updateStatus.logs : [];
 
   return (
     <aside className="self-start rounded-3xl border border-white/10 bg-[#171a21]/85 p-5 shadow-2xl shadow-black/40 backdrop-blur-sm lg:sticky lg:top-6">
@@ -36,7 +50,7 @@ export default function SidebarCalendar({
             }
             className="rounded-lg bg-white/5 px-3 py-1 hover:bg-white/10"
           >
-            ←
+            ?
           </button>
 
           <span className="capitalize">{monthLabel}</span>
@@ -47,7 +61,7 @@ export default function SidebarCalendar({
             }
             className="rounded-lg bg-white/5 px-3 py-1 hover:bg-white/10"
           >
-            →
+            ?
           </button>
         </div>
 
@@ -97,6 +111,73 @@ export default function SidebarCalendar({
         >
           {todayButtonLabel}
         </button>
+
+        {showUpdatePanel && (
+          <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-slate-900/80 to-amber-400/10 p-4 shadow-lg shadow-black/25">
+            <button
+              onClick={onRunUpdate}
+              disabled={updateIsRunning}
+              className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                updateIsRunning
+                  ? "cursor-not-allowed border-cyan-300/20 bg-cyan-300/10 text-cyan-100/70"
+                  : "border-cyan-300/40 bg-cyan-300/12 text-cyan-100 hover:border-cyan-200/60 hover:bg-cyan-300/18"
+              }`}
+            >
+              {updateIsRunning ? updateRunningLabel : updateActionLabel}
+            </button>
+
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between text-xs text-white/65">
+                <span className="flex items-center gap-2">
+                  {updateIsRunning && (
+                    <>
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-cyan-200/25 border-t-cyan-200" />
+                      <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.95)]" />
+                    </>
+                  )}
+                  <span>{updateIsDone ? "Completado" : updateIsFailed ? "Con error" : "Progreso"}</span>
+                </span>
+                <span>{safeUpdatePercent}%</span>
+              </div>
+              <div className="relative h-3 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    updateIsFailed
+                      ? "bg-gradient-to-r from-rose-500 to-amber-400"
+                      : "bg-gradient-to-r from-cyan-400 via-sky-400 to-amber-300"
+                  }`}
+                  style={{ width: `${safeUpdatePercent}%` }}
+                />
+                {updateIsRunning && (
+                  <div
+                    className="absolute inset-y-0 -translate-x-full animate-[pulse_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    style={{ width: "30%" }}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-1">
+              <p className="text-sm font-medium text-white/85">{updateLabel}</p>
+              <p className="text-xs text-white/55">
+                Paso {updateStatus?.completed_steps ?? 0} de {updateStatus?.total_steps ?? 0}
+              </p>
+              {updateIsFailed && updateStatus?.error && (
+                <p className="text-xs text-rose-200">{updateStatus.error}</p>
+              )}
+            </div>
+
+            {updateLogs.length > 0 && (
+              <div className="mt-3 rounded-xl bg-black/20 p-3 text-[11px] text-white/60">
+                {updateLogs.slice(-3).map((line, index) => (
+                  <p key={`${index}-${line}`} className="truncate">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="rounded-2xl bg-black/15 p-4">
           <p className="text-sm text-white/50">Fecha seleccionada</p>
