@@ -2,6 +2,15 @@ const configuredApiBase = (import.meta.env.VITE_API_BASE || "/api").trim();
 export const API_BASE = configuredApiBase.replace(/\/$/, "");
 const API_FALLBACK_BASE = "http://127.0.0.1:8010/api";
 
+function shouldUseLocalFallback() {
+  if (!API_BASE) return true;
+  return (
+    API_BASE.startsWith("/") ||
+    API_BASE.includes("127.0.0.1") ||
+    API_BASE.includes("localhost")
+  );
+}
+
 const ODDS_QUALITY_KEYS = [
   "closing_moneyline_odds",
   "home_moneyline_odds",
@@ -46,11 +55,13 @@ async function fetchJsonWithRetry(path, {
 
 async function fetchWithFallback(path, options = undefined) {
   try {
-    const primary = await fetch(`${API_BASE}${path}`, options);
-    if (primary.ok) return primary;
-  } catch {
-    // Try local fallback backend if primary is unavailable.
+    return await fetch(`${API_BASE}${path}`, options);
+  } catch (error) {
+    if (!shouldUseLocalFallback()) {
+      throw error;
+    }
   }
+  // Only try the local dev backend when the configured API base is local/relative.
   return fetch(`${API_FALLBACK_BASE}${path}`, options);
 }
 
