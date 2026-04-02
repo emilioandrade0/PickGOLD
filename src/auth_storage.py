@@ -115,16 +115,25 @@ def ensure_admin_user(admin_email: str, admin_password: str) -> None:
 def row_to_user_payload(row: sqlite3.Row | None) -> dict | None:
     if row is None:
         return None
+    access_expires_at = row["access_expires_at"]
+    expires_at_dt = parse_utc(access_expires_at)
+    is_expired = expires_at_dt is not None and utc_now() > expires_at_dt
+    is_active = row["status"] == "approved" and not is_expired
     return {
         "id": row["id"],
         "name": row["name"],
         "email": row["email"],
         "role": row["role"],
+        "plan": row["role"],
         "status": row["status"],
         "access_expires_at": row["access_expires_at"],
         "created_at": row["created_at"],
         "approved_at": row["approved_at"],
+        "approved_by": row["approved_by"],
         "last_login_at": row["last_login_at"],
+        "is_active": is_active,
+        "is_expired": is_expired,
+        "access_status": "expired" if is_expired else ("active" if is_active else row["status"]),
     }
 
 
@@ -177,6 +186,20 @@ def list_pending_users() -> list[dict]:
             SELECT * FROM users
             WHERE status = 'pending'
             ORDER BY created_at ASC
+            """
+        ).fetchall()
+    return [row_to_user_payload(row) for row in rows]
+
+
+def list_non_pending_users() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM users
+            WHERE status != 'pending'
+            ORDER BY
+                CASE WHEN status = 'approved' THEN 0 ELSE 1 END,
+                COALESCE(approved_at, created_at) DESC
             """
         ).fetchall()
     return [row_to_user_payload(row) for row in rows]

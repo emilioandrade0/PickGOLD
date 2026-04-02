@@ -165,3 +165,13 @@ export async function approveUser({ userId, role, accessDays }) {
     body: JSON.stringify({ user_id: userId, role, access_days: accessDays }),
   });
 }
+
+export async function getAdminUsers() {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/users", {
+    headers: withAuthHeaders(session.token),
+  });
+}

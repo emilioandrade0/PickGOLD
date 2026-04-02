@@ -38,6 +38,7 @@ try:
         init_auth_db,
         is_access_expired,
         iso_utc,
+        list_non_pending_users,
         list_pending_users,
         parse_utc,
         register_user,
@@ -57,6 +58,7 @@ except ImportError:
         init_auth_db,
         is_access_expired,
         iso_utc,
+        list_non_pending_users,
         list_pending_users,
         parse_utc,
         register_user,
@@ -590,6 +592,19 @@ def pending_users(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
     pending = list_pending_users()
     return {"ok": True, "pending": pending}
+
+
+@app.get("/api/admin/users")
+def admin_users(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    users = list_non_pending_users()
+    active_users = [user for user in users if user.get("is_active")]
+    return {
+        "ok": True,
+        "users": users,
+        "active_count": len(active_users),
+        "approved_count": sum(1 for user in users if user.get("status") == "approved"),
+    }
 
 
 @app.post("/api/admin/approve-user")
