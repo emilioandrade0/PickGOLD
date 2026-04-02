@@ -5,7 +5,7 @@ SRC_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from src.sports.mlb import train_models_mlb as mlb_train
+from sports.mlb import train_models_mlb as mlb_train
 
 BASE_DIR = SRC_ROOT
 

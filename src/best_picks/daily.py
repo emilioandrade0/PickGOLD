@@ -16,6 +16,7 @@ SPORT_LABELS = {
     "laliga": "LaLiga EA Sports",
     "euroleague": "EuroLeague",
     "ncaa_baseball": "NCAA Baseball",
+    "tennis": "Tennis",
 }
 
 # Temporary toggle: NCAA Baseball excluded from Best Picks output.
@@ -203,6 +204,14 @@ def _audit_market_status(sport: str, market: str):
     }
 
 
+def _sport_has_audit_coverage(sport: str) -> bool:
+    sport_key = str(sport or "")
+    for loaded_sport, _market in _load_unified_audit_market_status().keys():
+        if loaded_sport == sport_key:
+            return True
+    return False
+
+
 def _load_meta_model_payload():
     if not META_MODEL_FILE.exists():
         return None
@@ -279,6 +288,53 @@ def _first_non_empty(event: dict, keys: list[str]):
         if text and text.lower() != "nan":
             return text
     return None
+
+
+def _normalize_pick_text_for_display(sport: str, event: dict, market_name: str, pick_text: str | None):
+    text = str(pick_text or "").strip()
+    if not text:
+        return text
+
+    upper = text.upper()
+    home_team = str(event.get("home_team") or "").strip()
+    away_team = str(event.get("away_team") or "").strip()
+
+    team_like_markets = {"full_game", "spread", "f5", "q1_yrfi", "q1", "h1"}
+    if market_name in team_like_markets:
+        if "HOME WIN" in upper or "LOCAL" in upper or upper == "HOME":
+            return home_team or text
+        if "AWAY WIN" in upper or "VISITOR" in upper or "VISITANTE" in upper or upper == "AWAY":
+            return away_team or text
+        return text
+
+    if market_name == "home_over":
+        if upper.startswith("HOME OVER") and home_team:
+            suffix = text[9:].strip()
+            return f"{home_team} Over {suffix}" if suffix else f"{home_team} Over"
+        if upper.startswith("HOME UNDER") and home_team:
+            suffix = text[10:].strip()
+            return f"{home_team} Under {suffix}" if suffix else f"{home_team} Under"
+
+    return text
+
+
+def _pick_text_allows_pick(pick_text: str | None) -> bool:
+    text = str(pick_text or "").strip().lower()
+    if not text:
+        return False
+
+    blocked_terms = (
+        "pass",
+        "pasar",
+        "no apostar",
+        "no bet",
+        "pendiente",
+        "pending",
+        "tbd",
+        "por definir",
+        "n/a",
+    )
+    return not any(term in text for term in blocked_terms)
 
 
 def _first_float(event: dict, keys: list[str]):
@@ -623,6 +679,14 @@ def _decimal_odds_normalized(value):
 
 
 def _to_implied_probability(value):
+    try:
+        raw = float(value)
+    except Exception:
+        raw = None
+    if raw is not None and 1.0 < abs(raw) < 25.0:
+        implied = _decimal_odds_to_implied(raw)
+        if implied is not None:
+            return implied
     implied = _american_odds_to_implied(value)
     if implied is not None:
         return implied
@@ -630,6 +694,14 @@ def _to_implied_probability(value):
 
 
 def _to_decimal_odds(value):
+    try:
+        raw = float(value)
+    except Exception:
+        raw = None
+    if raw is not None and 1.0 < abs(raw) < 25.0:
+        dec = _decimal_odds_normalized(raw)
+        if dec is not None:
+            return dec
     dec = _american_odds_to_decimal(value)
     if dec is not None:
         return dec
@@ -872,15 +944,23 @@ def _build_pick_item(
         return None
 
     audit_status = _audit_market_status(sport, market_name)
-    if require_market_audit and not bool(audit_status.get("enabled") is True):
-        _gate_increment(gate_stats, "rejected_market_audit_disabled")
-        return None
-    if (not require_market_audit) and (not bool(audit_status.get("enabled") is True)):
+    audit_enabled = bool(audit_status.get("enabled") is True)
+    sport_has_audit = _sport_has_audit_coverage(sport)
+    if require_market_audit and not audit_enabled:
+        if sport_has_audit:
+            _gate_increment(gate_stats, "rejected_market_audit_disabled")
+            return None
+        _gate_increment(gate_stats, "audit_relaxed_for_sport_without_coverage")
+    elif (not require_market_audit) and (not audit_enabled):
         _gate_increment(gate_stats, "audit_relaxed_for_value_mode")
 
     pick_text = _first_non_empty(event, market_def["pick_keys"])
     if not pick_text:
         _gate_increment(gate_stats, "rejected_missing_pick")
+        return None
+    pick_text = _normalize_pick_text_for_display(sport, event, market_name, pick_text)
+    if not _pick_text_allows_pick(pick_text):
+        _gate_increment(gate_stats, "rejected_pick_text_pass")
         return None
 
     score = _first_float(event, market_def["score_keys"])
@@ -1020,6 +1100,47 @@ def _portfolio_limits(top_n: int, ranking_mode: str, candidate_count: int):
     if top_n <= 20:
         return {"max_per_sport": max_per_sport, "max_same_market": 3}
     return {"max_per_sport": max_per_sport, "max_same_market": 4}
+
+
+def _top_picks_by_sport(candidates: list[dict], per_sport_limit: int = 4):
+    grouped = {}
+    for candidate in candidates or []:
+        sport = str(candidate.get("sport") or "")
+        if not sport:
+            continue
+        grouped.setdefault(sport, []).append(dict(candidate))
+
+    sections = []
+    for sport, sport_picks in grouped.items():
+        sport_picks.sort(
+            key=lambda x: (
+                int(x.get("tier_priority", 0) or 0),
+                float(x.get("final_rank_score", 0.0) or 0.0),
+                float(x.get("score", 0.0) or 0.0),
+            ),
+            reverse=True,
+        )
+        sample = sport_picks[: max(1, int(per_sport_limit))]
+        first = sample[0]
+        sections.append(
+            {
+                "sport": sport,
+                "sport_label": first.get("sport_label") or SPORT_LABELS.get(sport, sport.upper()),
+                "count": len(sport_picks),
+                "top_score": round(float(first.get("score", 0.0) or 0.0), 2),
+                "top_final_rank_score": round(float(first.get("final_rank_score", 0.0) or 0.0), 3),
+                "picks": sample,
+            }
+        )
+
+    sections.sort(
+        key=lambda x: (
+            float(x.get("top_final_rank_score", 0.0) or 0.0),
+            int(x.get("count", 0) or 0),
+        ),
+        reverse=True,
+    )
+    return sections
 
 
 def _build_diversified_portfolio(
@@ -1172,6 +1293,7 @@ def build_daily_best_picks(
         ranking_mode=requested_mode,
         min_correlation_penalty=min_correlation_penalty,
     )
+    top_by_sport = _top_picks_by_sport(picks, per_sport_limit=4)
 
     by_sport = {}
     for p in trimmed:
@@ -1247,5 +1369,6 @@ def build_daily_best_picks(
         "gate_diagnostics": gate_stats,
         "portfolio_limits": limits,
         "sports_summary": sports_summary,
+        "top_by_sport": top_by_sport,
         "picks": trimmed,
     }

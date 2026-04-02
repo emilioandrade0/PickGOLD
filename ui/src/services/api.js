@@ -41,7 +41,7 @@ async function fetchJsonWithRetry(path, {
         throw new Error(`${errorMessage} (status ${res.status})`);
       }
       return await res.json();
-    } catch (err) {
+    } catch {
       if (attempt < retries) {
         await sleep(retryDelayMs * (attempt + 1));
       }
@@ -110,21 +110,23 @@ async function fetchPredictionsWithSmartFallback(path) {
     if (res.ok) {
       const payload = await res.json();
       const events = normalizeEventsPayload(payload);
-      attempts.push({ events, quality: scorePayloadQuality(events) });
+      attempts.push({ events, quality: scorePayloadQuality(events), source: "primary" });
     }
   } catch {
-    // Ignore and continue to fallback.
+    // Ignore and continue to optional fallback.
   }
 
-  try {
-    const res = await fetch(`${API_FALLBACK_BASE}${path}`);
-    if (res.ok) {
-      const payload = await res.json();
-      const events = normalizeEventsPayload(payload);
-      attempts.push({ events, quality: scorePayloadQuality(events) });
+  if (shouldUseLocalFallback()) {
+    try {
+      const res = await fetch(`${API_FALLBACK_BASE}${path}`);
+      if (res.ok) {
+        const payload = await res.json();
+        const events = normalizeEventsPayload(payload);
+        attempts.push({ events, quality: scorePayloadQuality(events), source: "fallback" });
+      }
+    } catch {
+      // Both endpoints may fail; handled below.
     }
-  } catch {
-    // Both endpoints may fail; handled below.
   }
 
   if (attempts.length === 0) {
@@ -187,20 +189,27 @@ export async function fetchWeekdayScoringInsights() {
   });
 }
 
-export async function fetchBestPicksToday(topN = 25, rankingMode = "best_hit_rate") {
-  return await fetchJsonWithRetry(
-    `/insights/best-picks/today?top_n=${encodeURIComponent(topN)}&ranking_mode=${encodeURIComponent(rankingMode)}`,
-    {
-      timeoutMs: 90000,
-      retries: 2,
-      errorMessage: "No se pudieron cargar los mejores picks del dia.",
-    }
-  );
+export async function fetchBestPicksToday(topN = 25, rankingMode = "best_hit_rate", forceRefresh = false) {
+  const params = new URLSearchParams({
+    top_n: String(topN),
+    ranking_mode: String(rankingMode),
+  });
+  if (forceRefresh) params.set("force_refresh", "true");
+  return await fetchJsonWithRetry(`/insights/best-picks/today?${params.toString()}`, {
+    timeoutMs: 90000,
+    retries: 2,
+    errorMessage: "No se pudieron cargar los mejores picks del d?a.",
+  });
 }
 
-export async function fetchBestPicksByDate(dateStr, topN = 25, rankingMode = "best_hit_rate") {
+export async function fetchBestPicksByDate(dateStr, topN = 25, rankingMode = "best_hit_rate", forceRefresh = false) {
+  const params = new URLSearchParams({
+    top_n: String(topN),
+    ranking_mode: String(rankingMode),
+  });
+  if (forceRefresh) params.set("force_refresh", "true");
   return await fetchJsonWithRetry(
-    `/insights/best-picks/${encodeURIComponent(dateStr)}?top_n=${encodeURIComponent(topN)}&ranking_mode=${encodeURIComponent(rankingMode)}`,
+    `/insights/best-picks/${encodeURIComponent(dateStr)}?${params.toString()}`,
     {
       timeoutMs: 90000,
       retries: 2,

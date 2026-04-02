@@ -1,71 +1,162 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import { dateToYMDLocal, formatDateInput } from "../utils/date.js";
 import { fetchBestPicksAvailableDates, fetchBestPicksByDate, fetchBestPicksToday } from "../services/api.js";
 import { getTeamDisplayName } from "../utils/teamNames.js";
 
-function fmt(value) {
+function fmt(value, digits = 2) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
-  return Number(value).toFixed(2);
+  return Number(value).toFixed(digits);
 }
 
 function pct(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
-  return `${(Number(value) * 100).toFixed(2)}%`;
+  return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
 function tierClass(tier) {
   const t = String(tier || "").toUpperCase();
   if (t === "ELITE") return "border-emerald-400/40 bg-emerald-500/15 text-emerald-200";
-  if (t === "PREMIUM") return "border-sky-400/40 bg-sky-500/15 text-sky-200";
-  if (t === "STRONG") return "border-amber-400/40 bg-amber-500/15 text-amber-200";
-  return "border-white/25 bg-white/10 text-white/80";
+  if (t === "PREMIUM") return "border-rose-400/40 bg-rose-500/15 text-rose-200";
+  if (t === "STRONG") return "border-sky-400/40 bg-sky-500/15 text-sky-200";
+  return "border-amber-400/40 bg-amber-500/15 text-amber-200";
+}
+
+function resultDotClass(resultLabel) {
+  const label = String(resultLabel || "").toUpperCase();
+  if (label === "ACIERTO") return "bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.65)]";
+  if (label === "FALLO") return "bg-rose-400 shadow-[0_0_16px_rgba(251,113,133,0.65)]";
+  return "bg-amber-300 shadow-[0_0_14px_rgba(252,211,77,0.45)]";
 }
 
 function diagnosticItems(diag) {
   if (!diag || typeof diag !== "object") return [];
   return Object.entries(diag)
     .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
-    .slice(0, 10);
+    .slice(0, 6);
+}
+
+function PickCard({ row, compact = false }) {
+  const sportKey = String(row.sport || "").toLowerCase();
+  const awayName = getTeamDisplayName(sportKey, row.away_team);
+  const homeName = getTeamDisplayName(sportKey, row.home_team);
+  const pickName = getTeamDisplayName(sportKey, row.pick);
+  const gameName = row.game_name || `${awayName} vs ${homeName}`;
+  const resultLabel = row.result_label || "PENDIENTE";
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.28em] text-white/45">{row.sport_label}</div>
+          <div className="mt-1 text-sm text-white/60">{row.date || "-"}{row.time && row.time !== "nan" ? ` ? ${row.time}` : ""}</div>
+        </div>
+        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tierClass(row.tier)}`}>
+          {row.tier || "NORMAL"}
+        </span>
+      </div>
+
+      <div className="mt-4">
+        <div className="text-lg font-semibold text-white">{gameName}</div>
+        <div className="mt-1 text-sm text-white/55">Mercado: {row.market_label}</div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">Pick m?s seguro</div>
+          <div className="mt-1 text-xl font-semibold text-yellow-300">{pickName}</div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-right">
+          <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">Edge</div>
+          <div className="text-lg font-semibold text-white">{pct(row.edge_proxy)}</div>
+        </div>
+      </div>
+
+      <div className={`mt-4 grid gap-3 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-4"}`}>
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Score</div>
+          <div className="mt-1 text-base font-semibold text-white">{fmt(row.score)}</div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Rank final</div>
+          <div className="mt-1 text-base font-semibold text-emerald-300">{fmt(row.final_rank_score, 3)}</div>
+        </div>
+        {!compact && (
+          <>
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Probabilidad</div>
+              <div className="mt-1 text-base font-semibold text-white">{pct(row.model_probability)}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Confiabilidad</div>
+              <div className="mt-1 text-base font-semibold text-white">x{fmt(row.reliability_factor)}</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
+        <div className="flex items-center gap-2 text-sm text-white/75">
+          <span className={`h-2.5 w-2.5 rounded-full animate-[pulse_1.8s_ease-in-out_infinite] ${resultDotClass(resultLabel)}`} />
+          <span>{resultLabel}</span>
+        </div>
+        <div className="text-sm text-white/55">{row.status_description || row.status_state || "Programado"}</div>
+      </div>
+    </article>
+  );
+}
+
+function SportSection({ section }) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="text-xl font-semibold text-white">Mejores {section.sport_label}</h4>
+          <p className="mt-1 text-sm text-white/60">Top curado de ese deporte para la fecha seleccionada.</p>
+        </div>
+        <div className="flex gap-2 text-xs">
+          <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/70">{section.count} candidatos</span>
+          <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-emerald-200">rank top {fmt(section.top_final_rank_score, 3)}</span>
+        </div>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {(section.picks || []).map((row, idx) => (
+          <PickCard key={`${section.sport}-${row.market}-${row.game_id}-${idx}`} row={row} compact />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export default function BestPicksPage() {
-  const [hitRateData, setHitRateData] = useState(null);
-  const [valueData, setValueData] = useState(null);
+  const [bestPicksData, setBestPicksData] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const todayDate = useMemo(() => dateToYMDLocal(new Date()), []);
+
   function syncCalendarMonth(dateStr) {
     const d = new Date(`${dateStr}T00:00:00`);
-    if (!Number.isNaN(d.getTime())) {
-      setCalendarMonth(d);
-    }
+    if (!Number.isNaN(d.getTime())) setCalendarMonth(d);
   }
 
-  async function loadToday() {
-    const [hitPayload, valuePayload] = await Promise.all([
-      fetchBestPicksToday(30, "best_hit_rate"),
-      fetchBestPicksToday(30, "best_ev_real_only"),
-    ]);
-    setHitRateData(hitPayload);
-    setValueData(valuePayload);
-    const snapDate = hitPayload?.snapshot_date || valuePayload?.snapshot_date || dateToYMDLocal(new Date());
+  async function loadToday(forceRefresh = true) {
+    const payload = await fetchBestPicksToday(30, "best_hit_rate", forceRefresh);
+    setBestPicksData(payload);
+    const snapDate = payload?.snapshot_date || todayDate;
     setSelectedDate(snapDate);
     syncCalendarMonth(snapDate);
     return snapDate;
   }
 
   async function loadByDate(dateStr) {
-    const [hitPayload, valuePayload] = await Promise.all([
-      fetchBestPicksByDate(dateStr, 30, "best_hit_rate"),
-      fetchBestPicksByDate(dateStr, 30, "best_ev_real_only"),
-    ]);
-    setHitRateData(hitPayload);
-    setValueData(valuePayload);
-    const snapDate = hitPayload?.snapshot_date || valuePayload?.snapshot_date || dateStr;
+    const forceRefresh = dateStr === todayDate;
+    const payload = await fetchBestPicksByDate(dateStr, 30, "best_hit_rate", forceRefresh);
+    setBestPicksData(payload);
+    const snapDate = payload?.snapshot_date || dateStr;
     setSelectedDate(snapDate);
     syncCalendarMonth(snapDate);
   }
@@ -75,24 +166,21 @@ export default function BestPicksPage() {
       try {
         setLoading(true);
         setError("");
-
-        const [hitPayload, valuePayload, dates] = await Promise.all([
-          fetchBestPicksToday(30, "best_hit_rate"),
-          fetchBestPicksToday(30, "best_ev_real_only"),
+        const [payload, dates] = await Promise.all([
+          fetchBestPicksToday(30, "best_hit_rate", true),
           fetchBestPicksAvailableDates(),
         ]);
-        setHitRateData(hitPayload);
-        setValueData(valuePayload);
-        const todayDate = hitPayload?.snapshot_date || valuePayload?.snapshot_date || dateToYMDLocal(new Date());
-        setSelectedDate(todayDate);
-        syncCalendarMonth(todayDate);
-        const normalized = Array.isArray(dates) ? [...new Set([...dates, todayDate])].sort() : [todayDate];
+        setBestPicksData(payload);
+        const snapDate = payload?.snapshot_date || todayDate;
+        setSelectedDate(snapDate);
+        syncCalendarMonth(snapDate);
+        const normalized = Array.isArray(dates) ? [...new Set([...dates, snapDate])].sort() : [snapDate];
         setAvailableDates(normalized);
       } catch (err) {
         if (err?.name === "AbortError") {
-          setError("La carga de mejores picks tardó demasiado. Intenta de nuevo.");
+          setError("La carga de Best Picks tard? demasiado. Intenta de nuevo.");
         } else {
-          setError(err.message || "No se pudieron cargar los mejores picks del dia.");
+          setError(err.message || "No se pudieron cargar los Best Picks del d?a.");
         }
       } finally {
         setLoading(false);
@@ -100,7 +188,7 @@ export default function BestPicksPage() {
     }
 
     run();
-  }, []);
+  }, [todayDate]);
 
   async function handleSelectDate(dateStr) {
     try {
@@ -108,7 +196,7 @@ export default function BestPicksPage() {
       setError("");
       await loadByDate(dateStr);
     } catch (err) {
-      setError(err.message || "No se pudieron cargar los mejores picks para la fecha.");
+      setError(err.message || "No se pudieron cargar los Best Picks para esa fecha.");
     } finally {
       setLoading(false);
     }
@@ -118,43 +206,49 @@ export default function BestPicksPage() {
     try {
       setLoading(true);
       setError("");
-      const todayDate = await loadToday();
-      if (!availableDates.includes(todayDate)) {
-        setAvailableDates((prev) => [...new Set([...(prev || []), todayDate])].sort());
+      const snapDate = await loadToday(true);
+      if (!availableDates.includes(snapDate)) {
+        setAvailableDates((prev) => [...new Set([...(prev || []), snapDate])].sort());
       }
     } catch (err) {
-      setError(err.message || "No se pudieron cargar los mejores picks del dia.");
+      setError(err.message || "No se pudieron cargar los Best Picks del d?a.");
     } finally {
       setLoading(false);
     }
   }
 
+  const globalPicks = bestPicksData?.picks || [];
+  const sportSections = bestPicksData?.top_by_sport || [];
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
-      <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-2xl font-semibold">Best Picks Históricos</h2>
-        <p className="mt-2 text-sm text-white/70">
-          Snapshot diario congelado de best picks. Puedes revisar por fecha qué picks ganaron o perdieron.
-        </p>
-        {selectedDate && (
-          <p className="mt-2 text-xs text-white/60">Fecha consultada: {formatDateInput(selectedDate)}</p>
-        )}
-        {hitRateData?.snapshot_generated_at && (
-          <p className="mt-1 text-xs text-white/50">Snapshot creado: {hitRateData.snapshot_generated_at}</p>
-        )}
+      <section className="mb-6 rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.10),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200">
+              Best Picks multideporte
+            </div>
+            <h2 className="mt-4 text-3xl font-semibold text-white">Los picks m?s seguros del d?a, en una sola vista</h2>
+            <p className="mt-3 text-sm leading-7 text-white/68">
+              Aqu? curamos primero el top global entre todos los deportes y mercados, y luego te dejamos el mejor bloque de cada deporte por separado para leer r?pido y vender mejor.
+            </p>
+          </div>
+          <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">Picks globales</div>
+              <div className="mt-1 text-2xl font-semibold text-white">{globalPicks.length}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-white/45">Deportes activos</div>
+              <div className="mt-1 text-2xl font-semibold text-white">{sportSections.length}</div>
+            </div>
+          </div>
+        </div>
+        {selectedDate && <p className="mt-4 text-xs text-white/50">Fecha consultada: {formatDateInput(selectedDate)}</p>}
       </section>
 
-      {loading && (
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/75">
-          Cargando mejores picks...
-        </div>
-      )}
-
-      {!loading && error && (
-        <div className="rounded-3xl border border-rose-400/50 bg-rose-500/10 p-8 text-center text-rose-100">
-          {error}
-        </div>
-      )}
+      {loading && <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/75">Cargando Best Picks...</div>}
+      {!loading && error && <div className="rounded-3xl border border-rose-400/50 bg-rose-500/10 p-8 text-center text-rose-100">{error}</div>}
 
       {!loading && !error && (
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -168,211 +262,66 @@ export default function BestPicksPage() {
             onLoadToday={handleLoadToday}
             availableDates={availableDates}
             title="Calendario Best Picks"
-            subtitle="Consulta snapshots diarios congelados de picks."
-            todayButtonLabel="Cargar snapshot de hoy"
+            subtitle="Consulta snapshots diarios del top global y del top por deporte."
+            todayButtonLabel="Recargar snapshot de hoy"
           />
 
-          <section className="min-w-0">
-            <section className="mb-6 rounded-3xl border border-white/10 bg-black/20 p-5">
-              <div className="mb-4 flex flex-wrap gap-3 text-xs text-white/70">
-                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
-                  Hit Rate picks: {hitRateData?.top_n ?? 0}
-                </span>
-                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
-                  Value picks: {valueData?.top_n ?? 0}
-                </span>
-                <span className="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-emerald-200">
-                  Hit Rate: {hitRateData?.ranking_model || "v1"}
-                </span>
-                <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-amber-200">
-                  Value: {valueData?.ranking_model || "v1"}
-                </span>
+          <section className="min-w-0 space-y-6">
+            <section className="rounded-3xl border border-white/10 bg-black/20 p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Top global del d?a</h3>
+                  <p className="mt-1 text-sm text-white/60">Los picks m?s fuertes entre todos los deportes disponibles.</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/70">modelo {bestPicksData?.ranking_model || "v1"}</span>
+                  <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-amber-200">{bestPicksData?.total_candidates ?? 0} candidatos</span>
+                </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {(hitRateData?.sports_summary || []).map((s) => (
-                  <div key={s.sport} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <div className="text-sm font-semibold">{s.label}</div>
-                    <div className="mt-1 text-xs text-white/65">Picks en top: {s.count}</div>
-                    <div className="text-xs text-white/65">Score max: {fmt(s.max_score)}</div>
-                    <div className="text-xs text-white/65">Score medio: {fmt(s.avg_score)}</div>
-                    <div className="text-xs text-white/65">Final rank max: {fmt(s.max_final_rank_score)}</div>
-                    <div className="text-xs text-white/65">Final rank medio: {fmt(s.avg_final_rank_score)}</div>
-                  </div>
+              <div className="grid gap-4 xl:grid-cols-2">
+                {globalPicks.map((row, idx) => (
+                  <PickCard key={`${row.sport}-${row.market}-${row.game_id}-${idx}`} row={row} />
                 ))}
               </div>
 
-              <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="mb-2 text-sm font-semibold text-emerald-200">Diagnóstico Gates: Hit Rate</div>
-                  <div className="grid gap-2 text-xs text-white/70">
-                    {diagnosticItems(hitRateData?.gate_diagnostics).map(([k, v]) => (
-                      <div key={`hit-${k}`} className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-1.5">
-                        <span>{k}</span>
-                        <span className="font-semibold text-white">{v}</span>
-                      </div>
-                    ))}
-                    {!diagnosticItems(hitRateData?.gate_diagnostics).length && <div>Sin datos de diagnóstico.</div>}
-                  </div>
+              {!globalPicks.length && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
+                  No encontramos picks elegibles en esta fecha.
                 </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="mb-2 text-sm font-semibold text-amber-200">Diagnóstico Gates: Value</div>
-                  <div className="grid gap-2 text-xs text-white/70">
-                    {diagnosticItems(valueData?.gate_diagnostics).map(([k, v]) => (
-                      <div key={`val-${k}`} className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-1.5">
-                        <span>{k}</span>
-                        <span className="font-semibold text-white">{v}</span>
-                      </div>
-                    ))}
-                    {!diagnosticItems(valueData?.gate_diagnostics).length && <div>Sin datos de diagnóstico.</div>}
-                  </div>
-                </div>
-              </div>
+              )}
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-black/20 p-5">
-              <h3 className="mb-3 text-lg font-semibold">A) Best Picks Hit Rate</h3>
-              {hitRateData?.picks?.length ? (
-                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <table className="w-full text-left text-sm">
-                    <thead className="text-white/60">
-                      <tr>
-                        <th className="pb-2">#</th>
-                        <th className="pb-2">Deporte</th>
-                        <th className="pb-2">Juego</th>
-                        <th className="pb-2">Mercado</th>
-                        <th className="pb-2">Tier</th>
-                        <th className="pb-2">Pick</th>
-                        <th className="pb-2">Score</th>
-                        <th className="pb-2">Final Rank</th>
-                        <th className="pb-2">Edge</th>
-                        <th className="pb-2">Riesgo</th>
-                        <th className="pb-2">Correlación</th>
-                        <th className="pb-2">Resultado</th>
-                        <th className="pb-2">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hitRateData.picks.map((row, idx) => {
-                        const sportKey = String(row.sport || "").toLowerCase();
-                        const awayName = getTeamDisplayName(sportKey, row.away_team);
-                        const homeName = getTeamDisplayName(sportKey, row.home_team);
-                        const fullGameName = row.game_name || `${awayName} @ ${homeName}`;
-                        const pickName = getTeamDisplayName(sportKey, row.pick);
-                        const resultClass =
-                          row.result_hit === true
-                            ? "text-emerald-300"
-                            : row.result_hit === false
-                              ? "text-rose-300"
-                              : "text-white/70";
-
-                        return (
-                          <tr key={`${row.sport}-${row.market}-${row.game_id}-${idx}`} className="border-t border-white/10">
-                            <td className="py-2 font-semibold">{idx + 1}</td>
-                            <td className="py-2">{row.sport_label}</td>
-                            <td className="py-2">
-                              <div className="font-semibold">{fullGameName}</div>
-                              <div className="text-xs text-white/60">
-                                {row.date || "-"} {row.time && row.time !== "nan" ? `- ${row.time}` : ""}
-                              </div>
-                            </td>
-                            <td className="py-2">{row.market_label}</td>
-                            <td className="py-2">
-                              <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${tierClass(row.tier)}`}>
-                                {row.tier || "NORMAL"}
-                              </span>
-                            </td>
-                            <td className="py-2 font-semibold text-yellow-300">{pickName}</td>
-                            <td className="py-2">{fmt(row.score)}</td>
-                            <td className="py-2 font-semibold text-emerald-300">{fmt(row.final_rank_score)}</td>
-                            <td className="py-2">{pct(row.edge_proxy)}</td>
-                            <td className="py-2">x{fmt(row.stability_factor)}</td>
-                            <td className="py-2">x{fmt(row.correlation_penalty)}</td>
-                            <td className={`py-2 font-semibold ${resultClass}`}>{row.result_label || "PENDIENTE"}</td>
-                            <td className="py-2">{row.status_description || row.status_state || "Programado"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold text-white">Mejores picks por deporte</h3>
+                  <p className="mt-1 text-sm text-white/60">Cada bloque muestra el subconjunto m?s fuerte de esa liga para la fecha seleccionada.</p>
                 </div>
-              ) : (
+              </div>
+              <div className="space-y-5">
+                {sportSections.map((section) => (
+                  <SportSection key={section.sport} section={section} />
+                ))}
+              </div>
+              {!sportSections.length && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
-                  No hay picks elegibles para Hit Rate en esta fecha.
+                  Todav?a no hay deportes con picks elegibles para esta fecha.
                 </div>
               )}
+            </section>
 
-              <h3 className="mb-3 mt-8 text-lg font-semibold">B) Best Picks Value</h3>
-              {valueData?.picks?.length ? (
-                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <table className="w-full text-left text-sm">
-                    <thead className="text-white/60">
-                      <tr>
-                        <th className="pb-2">#</th>
-                        <th className="pb-2">Deporte</th>
-                        <th className="pb-2">Juego</th>
-                        <th className="pb-2">Mercado</th>
-                        <th className="pb-2">Tier</th>
-                        <th className="pb-2">Pick</th>
-                        <th className="pb-2">Score</th>
-                        <th className="pb-2">Final Rank</th>
-                        <th className="pb-2">Edge</th>
-                        <th className="pb-2">Riesgo</th>
-                        <th className="pb-2">Correlación</th>
-                        <th className="pb-2">Resultado</th>
-                        <th className="pb-2">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {valueData.picks.map((row, idx) => {
-                        const sportKey = String(row.sport || "").toLowerCase();
-                        const awayName = getTeamDisplayName(sportKey, row.away_team);
-                        const homeName = getTeamDisplayName(sportKey, row.home_team);
-                        const fullGameName = row.game_name || `${awayName} @ ${homeName}`;
-                        const pickName = getTeamDisplayName(sportKey, row.pick);
-                        const resultClass =
-                          row.result_hit === true
-                            ? "text-emerald-300"
-                            : row.result_hit === false
-                              ? "text-rose-300"
-                              : "text-white/70";
-
-                        return (
-                          <tr key={`${row.sport}-${row.market}-${row.game_id}-${idx}`} className="border-t border-white/10">
-                            <td className="py-2 font-semibold">{idx + 1}</td>
-                            <td className="py-2">{row.sport_label}</td>
-                            <td className="py-2">
-                              <div className="font-semibold">{fullGameName}</div>
-                              <div className="text-xs text-white/60">
-                                {row.date || "-"} {row.time && row.time !== "nan" ? `- ${row.time}` : ""}
-                              </div>
-                            </td>
-                            <td className="py-2">{row.market_label}</td>
-                            <td className="py-2">
-                              <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${tierClass(row.tier)}`}>
-                                {row.tier || "NORMAL"}
-                              </span>
-                            </td>
-                            <td className="py-2 font-semibold text-yellow-300">{pickName}</td>
-                            <td className="py-2">{fmt(row.score)}</td>
-                            <td className="py-2 font-semibold text-amber-300">{fmt(row.final_rank_score)}</td>
-                            <td className="py-2">{pct(row.edge_proxy)}</td>
-                            <td className="py-2">x{fmt(row.stability_factor)}</td>
-                            <td className="py-2">x{fmt(row.correlation_penalty)}</td>
-                            <td className={`py-2 font-semibold ${resultClass}`}>{row.result_label || "PENDIENTE"}</td>
-                            <td className="py-2">{row.status_description || row.status_state || "Programado"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
-                  No hay picks elegibles para Value en esta fecha.
-                </div>
-              )}
+            <section className="rounded-3xl border border-white/10 bg-black/20 p-5">
+              <h3 className="text-lg font-semibold text-white">Diagn?stico de filtros</h3>
+              <p className="mt-1 text-sm text-white/60">Esto nos ayuda a ver cu?ndo estamos filtrando demasiado y por qu? se quedan fuera algunos mercados.</p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {diagnosticItems(bestPicksData?.gate_diagnostics).map(([key, value]) => (
+                  <div key={key} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <div className="text-xs uppercase tracking-[0.22em] text-white/40">{key}</div>
+                    <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
+                  </div>
+                ))}
+              </div>
             </section>
           </section>
         </div>

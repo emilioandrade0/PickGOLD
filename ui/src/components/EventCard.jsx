@@ -278,8 +278,6 @@ function TeamRow({ sportKey, abbr }) {
 
 export default function EventCard({ event, onOpen, sportKey }) {
   const teams = resolveEventTeams(event);
-  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
-  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
   const eventTier = resolveEventTier(event);
   const hasResult = event.result_available === true;
   const isLive = !hasResult && String(event.status_state || "").toLowerCase() === "in";
@@ -291,7 +289,8 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const firstHalfCard = resolveFirstHalfCard(event, sportKey, teams);
   const secondaryPick = secondaryMarket?.pick;
   const secondaryAction = secondaryMarket?.action;
-  const fullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
+  const rawFullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
+  const fullGamePick = rawFullGamePick || (sportKey === "ncaa_baseball" ? "Sin linea disponible" : "Pendiente");
   const secondaryHit = secondaryMarket?.hit ?? null;
   const secondaryConfidence = secondaryMarket?.confidence;
   const secondaryLabel = secondaryMarket?.label || "Pick secundario";
@@ -345,16 +344,16 @@ export default function EventCard({ event, onOpen, sportKey }) {
         : "border-cyan-400/40";
   const spreadResultBorderClass = marketBorderClass(spreadHit);
   const totalResultBorderClass = marketBorderClass(totalHit);
-  const cardBorderClass = isLive ? "border-rose-400/70 shadow-[0_0_30px_rgba(251,113,133,0.12)]" : "border-white/15";
+  const cardBorderClass = isLive ? "border-rose-400/70 shadow-[0_0_30px_rgba(251,113,133,0.12)]" : "border-white/10";
   const cardHoverClass = isLive ? "hover:border-rose-300/80" : "hover:border-amber-300/70";
   const liveClock = formatLiveClock(event);
 
   return (
     <button
       onClick={() => onOpen(event)}
-      className={`rounded-3xl border bg-[#171a21] p-0 text-left transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/35 ${cardBorderClass} ${cardHoverClass} ${isLive ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+      className={`group relative overflow-visible rounded-[30px] border bg-[linear-gradient(180deg,rgba(27,31,40,0.96),rgba(20,23,31,0.98))] p-0 text-left transition hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(0,0,0,0.28)] lg:hover:z-20 ${cardBorderClass} ${cardHoverClass} ${isLive ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
     >
-      <div className={`rounded-t-3xl border-b px-4 py-2 text-sm text-white/85 ${isLive ? "border-rose-400/30 bg-rose-500/10" : "border-white/10 bg-black/35"}`}>
+      <div className={`rounded-t-[30px] border-b px-4 py-2 text-sm text-white/85 ${isLive ? "border-rose-400/30 bg-rose-500/10" : "border-white/10 bg-black/24"}`}>
         <div className="flex items-center justify-between gap-3">
           <span>{event.date.split("-").reverse().join("/")} {event.time || ""}</span>
           {isLive && (
@@ -366,7 +365,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
         </div>
       </div>
 
-      <div className="space-y-5 px-4 py-4">
+      <div className="relative space-y-5 px-4 py-4">
         {isLive && hasLiveScore ? (
           <div className="space-y-2 rounded-2xl border border-rose-400/30 bg-gradient-to-br from-rose-500/10 via-white/[0.03] to-transparent p-3 shadow-[0_0_24px_rgba(251,113,133,0.12)]">
             <div className="flex items-center justify-between text-[11px] text-rose-200/85">
@@ -389,104 +388,118 @@ export default function EventCard({ event, onOpen, sportKey }) {
           <div>
             <p className="text-sm text-white/70">Pick principal</p>
             <p className="mt-1 text-base font-semibold">{fullGamePick}</p>
-            <p className="mt-1 text-xs text-white/70">Cuota ML: {mainOdds || "N/A"}</p>
+            <p className="mt-1 text-xs text-white/70">Cuota ML: {mainOdds || (sportKey === "ncaa_baseball" ? "Sin linea" : "N/A")}</p>
           </div>
 
-          <div className="rounded-xl border border-white/40 px-3 py-2 text-xs text-white/90">
+          <div className="rounded-2xl border border-white/18 bg-white/[0.03] px-3 py-2 text-xs text-white/90">
             {event.full_game_confidence}%
           </div>
         </div>
 
-        <div className="grid gap-2 text-xs sm:grid-cols-2">
-          <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${spreadResultBorderClass}`}>
-            <p className="text-white/60">Handicap</p>
-            <p className="mt-1">Pick: {spreadPredictionLabel}</p>
-            <p className="mt-1">Linea: {spreadLineDisplay}</p>
-            <p className="mt-1">Cuota: {spreadOddsDisplay}</p>
-            {hasResult && spreadHit !== undefined && spreadHit !== null && (
-              <p className="mt-1 font-semibold text-white/90">
-                Resultado: {spreadHit === true ? "ACIERTO" : "FALLO"}
-              </p>
-            )}
-          </div>
-          <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${totalResultBorderClass}`}>
-            <p className="text-white/60">Over/Under</p>
-            <p className="mt-1">Pick: {totalPickDisplay}</p>
-            <p className="mt-1">Linea: {totalLineDisplay}</p>
-            <p className="mt-1">Cuota: {totalOddsDisplay}</p>
-            {hasResult && totalHit !== undefined && totalHit !== null && (
-              <p className="mt-1 font-semibold text-white/90">
-                Resultado: {totalHit === true ? "ACIERTO" : "FALLO"}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {secondaryPick && (
-          <div className={`rounded-xl border bg-black/15 px-3 py-2 ${secondaryResultBorderClass}`}>
-            <p className="text-xs text-white/60">{secondaryLabel}</p>
-            <p className="mt-1 text-sm font-semibold text-white">{secondaryPick}</p>
-            {secondaryConfidence !== undefined && secondaryConfidence !== null && (
-              <p className="mt-1 text-xs text-white/70">Confianza: {secondaryConfidence}%</p>
-            )}
-            <p className="mt-1 text-xs text-white/70">
-              {secondaryLabel === "Primer Cuarto" ? `Cuota: ${q1BetActionLabel}` : `Cuota: ${secondaryOdds || "N/A"}`}
-            </p>
-            {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
-              <p className="mt-1 text-xs font-semibold text-white/85">
-                Resultado: {secondaryHit === true ? "ACIERTO" : "FALLO"}
-              </p>
-            )}
-          </div>
-        )}
-
-        {firstHalfCard && (
-          <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(firstHalfCard.hit)}`}>
-            <p className="text-xs text-white/60">Primera Mitad</p>
-            <p className="mt-1 text-sm font-semibold text-white">{firstHalfCard.pick}</p>
-            {firstHalfCard.confidence !== undefined && firstHalfCard.confidence !== null && (
-              <p className="mt-1 text-xs text-white/70">Confianza: {firstHalfCard.confidence}%</p>
-            )}
-            <p className="mt-1 text-xs text-white/70">Accion: {firstHalfCard.action}</p>
-            {hasResult && firstHalfCard.hit !== undefined && firstHalfCard.hit !== null && (
-              <p className="mt-1 text-xs font-semibold text-white/85">
-                Resultado: {firstHalfCard.hit === true ? "ACIERTO" : "FALLO"}
-              </p>
-            )}
-          </div>
-        )}
-
-        {cornersPick && (
-          <div className={`rounded-xl border bg-cyan-500/10 px-3 py-2 ${cornersResultBorderClass}`}>
-            <p className="text-xs text-cyan-100">Corners O/U</p>
-            <p className="mt-1 text-sm font-semibold text-cyan-50">{cornersPick}</p>
-            <p className="mt-1 text-xs text-cyan-100/80">
-              Confianza: {cornersConfidence ?? "-"}% · Acción: {cornersAction || "N/A"}
-            </p>
-            <p className="mt-1 text-xs text-cyan-100/80">Cuota: {cornersOdds || "N/A"}</p>
-            {hasResult && cornersHit !== undefined && cornersHit !== null && (
-              <p className="mt-1 text-xs font-semibold text-cyan-50">
-                Resultado: {cornersHit === true ? "ACIERTO" : "FALLO"}
-              </p>
-            )}
-          </div>
-        )}
-
         <div className="flex items-center justify-between gap-3">
-          <span className={`rounded-full border px-3 py-1 text-xs ${tierClasses(eventTier)}`}>
+          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${tierClasses(eventTier)}`}>
+            {hasResult && gameHit !== null && gameHit !== undefined && (
+              <span
+                className={`h-2 w-2 rounded-full animate-[pulse_1.8s_ease-in-out_infinite] ${
+                  gameHit === true ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" : "bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.7)]"
+                }`}
+              />
+            )}
             {tierLabel(eventTier)}
           </span>
-          <span className="text-xs text-white/55">Abrir detalle</span>
+          <span className="text-xs text-white/55 transition-colors duration-300 lg:group-hover:text-white/75">
+            Abrir detalle
+          </span>
         </div>
 
-        {hasResult && (
-          <div className={`rounded-xl border bg-black/20 px-3 py-2 text-xs ${resultBorderClass}`}>
-            <p className="text-white/75">Final: {event.final_score_text}</p>
-            <p className="mt-1 font-semibold text-white">
-              Resultado pick: {gameHit === true ? "ACIERTO" : gameHit === false ? "FALLO" : "N/A"}
-            </p>
+        <div className="max-h-[2400px] overflow-hidden opacity-100 transition-all duration-300 ease-out lg:pointer-events-none lg:absolute lg:left-0 lg:right-0 lg:top-[calc(100%-18px)] lg:z-10 lg:max-h-none lg:overflow-visible lg:rounded-[2rem] lg:border lg:border-white/12 lg:bg-[#171a21] lg:px-4 lg:pb-4 lg:pt-8 lg:opacity-0 lg:shadow-[0_24px_48px_rgba(0,0,0,0.38)] lg:translate-y-1 lg:group-hover:opacity-100 lg:group-hover:translate-y-0">
+          <div className="space-y-5 pt-1 lg:pt-0">
+            <div className="hidden lg:block absolute left-6 right-6 top-0 h-5 -translate-y-[70%] rounded-t-[1.5rem] bg-[#171a21] border-x border-t border-white/12" />
+            <div className="grid gap-2 text-xs sm:grid-cols-2">
+              <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${spreadResultBorderClass}`}>
+                <p className="text-white/60">Handicap</p>
+                <p className="mt-1">Pick: {spreadPredictionLabel}</p>
+                <p className="mt-1">Linea: {spreadLineDisplay}</p>
+                <p className="mt-1">Cuota: {spreadOddsDisplay}</p>
+                {hasResult && spreadHit !== undefined && spreadHit !== null && (
+                  <p className="mt-1 font-semibold text-white/90">
+                    Resultado: {spreadHit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+              <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${totalResultBorderClass}`}>
+                <p className="text-white/60">Over/Under</p>
+                <p className="mt-1">Pick: {totalPickDisplay}</p>
+                <p className="mt-1">Linea: {totalLineDisplay}</p>
+                <p className="mt-1">Cuota: {totalOddsDisplay}</p>
+                {hasResult && totalHit !== undefined && totalHit !== null && (
+                  <p className="mt-1 font-semibold text-white/90">
+                    Resultado: {totalHit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {secondaryPick && (
+              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${secondaryResultBorderClass}`}>
+                <p className="text-xs text-white/60">{secondaryLabel}</p>
+                <p className="mt-1 text-sm font-semibold text-white">{secondaryPick}</p>
+                {secondaryConfidence !== undefined && secondaryConfidence !== null && (
+                  <p className="mt-1 text-xs text-white/70">Confianza: {secondaryConfidence}%</p>
+                )}
+                <p className="mt-1 text-xs text-white/70">
+                  {secondaryLabel === "Primer Cuarto" ? `Cuota: ${q1BetActionLabel}` : `Cuota: ${secondaryOdds || "N/A"}`}
+                </p>
+                {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
+                  <p className="mt-1 text-xs font-semibold text-white/85">
+                    Resultado: {secondaryHit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {firstHalfCard && (
+              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(firstHalfCard.hit)}`}>
+                <p className="text-xs text-white/60">Primera Mitad</p>
+                <p className="mt-1 text-sm font-semibold text-white">{firstHalfCard.pick}</p>
+                {firstHalfCard.confidence !== undefined && firstHalfCard.confidence !== null && (
+                  <p className="mt-1 text-xs text-white/70">Confianza: {firstHalfCard.confidence}%</p>
+                )}
+                <p className="mt-1 text-xs text-white/70">Accion: {firstHalfCard.action}</p>
+                {hasResult && firstHalfCard.hit !== undefined && firstHalfCard.hit !== null && (
+                  <p className="mt-1 text-xs font-semibold text-white/85">
+                    Resultado: {firstHalfCard.hit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {cornersPick && (
+              <div className={`rounded-xl border bg-cyan-500/10 px-3 py-2 ${cornersResultBorderClass}`}>
+                <p className="text-xs text-cyan-100">Corners O/U</p>
+                <p className="mt-1 text-sm font-semibold text-cyan-50">{cornersPick}</p>
+                <p className="mt-1 text-xs text-cyan-100/80">
+                  Confianza: {cornersConfidence ?? "-"}% | Accion: {cornersAction || "N/A"}
+                </p>
+                <p className="mt-1 text-xs text-cyan-100/80">Cuota: {cornersOdds || "N/A"}</p>
+                {hasResult && cornersHit !== undefined && cornersHit !== null && (
+                  <p className="mt-1 text-xs font-semibold text-cyan-50">
+                    Resultado: {cornersHit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {hasResult && (
+              <div className={`rounded-xl border bg-black/20 px-3 py-2 text-xs ${resultBorderClass}`}>
+                <p className="text-white/75">Final: {event.final_score_text}</p>
+                <p className="mt-1 font-semibold text-white">
+                  Resultado pick: {gameHit === true ? "ACIERTO" : gameHit === false ? "FALLO" : "N/A"}
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </button>
   );

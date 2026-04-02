@@ -7,12 +7,11 @@ import sys
 import threading
 from datetime import date, datetime, timedelta
 import re
-import uuid
-import hashlib
+from typing import Optional
 
 import pandas as pd
 import requests
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Header
 from fastapi.middleware.cors import CORSMiddleware
 
 try:
@@ -27,6 +26,44 @@ try:
     from .external_odds_overrides import apply_overrides_to_events
 except ImportError:
     from external_odds_overrides import apply_overrides_to_events
+try:
+    from .auth_storage import (
+        create_session,
+        delete_session,
+        ensure_admin_user,
+        find_user_by_email,
+        find_user_by_id,
+        get_session,
+        hash_password,
+        init_auth_db,
+        is_access_expired,
+        iso_utc,
+        list_pending_users,
+        parse_utc,
+        register_user,
+        row_to_user_payload,
+        set_user_approval,
+        utc_now,
+    )
+except ImportError:
+    from auth_storage import (
+        create_session,
+        delete_session,
+        ensure_admin_user,
+        find_user_by_email,
+        find_user_by_id,
+        get_session,
+        hash_password,
+        init_auth_db,
+        is_access_expired,
+        iso_utc,
+        list_pending_users,
+        parse_utc,
+        register_user,
+        row_to_user_payload,
+        set_user_approval,
+        utc_now,
+    )
 
 BASE_DIR = Path(__file__).resolve().parent
 NBA_RAW_HISTORY = BASE_DIR / "data" / "raw" / "nba_advanced_history.csv"
@@ -37,6 +74,8 @@ LALIGA_RAW_HISTORY = BASE_DIR / "data" / "laliga" / "raw" / "laliga_advanced_his
 KBO_RAW_HISTORY = BASE_DIR / "data" / "kbo" / "raw" / "kbo_advanced_history.csv"
 EUROLEAGUE_RAW_HISTORY = BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_advanced_history.csv"
 NCAA_BASEBALL_RAW_HISTORY = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_advanced_history.csv"
+NCAA_BASEBALL_RAW_UPCOMING = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_upcoming_schedule.csv"
+TENNIS_RAW_HISTORY = BASE_DIR / "data" / "tennis" / "raw" / "tennis_advanced_history.csv"
 BEST_PICKS_SNAPSHOTS_DIR = BASE_DIR / "data" / "insights" / "best_picks"
 BEST_PICKS_SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 BEST_PICKS_EXCLUDED_SPORTS = {"ncaa_baseball"}
@@ -91,6 +130,11 @@ SPORTS_CONFIG = {
         "historical_dir": BASE_DIR / "data" / "ncaa_baseball" / "historical_predictions",
         "label": "NCAA Baseball",
     },
+    "tennis": {
+        "predictions_dir": BASE_DIR / "data" / "tennis" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "tennis" / "historical_predictions",
+        "label": "Tennis",
+    },
 }
 
 app = FastAPI(title="NBA GOLD API")
@@ -117,81 +161,107 @@ SPORT_UPDATE_PIPELINES = {
     "nba": {
         "label": "NBA",
         "steps": [
-            {
-                "key": "ingest",
-                "label": "Ingesta NBA",
-                "script": BASE_DIR / "sports" / "nba" / "data_ingest.py",
-            },
-            {
-                "key": "features",
-                "label": "Features NBA",
-                "script": BASE_DIR / "sports" / "nba" / "feature_engineering.py",
-            },
-            {
-                "key": "train",
-                "label": "Entrenamiento NBA",
-                "script": BASE_DIR / "sports" / "nba" / "train_models.py",
-            },
-            {
-                "key": "historical",
-                "label": "Historicas NBA",
-                "script": BASE_DIR / "sports" / "nba" / "historical_predictions.py",
-            },
-            {
-                "key": "today",
-                "label": "Predicciones de hoy NBA",
-                "script": BASE_DIR / "sports" / "nba" / "predict_today.py",
-            },
+            {"key": "ingest", "label": "Ingesta NBA", "script": BASE_DIR / "sports" / "nba" / "data_ingest.py"},
+            {"key": "features", "label": "Features NBA", "script": BASE_DIR / "sports" / "nba" / "feature_engineering.py"},
+            {"key": "train", "label": "Entrenamiento NBA", "script": BASE_DIR / "sports" / "nba" / "train_models.py"},
+            {"key": "historical", "label": "Hist?ricas NBA", "script": BASE_DIR / "sports" / "nba" / "historical_predictions.py"},
+            {"key": "today", "label": "Predicciones de hoy NBA", "script": BASE_DIR / "sports" / "nba" / "predict_today.py"},
         ],
         "env": {},
     },
     "mlb": {
         "label": "MLB",
         "steps": [
-            {
-                "key": "ingest",
-                "label": "Ingesta MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "data_ingest_mlb.py",
-            },
-            {
-                "key": "lineup_strength",
-                "label": "Lineup strength MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "ingest_lineup_strength.py",
-            },
-            {
-                "key": "line_movement",
-                "label": "Line movement MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "ingest_line_movement.py",
-            },
-            {
-                "key": "umpire_stats",
-                "label": "Umpire stats MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "ingest_umpire_stats.py",
-            },
-            {
-                "key": "features",
-                "label": "Features MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "feature_engineering_mlb_core.py",
-            },
-            {
-                "key": "train",
-                "label": "Entrenamiento MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "train_models_mlb.py",
-            },
-            {
-                "key": "historical",
-                "label": "Walk-forward MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "historical_predictions_mlb_walkforward.py",
-            },
-            {
-                "key": "today",
-                "label": "Predicciones de hoy MLB",
-                "script": BASE_DIR / "sports" / "mlb" / "predict_today_mlb.py",
-            },
+            {"key": "ingest", "label": "Ingesta MLB", "script": BASE_DIR / "sports" / "mlb" / "data_ingest_mlb.py"},
+            {"key": "lineup_strength", "label": "Lineup strength MLB", "script": BASE_DIR / "sports" / "mlb" / "ingest_lineup_strength.py"},
+            {"key": "line_movement", "label": "Line movement MLB", "script": BASE_DIR / "sports" / "mlb" / "ingest_line_movement.py"},
+            {"key": "umpire_stats", "label": "Umpire stats MLB", "script": BASE_DIR / "sports" / "mlb" / "ingest_umpire_stats.py"},
+            {"key": "features", "label": "Features MLB", "script": BASE_DIR / "sports" / "mlb" / "feature_engineering_mlb_core.py"},
+            {"key": "train", "label": "Entrenamiento MLB", "script": BASE_DIR / "sports" / "mlb" / "train_models_mlb.py"},
+            {"key": "historical", "label": "Walk-forward MLB", "script": BASE_DIR / "sports" / "mlb" / "historical_predictions_mlb_walkforward.py"},
+            {"key": "today", "label": "Predicciones de hoy MLB", "script": BASE_DIR / "sports" / "mlb" / "predict_today_mlb.py"},
         ],
-        "env": {
-            "THE_ODDS_API_KEY": DEFAULT_THE_ODDS_API_KEY,
-        },
+        "env": {"THE_ODDS_API_KEY": DEFAULT_THE_ODDS_API_KEY},
+    },
+    "kbo": {
+        "label": "KBO",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta KBO", "script": BASE_DIR / "sports" / "kbo" / "data_ingest_kbo.py"},
+            {"key": "features", "label": "Features KBO", "script": BASE_DIR / "sports" / "kbo" / "feature_engineering_kbo.py"},
+            {"key": "train", "label": "Entrenamiento KBO", "script": BASE_DIR / "sports" / "kbo" / "train_models_kbo.py"},
+            {"key": "historical", "label": "Hist?ricas KBO", "script": BASE_DIR / "sports" / "kbo" / "historical_predictions_kbo.py"},
+            {"key": "today", "label": "Predicciones de hoy KBO", "script": BASE_DIR / "sports" / "kbo" / "predict_today_kbo.py"},
+        ],
+        "env": {},
+    },
+    "nhl": {
+        "label": "NHL",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta NHL", "script": BASE_DIR / "sports" / "nhl" / "data_ingest_nhl.py"},
+            {"key": "features_core", "label": "Features NHL", "script": BASE_DIR / "sports" / "nhl" / "feature_engineering_nhl.py"},
+            {"key": "features_goalies", "label": "Features goalies NHL", "script": BASE_DIR / "sports" / "nhl" / "feature_engineering_nhl_goalies.py"},
+            {"key": "train", "label": "Entrenamiento NHL", "script": BASE_DIR / "sports" / "nhl" / "train_models_nhl.py"},
+            {"key": "historical", "label": "Hist?ricas NHL", "script": BASE_DIR / "sports" / "nhl" / "historical_predictions_nhl.py"},
+            {"key": "today", "label": "Predicciones de hoy NHL", "script": BASE_DIR / "sports" / "nhl" / "predict_today_nhl.py"},
+        ],
+        "env": {},
+    },
+    "liga_mx": {
+        "label": "Liga MX",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "data_ingest_liga_mx.py"},
+            {"key": "adjustments", "label": "Event adjustments Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "event_adjustments_liga_mx.py"},
+            {"key": "features", "label": "Features Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "feature_engineering_liga_mx_v3.py"},
+            {"key": "train", "label": "Entrenamiento Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "train_models_liga_mx.py"},
+            {"key": "historical", "label": "Hist?ricas Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "historical_predictions_liga_mx.py"},
+            {"key": "today", "label": "Predicciones de hoy Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "predict_today_liga_mx.py"},
+        ],
+        "env": {},
+    },
+    "laliga": {
+        "label": "LaLiga",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta LaLiga", "script": BASE_DIR / "sports" / "laliga" / "data_ingest_laliga.py"},
+            {"key": "adjustments", "label": "Event adjustments LaLiga", "script": BASE_DIR / "sports" / "laliga" / "event_adjustments_laliga.py"},
+            {"key": "features", "label": "Features LaLiga", "script": BASE_DIR / "sports" / "laliga" / "feature_engineering_laliga.py"},
+            {"key": "train", "label": "Entrenamiento LaLiga", "script": BASE_DIR / "sports" / "laliga" / "train_models_laliga.py"},
+            {"key": "historical", "label": "Hist?ricas LaLiga", "script": BASE_DIR / "sports" / "laliga" / "historical_predictions_laliga.py"},
+            {"key": "today", "label": "Predicciones de hoy LaLiga", "script": BASE_DIR / "sports" / "laliga" / "predict_today_laliga.py"},
+        ],
+        "env": {},
+    },
+    "euroleague": {
+        "label": "EuroLeague",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta EuroLeague", "script": BASE_DIR / "sports" / "euroleague" / "data_ingest_euroleague.py"},
+            {"key": "features", "label": "Features EuroLeague", "script": BASE_DIR / "sports" / "euroleague" / "feature_engineering_euroleague.py"},
+            {"key": "train", "label": "Entrenamiento EuroLeague", "script": BASE_DIR / "sports" / "euroleague" / "train_models_euroleague.py"},
+            {"key": "historical", "label": "Hist?ricas EuroLeague", "script": BASE_DIR / "sports" / "euroleague" / "historical_predictions_euroleague.py"},
+            {"key": "today", "label": "Predicciones de hoy EuroLeague", "script": BASE_DIR / "sports" / "euroleague" / "predict_today_euroleague.py"},
+        ],
+        "env": {},
+    },
+    "ncaa_baseball": {
+        "label": "NCAA Baseball",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta NCAA Baseball", "script": BASE_DIR / "sports" / "ncaa baseball" / "data_ingest_ncaa_baseball.py"},
+            {"key": "features", "label": "Features NCAA Baseball", "script": BASE_DIR / "sports" / "ncaa baseball" / "feature_engineering_ncaa_baseball.py"},
+            {"key": "train", "label": "Entrenamiento NCAA Baseball", "script": BASE_DIR / "sports" / "ncaa baseball" / "train_models_ncaa_baseball.py"},
+            {"key": "historical", "label": "Hist?ricas NCAA Baseball", "script": BASE_DIR / "sports" / "ncaa baseball" / "historical_predictions_ncaa_baseball.py"},
+            {"key": "today", "label": "Predicciones de hoy NCAA Baseball", "script": BASE_DIR / "sports" / "ncaa baseball" / "predict_today_ncaa_baseball.py"},
+        ],
+        "env": {},
+    },
+    "tennis": {
+        "label": "Tennis",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta Tennis", "script": BASE_DIR / "sports" / "tennis" / "data_ingest_tennis.py"},
+            {"key": "features", "label": "Features Tennis", "script": BASE_DIR / "sports" / "tennis" / "feature_engineering_tennis.py"},
+            {"key": "train", "label": "Entrenamiento Tennis", "script": BASE_DIR / "sports" / "tennis" / "train_models_tennis.py"},
+            {"key": "historical", "label": "Historicas Tennis", "script": BASE_DIR / "sports" / "tennis" / "historical_predictions_tennis.py"},
+            {"key": "today", "label": "Predicciones de hoy Tennis", "script": BASE_DIR / "sports" / "tennis" / "predict_today_tennis.py"},
+        ],
+        "env": {},
     },
 }
 
@@ -227,17 +297,217 @@ def health_check():
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "emilio.andra.na@gmail.com").strip().lower()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "adminpassword")
+init_auth_db()
+ensure_admin_user(ADMIN_EMAIL, ADMIN_PASSWORD)
 
-users_store = [
-    {
-        "id": str(uuid.uuid4()),
-        "name": "Admin",
-        "email": ADMIN_EMAIL,
-        "password": hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest(),
-        "role": "admin",
-        "status": "approved",
+APPROVABLE_ROLES = {"member", "vip", "capper", "admin"}
+
+
+def _extract_bearer_token(authorization: Optional[str]) -> str:
+    raw = str(authorization or "").strip()
+    if not raw:
+        return ""
+    if raw.lower().startswith("bearer "):
+        return raw[7:].strip()
+    return raw
+
+
+def _build_auth_session_payload(session_data: dict) -> dict:
+    user = dict(session_data.get("user") or {})
+    return {
+        "ok": True,
+        "pending": False,
+        "token": session_data["token"],
+        "session_expires_at": session_data["session_expires_at"],
+        "user": user,
     }
-]
+
+
+def _require_admin_session(authorization: Optional[str]) -> dict:
+    token = _extract_bearer_token(authorization)
+    session_data = get_session(token)
+    if not session_data:
+        raise HTTPException(status_code=401, detail="Sesion invalida o expirada.")
+
+    user = session_data.get("user") or {}
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="No autorizado.")
+
+    if user.get("status") != "approved":
+        raise HTTPException(status_code=403, detail="Tu cuenta admin no esta aprobada.")
+
+    if is_access_expired(user):
+        delete_session(token)
+        raise HTTPException(status_code=403, detail="El acceso del administrador ya expiro.")
+
+    return session_data
+
+
+def _safe_float(value):
+    try:
+        if value is None or (isinstance(value, float) and math.isnan(value)):
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _safe_int(value):
+    num = _safe_float(value)
+    if num is None:
+        return None
+    try:
+        return int(num)
+    except Exception:
+        return None
+
+
+def _format_final_score_text(home_score, away_score):
+    if home_score is None or away_score is None:
+        return ""
+    try:
+        return f"Final: {int(home_score)} - {int(away_score)}"
+    except Exception:
+        return ""
+
+
+def _load_ncaa_baseball_schedule_events(date_str: str) -> list[dict]:
+    if not NCAA_BASEBALL_RAW_UPCOMING.exists():
+        return []
+
+    try:
+        df = pd.read_csv(NCAA_BASEBALL_RAW_UPCOMING, dtype={"game_id": str})
+    except Exception:
+        return []
+
+    if df.empty or "date" not in df.columns:
+        return []
+
+    rows = df[df["date"].astype(str) == str(date_str)].copy()
+    if rows.empty:
+        return []
+
+    rows["time"] = rows.get("time", "").fillna("").astype(str)
+    rows = rows.sort_values(["time", "game_id"], kind="stable")
+
+    events = []
+    for _, row in rows.iterrows():
+        home_team = str(row.get("home_team") or "HOME").strip() or "HOME"
+        away_team = str(row.get("away_team") or "AWAY").strip() or "AWAY"
+        home_score = _safe_int(row.get("home_runs_total"))
+        away_score = _safe_int(row.get("away_runs_total"))
+        odds_details = str(row.get("odds_details") or "").strip()
+        total_line = _safe_float(row.get("odds_over_under"))
+        total_line_value = None
+        if total_line is not None and total_line > 0:
+            total_line_value = int(total_line) if float(total_line).is_integer() else round(float(total_line), 1)
+
+        status_state = str(row.get("status_state") or "").strip().lower() or "pre"
+        status_completed = _safe_int(row.get("status_completed")) or 0
+        result_available = status_completed == 1 or status_state in {"post", "final", "completed"}
+
+        event = {
+            "game_id": str(row.get("game_id") or ""),
+            "date": str(row.get("date") or date_str),
+            "time": str(row.get("time") or ""),
+            "season": row.get("season"),
+            "home_team": home_team,
+            "away_team": away_team,
+            "game_name": f"{away_team} @ {home_team}",
+            "status_completed": 1 if result_available else 0,
+            "status_state": status_state,
+            "status_description": str(row.get("status_description") or ("Final" if result_available else "Scheduled")),
+            "status_detail": str(row.get("status_detail") or ("FINAL" if result_available else "Scheduled")),
+            "home_score": home_score,
+            "away_score": away_score,
+            "home_runs_total": home_score,
+            "away_runs_total": away_score,
+            "home_r1": _safe_int(row.get("home_r1")),
+            "away_r1": _safe_int(row.get("away_r1")),
+            "home_runs_f5": _safe_int(row.get("home_runs_f5")),
+            "away_runs_f5": _safe_int(row.get("away_runs_f5")),
+            "odds_details": odds_details or "No Line",
+            "odds_over_under": total_line if total_line is not None else 0,
+            "closing_total_line": total_line_value,
+            "full_game_pick": "Sin linea disponible",
+            "full_game_confidence": None,
+            "recommended_tier": "Sin linea",
+            "result_available": result_available,
+            "final_score_text": _format_final_score_text(home_score, away_score) if result_available else "",
+            "market_missing": 1,
+            "board_source": "raw_schedule",
+        }
+        events.append(event)
+
+    try:
+        return enrich_predictions_with_results("ncaa_baseball", events, allow_live=True)
+    except Exception:
+        return events
+
+
+def _get_ncaa_baseball_available_dates() -> list[str]:
+    if not NCAA_BASEBALL_RAW_UPCOMING.exists():
+        return []
+    try:
+        df = pd.read_csv(NCAA_BASEBALL_RAW_UPCOMING, usecols=["date"])
+    except Exception:
+        return []
+    if df.empty or "date" not in df.columns:
+        return []
+    return sorted({str(value) for value in df["date"].dropna().astype(str).tolist() if str(value).strip()})
+
+
+def _merge_ncaa_baseball_board(date_str: str) -> list[dict]:
+    base_events = _load_ncaa_baseball_schedule_events(date_str)
+    config = SPORTS_CONFIG["ncaa_baseball"]
+
+    predicted_events = []
+    hist_file = None
+    try:
+        file_path = resolve_prediction_file(
+            config["predictions_dir"],
+            config["historical_dir"],
+            date_str,
+        )
+        predicted_events = _normalize_events_payload(read_json_file(file_path))
+        _, hist_file = get_files_for_date(config["predictions_dir"], config["historical_dir"], date_str)
+        predicted_events = merge_result_hints_from_historical(predicted_events, hist_file)
+        predicted_events = apply_overrides_to_events("ncaa_baseball", date_str, predicted_events)
+        try:
+            predicted_events = enrich_predictions_if_available("ncaa_baseball", predicted_events)
+        except Exception:
+            pass
+    except HTTPException:
+        predicted_events = []
+
+    if not base_events:
+        return predicted_events
+    if not predicted_events:
+        return base_events
+
+    predicted_by_game = {str(item.get("game_id") or ""): item for item in predicted_events}
+    merged = []
+    seen_ids = set()
+
+    for item in base_events:
+        game_id = str(item.get("game_id") or "")
+        predicted = predicted_by_game.get(game_id)
+        if predicted:
+            merged_item = dict(item)
+            merged_item.update({k: v for k, v in predicted.items() if v is not None and v != ""})
+            merged_item.setdefault("board_source", "merged_schedule_predictions")
+            merged.append(merged_item)
+            seen_ids.add(game_id)
+        else:
+            merged.append(item)
+            seen_ids.add(game_id)
+
+    for item in predicted_events:
+        game_id = str(item.get("game_id") or "")
+        if game_id not in seen_ids:
+            merged.append(item)
+
+    return merged
 
 
 @app.post("/api/register")
@@ -249,115 +519,116 @@ def register(payload: dict = Body(...)):
     if not name or not email or not password:
         return {"ok": False, "error": "Todos los campos son requeridos."}
 
-    existing = next((u for u in users_store if u["email"] == email), None)
+    existing = find_user_by_email(email)
     if existing:
-        return {"ok": False, "error": "El email ya está registrado."}
+        return {"ok": False, "error": "El email ya esta registrado."}
 
-    role = "admin" if email == ADMIN_EMAIL else "user"
-    status = "approved" if role == "admin" else "pending"
-
-    user = {
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "email": email,
-        "password": hashlib.sha256(password.encode()).hexdigest(),
-        "role": role,
-        "status": status,
-    }
-    users_store.append(user)
+    user = register_user(name, email, password)
 
     return {
         "ok": True,
-        "user": {
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"],
-            "status": user["status"],
-        },
+        "user": user,
+        "message": "Cuenta creada. Queda pendiente de aprobacion por un administrador.",
     }
 
 
 @app.post("/api/login")
 def login(payload: dict = Body(...)):
     email = str(payload.get("email", "")).strip().lower()
-    password = hashlib.sha256(str(payload.get("password", "")).encode()).hexdigest()
+    password = str(payload.get("password", ""))
 
-    user = next(
-        (u for u in users_store if u["email"] == email and u["password"] == password),
-        None,
-    )
-    if not user:
+    user = find_user_by_email(email)
+    if not user or user["password_hash"] != hash_password(password):
         return {"ok": False, "error": "Credenciales incorrectas."}
 
     if user["status"] != "approved":
         return {
             "ok": True,
             "pending": True,
-            "user": {
-                "name": user["name"],
-                "email": user["email"],
-                "role": user["role"],
-                "status": user["status"],
-            },
-            "message": "Usuario pendiente de aprobación.",
+            "user": row_to_user_payload(user),
+            "message": "Tu cuenta esta pendiente de aprobacion.",
         }
 
-    return {
-        "ok": True,
-        "pending": False,
-        "user": {
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"],
-            "status": user["status"],
-        },
-    }
+    if is_access_expired(user):
+        return {
+            "ok": False,
+            "error": "Tu acceso ya expiro. Pidele al administrador que renueve tu membresia.",
+        }
+
+    session_data = create_session(user["id"])
+    return _build_auth_session_payload(session_data)
 
 
-@app.get("/api/pending-users")
-def pending_users(admin_email: str):
-    admin_email = (admin_email or "").strip().lower()
-    admin = next(
-        (u for u in users_store if u["email"] == admin_email and u["role"] == "admin"),
-        None,
-    )
-    if not admin:
-        return {"ok": False, "error": "No autorizado."}
+@app.get("/api/session")
+def get_active_session(authorization: Optional[str] = Header(default=None)):
+    token = _extract_bearer_token(authorization)
+    session_data = get_session(token)
+    if not session_data:
+        return {"ok": False, "error": "Sesion invalida o expirada."}
 
-    pending = [
-        {"id": u["id"], "name": u["name"], "email": u["email"]}
-        for u in users_store
-        if u["status"] == "pending"
-    ]
+    user = session_data.get("user") or {}
+    if user.get("status") != "approved":
+        delete_session(token)
+        return {"ok": False, "error": "Tu cuenta no esta aprobada."}
+    if is_access_expired(user):
+        delete_session(token)
+        return {"ok": False, "error": "Tu acceso ya expiro."}
+
+    return _build_auth_session_payload(session_data)
+
+
+@app.post("/api/logout")
+def logout(authorization: Optional[str] = Header(default=None), payload: dict = Body(default={})):
+    token = _extract_bearer_token(authorization) or str(payload.get("token", "")).strip()
+    if token:
+        delete_session(token)
+    return {"ok": True}
+
+
+@app.get("/api/admin/pending-users")
+def pending_users(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    pending = list_pending_users()
     return {"ok": True, "pending": pending}
 
 
-@app.post("/api/approve-user")
-def approve_user(payload: dict = Body(...)):
-    admin_email = str(payload.get("admin_email", "")).strip().lower()
+@app.post("/api/admin/approve-user")
+def approve_user(payload: dict = Body(...), authorization: Optional[str] = Header(default=None)):
+    admin_session = _require_admin_session(authorization)
     user_id = str(payload.get("user_id", "")).strip()
+    role = str(payload.get("role", "member")).strip().lower() or "member"
+    access_days = payload.get("access_days")
+    access_expires_at = str(payload.get("access_expires_at", "")).strip() or None
 
-    admin = next(
-        (u for u in users_store if u["email"] == admin_email and u["role"] == "admin"),
-        None,
-    )
-    if not admin:
-        return {"ok": False, "error": "No autorizado."}
+    if role not in APPROVABLE_ROLES:
+        return {"ok": False, "error": "Rol no soportado."}
 
-    user = next((u for u in users_store if u["id"] == user_id), None)
+    user = find_user_by_id(user_id)
     if not user:
         return {"ok": False, "error": "Usuario no encontrado."}
 
-    user["status"] = "approved"
+    if access_expires_at:
+        if parse_utc(access_expires_at) is None:
+            return {"ok": False, "error": "Fecha de expiracion invalida."}
+    else:
+        try:
+            days = int(access_days if access_days is not None else 30)
+        except Exception:
+            return {"ok": False, "error": "Dias de acceso invalidos."}
+        if days <= 0:
+            return {"ok": False, "error": "Los dias de acceso deben ser mayores a 0."}
+        access_expires_at = iso_utc(utc_now() + timedelta(days=days))
+
+    updated_user = set_user_approval(
+        user_id,
+        role=role,
+        access_expires_at=access_expires_at,
+        approved_by=(admin_session.get("user") or {}).get("email", ADMIN_EMAIL),
+    )
 
     return {
         "ok": True,
-        "user": {
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"],
-            "status": user["status"],
-        },
+        "user": updated_user,
     }
 
 
@@ -2237,6 +2508,7 @@ def _best_picks_sports():
         "laliga",
         "euroleague",
         "ncaa_baseball",
+        "tennis",
     ]
 
 
@@ -2344,6 +2616,46 @@ def _best_picks_summarize_sports(picks: list[dict]):
     )
 
 
+def _best_picks_group_by_sport_payload(picks: list[dict], per_sport_limit: int = 4):
+    grouped = {}
+    for row in picks or []:
+        sport = str(row.get("sport") or "")
+        if not sport:
+            continue
+        grouped.setdefault(sport, []).append(dict(row))
+
+    sections = []
+    for sport, sport_rows in grouped.items():
+        sport_rows.sort(
+            key=lambda x: (
+                float(x.get("final_rank_score", 0.0) or 0.0),
+                float(x.get("score", 0.0) or 0.0),
+            ),
+            reverse=True,
+        )
+        sample = sport_rows[: max(1, int(per_sport_limit))]
+        first = sample[0]
+        sections.append(
+            {
+                "sport": sport,
+                "sport_label": first.get("sport_label") or sport.upper(),
+                "count": len(sport_rows),
+                "top_score": round(float(first.get("score", 0.0) or 0.0), 2),
+                "top_final_rank_score": round(float(first.get("final_rank_score", 0.0) or 0.0), 3),
+                "picks": sample,
+            }
+        )
+
+    sections.sort(
+        key=lambda x: (
+            float(x.get("top_final_rank_score", 0.0) or 0.0),
+            int(x.get("count", 0) or 0),
+        ),
+        reverse=True,
+    )
+    return sections
+
+
 def _best_picks_trim_payload(payload: dict, top_n: int):
     filtered = _best_picks_filter_excluded_sports(payload)
     picks = list(filtered.get("picks") or [])[:max(1, int(top_n))]
@@ -2351,6 +2663,23 @@ def _best_picks_trim_payload(payload: dict, top_n: int):
     out["top_n"] = len(picks)
     out["picks"] = picks
     out["sports_summary"] = _best_picks_summarize_sports(picks)
+
+    raw_top_by_sport = filtered.get("top_by_sport") or []
+    if isinstance(raw_top_by_sport, list) and raw_top_by_sport:
+        normalized_sections = []
+        for section in raw_top_by_sport:
+            if not isinstance(section, dict):
+                continue
+            section_picks = list(section.get("picks") or [])[:4]
+            if not section_picks:
+                continue
+            normalized = dict(section)
+            normalized["count"] = int(section.get("count", len(section_picks)) or len(section_picks))
+            normalized["picks"] = section_picks
+            normalized_sections.append(normalized)
+        out["top_by_sport"] = normalized_sections
+    else:
+        out["top_by_sport"] = _best_picks_group_by_sport_payload(picks, per_sport_limit=4)
     return out
 
 
@@ -2418,7 +2747,7 @@ def _best_picks_event_lookup_for_payload(payload: dict):
                 sport,
                 events,
                 lookup=results_lookup_by_sport.get(sport),
-                allow_live=False,
+                allow_live=True,
             )
         except Exception:
             pass
@@ -2429,6 +2758,114 @@ def _best_picks_event_lookup_for_payload(payload: dict):
                 continue
             lookup[(sport, date_str, game_id)] = event
     return lookup
+
+
+def _evaluate_best_pick_team_side(pick_text, home_team, away_team, winner):
+    pick = str(pick_text or "").strip().upper()
+    home = str(home_team or "").strip().upper()
+    away = str(away_team or "").strip().upper()
+    win = str(winner or "").strip().upper()
+    if not pick or not home or not away or not win:
+        return None
+    if pick in {"HOME", "HOME WIN", "LOCAL"}:
+        return win == home
+    if pick in {"AWAY", "AWAY WIN", "VISITOR", "VISITANTE"}:
+        return win == away
+    if home in pick:
+        return win == home
+    if away in pick:
+        return win == away
+    return None
+
+
+def _extract_numeric_line(value):
+    import re
+    m = re.search(r"(\d+(?:\.\d+)?)", str(value or ""))
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except Exception:
+        return None
+
+
+def _evaluate_best_pick_total(pick_text, observed_total, fallback_line=None):
+    pick = str(pick_text or "").strip().upper()
+    if not pick or observed_total is None:
+        return None
+    line = _extract_numeric_line(pick)
+    if line is None:
+        try:
+            line = float(fallback_line)
+        except Exception:
+            line = None
+    if line is None:
+        return None
+    if "OVER" in pick:
+        return float(observed_total) > float(line)
+    if "UNDER" in pick:
+        return float(observed_total) < float(line)
+    return None
+
+
+def _coerce_result_bool(value):
+    if isinstance(value, bool):
+        return value
+    try:
+        if int(value) in (0, 1):
+            return bool(int(value))
+    except Exception:
+        pass
+    text = str(value or "").strip().lower()
+    if text in {"true", "1", "yes", "si", "acierto", "win", "won"}:
+        return True
+    if text in {"false", "0", "no", "fallo", "lose", "lost"}:
+        return False
+    return None
+
+
+def _best_pick_market_hit(row: dict):
+    market = str(row.get("market") or "").strip().lower()
+
+    preferred_keys = {
+        "full_game": ["full_game_hit", "correct_full_game_adjusted", "correct_full_game", "correct_full_game_base"],
+        "spread": ["correct_spread"],
+        "total": ["correct_total_adjusted", "correct_total"],
+        "q1_yrfi": ["q1_hit"],
+        "q1": ["q1_hit"],
+        "h1": ["h1_hit"],
+        "btts": ["correct_btts_adjusted", "correct_btts"],
+        "f5": ["correct_f5"],
+        "home_over": ["correct_home_over"],
+        "corners": ["correct_corners_adjusted"],
+    }
+
+    for key in preferred_keys.get(market, []):
+        value = row.get(key)
+        if value is not None:
+            return value
+
+    fallback_keys = [
+        "full_game_hit",
+        "correct_full_game_adjusted",
+        "correct_full_game",
+        "correct_full_game_base",
+        "correct_spread",
+        "correct_total_adjusted",
+        "correct_total",
+        "q1_hit",
+        "h1_hit",
+        "correct_btts_adjusted",
+        "correct_btts",
+        "correct_f5",
+        "correct_home_over",
+        "correct_corners_adjusted",
+    ]
+    for key in fallback_keys:
+        value = row.get(key)
+        if value is not None:
+            return value
+    return None
 
 
 def _best_picks_with_results(payload: dict):
@@ -2450,12 +2887,135 @@ def _best_picks_with_results(payload: dict):
 
         return bool(event.get("result_available"))
 
+    def _enrich_pick_row(base_row: dict, event_lookup: dict, result_keys: list[str]):
+        row = dict(base_row)
+        sport = str(row.get("sport") or "")
+        date_str = str(row.get("date") or "")
+        game_id = str(row.get("game_id") or "")
+
+        event = event_lookup.get((sport, date_str, game_id))
+        away_team = str(row.get("away_team") or "").strip().upper()
+        home_team = str(row.get("home_team") or "").strip().upper()
+        if not isinstance(event, dict) and away_team and home_team:
+            event = event_lookup_by_teams.get((sport, date_str, away_team, home_team))
+        historical_result = None
+        if away_team and home_team:
+            historical_result = historical_lookup_by_teams.get((sport, date_str, away_team, home_team))
+        if isinstance(event, dict):
+            for key in result_keys:
+                value = event.get(key)
+                if value is not None:
+                    row[key] = value
+            if row.get("actual_result") is None and event.get("full_game_result_winner") is not None:
+                row["actual_result"] = event.get("full_game_result_winner")
+        if isinstance(historical_result, dict):
+            row["home_score"] = historical_result.get("home_score")
+            row["away_score"] = historical_result.get("away_score")
+            row["home_q1_score"] = historical_result.get("home_q1_score")
+            row["away_q1_score"] = historical_result.get("away_q1_score")
+            row["home_q2_score"] = historical_result.get("home_q2_score")
+            row["away_q2_score"] = historical_result.get("away_q2_score")
+            row["home_q3_score"] = historical_result.get("home_q3_score")
+            row["away_q3_score"] = historical_result.get("away_q3_score")
+            row["home_q4_score"] = historical_result.get("home_q4_score")
+            row["away_q4_score"] = historical_result.get("away_q4_score")
+            row["home_f5_score"] = historical_result.get("home_f5_score")
+            row["away_f5_score"] = historical_result.get("away_f5_score")
+            row["status_state"] = 'post'
+            row["status_description"] = 'Final'
+            row["status_completed"] = 1
+            row["result_available"] = True
+            row["final_score_text"] = f"{historical_result.get('away_team')} {historical_result.get('away_score')} - {historical_result.get('home_team')} {historical_result.get('home_score')}"
+            row["actual_result"] = historical_result.get("full_game_winner")
+            row["full_game_result_winner"] = historical_result.get("full_game_winner")
+            if historical_result.get("q1_winner") is not None:
+                row["q1_result_winner"] = historical_result.get("q1_winner")
+
+            if row.get("full_game_hit") is None:
+                row["full_game_hit"] = _evaluate_best_pick_team_side(
+                    row.get("pick"),
+                    historical_result.get("home_team"),
+                    historical_result.get("away_team"),
+                    historical_result.get("full_game_winner"),
+                )
+            if row.get("q1_hit") is None and historical_result.get("q1_winner") is not None:
+                row["q1_hit"] = _evaluate_best_pick_team_side(
+                    row.get("pick"),
+                    historical_result.get("home_team"),
+                    historical_result.get("away_team"),
+                    historical_result.get("q1_winner"),
+                )
+            if row.get("correct_f5") is None and historical_result.get("home_f5_score") is not None and historical_result.get("away_f5_score") is not None:
+                if historical_result.get("home_f5_score") > historical_result.get("away_f5_score"):
+                    f5_winner = historical_result.get("home_team")
+                elif historical_result.get("away_f5_score") > historical_result.get("home_f5_score"):
+                    f5_winner = historical_result.get("away_team")
+                else:
+                    f5_winner = 'TIE'
+                row["correct_f5"] = _evaluate_best_pick_team_side(
+                    row.get("pick"),
+                    historical_result.get("home_team"),
+                    historical_result.get("away_team"),
+                    f5_winner,
+                )
+            total_runs = None
+            try:
+                total_runs = float(historical_result.get("home_score") or 0) + float(historical_result.get("away_score") or 0)
+            except Exception:
+                total_runs = None
+            if row.get("correct_total") is None and total_runs is not None:
+                row["correct_total"] = _evaluate_best_pick_total(row.get("pick"), total_runs, row.get("total_line"))
+            if row.get("correct_home_over") is None and historical_result.get("home_score") is not None:
+                row["correct_home_over"] = _evaluate_best_pick_total(row.get("pick"), historical_result.get("home_score"), None)
+
+        resolved_source = row if isinstance(row, dict) else event
+        is_resolved = _event_is_completed(resolved_source) or bool(row.get("result_available"))
+        raw_hit = _best_pick_market_hit(row) if is_resolved else None
+        hit = _coerce_result_bool(raw_hit)
+        row["result_hit"] = hit
+
+        if is_resolved:
+            if hit is True:
+                row["result_label"] = "ACIERTO"
+            elif hit is False:
+                row["result_label"] = "FALLO"
+            else:
+                row["result_label"] = "RESUELTO"
+        else:
+            row["result_label"] = "PENDIENTE"
+
+        return row
+
     if not isinstance(payload, dict):
         return payload
 
     event_lookup = _best_picks_event_lookup_for_payload(payload)
+    event_lookup_by_teams = {}
+    historical_lookup_by_teams = {}
+    sports_in_payload = sorted({str(p.get("sport") or "") for p in (payload.get("picks") or []) if str(p.get("sport") or "")})
+
+    for sport_name in sports_in_payload:
+        try:
+            sport_lookup = build_results_lookup_for_sport(sport_name)
+        except Exception:
+            sport_lookup = {}
+        for result in (sport_lookup or {}).values():
+            if not isinstance(result, dict):
+                continue
+            away_team = str(result.get("away_team") or "").strip().upper()
+            home_team = str(result.get("home_team") or "").strip().upper()
+            date_key = str(result.get("date") or "")[:10]
+            if away_team and home_team and date_key:
+                historical_lookup_by_teams[(sport_name, date_key, away_team, home_team)] = result
+
+    for (sport_key, date_key, _game_id), event in event_lookup.items():
+        if not isinstance(event, dict):
+            continue
+        away_team = str(event.get("away_team") or "").strip().upper()
+        home_team = str(event.get("home_team") or "").strip().upper()
+        if away_team and home_team:
+            event_lookup_by_teams[(str(sport_key), str(date_key), away_team, home_team)] = event
     out = dict(payload)
-    out_picks = []
 
     result_keys = [
         "correct_full_game",
@@ -2487,46 +3047,26 @@ def _best_picks_with_results(payload: dict):
         "correct_home_over",
     ]
 
-    for pick in payload.get("picks") or []:
-        row = dict(pick)
-        sport = str(row.get("sport") or "")
-        date_str = str(row.get("date") or "")
-        game_id = str(row.get("game_id") or "")
-
-        event = event_lookup.get((sport, date_str, game_id))
-        if isinstance(event, dict):
-            for key in result_keys:
-                value = event.get(key)
-                if value is not None:
-                    row[key] = value
-
-            if row.get("actual_result") is None and event.get("full_game_result_winner") is not None:
-                row["actual_result"] = event.get("full_game_result_winner")
-
-        is_resolved = _event_is_completed(event)
-        if is_resolved and row.get("full_game_hit") is None:
-            hit = row.get("correct_full_game_adjusted")
-            if hit is None:
-                hit = row.get("correct_full_game")
-            if hit is None:
-                hit = row.get("correct_full_game_base")
-            if hit is not None:
-                row["full_game_hit"] = hit
-
-        if is_resolved:
-            hit = row.get("full_game_hit")
-            if hit is True:
-                row["result_label"] = "ACIERTO"
-            elif hit is False:
-                row["result_label"] = "FALLO"
-            else:
-                row["result_label"] = "RESUELTO"
-        else:
-            row["result_label"] = "PENDIENTE"
-
-        out_picks.append(row)
-
+    out_picks = [
+        _enrich_pick_row(pick, event_lookup, result_keys)
+        for pick in (payload.get("picks") or [])
+    ]
     out["picks"] = out_picks
+
+    top_by_sport = []
+    for section in payload.get("top_by_sport") or []:
+        if not isinstance(section, dict):
+            continue
+        section_rows = [
+            _enrich_pick_row(pick, event_lookup, result_keys)
+            for pick in (section.get("picks") or [])
+        ]
+        section_rows = [row for row in section_rows if isinstance(row, dict)]
+        if section_rows:
+            normalized = dict(section)
+            normalized["picks"] = section_rows
+            top_by_sport.append(normalized)
+    out["top_by_sport"] = top_by_sport or _best_picks_group_by_sport_payload(out_picks, per_sport_limit=4)
     return out
 
 
@@ -2561,9 +3101,20 @@ def get_sports():
 @app.get("/api/{sport}/predictions/today")
 def get_today_predictions(sport: str):
     config = ensure_sport_exists(sport)
-    if sport == "kbo":
-        local_today = date.today().strftime("%Y-%m-%d")
-        source_today = _kbo_source_date_from_local(local_today)
+    local_today = date.today().strftime("%Y-%m-%d")
+    source_today = _kbo_source_date_from_local(local_today) if sport == "kbo" else local_today
+
+    if sport == "ncaa_baseball":
+        candidate_dates = _get_ncaa_baseball_available_dates()
+        future_or_today = [d for d in candidate_dates if d >= local_today]
+        past = [d for d in candidate_dates if d < local_today]
+        scan_dates = future_or_today + list(reversed(past))
+        for candidate in scan_dates:
+            events = _merge_ncaa_baseball_board(candidate)
+            if events:
+                return _sanitize_json_values(events)
+        return []
+    elif sport == "kbo":
         try:
             latest = resolve_prediction_file(
                 config["predictions_dir"],
@@ -2593,11 +3144,18 @@ def get_today_predictions(sport: str):
 def get_predictions_by_date(sport: str, date_str: str):
     config = ensure_sport_exists(sport)
     source_date = _kbo_source_date_from_local(date_str) if sport == "kbo" else date_str
-    file_path = resolve_prediction_file(
-        config["predictions_dir"],
-        config["historical_dir"],
-        source_date,
-    )
+    if sport == "ncaa_baseball":
+        events = _merge_ncaa_baseball_board(date_str)
+        return _sanitize_json_values(events)
+
+    try:
+        file_path = resolve_prediction_file(
+            config["predictions_dir"],
+            config["historical_dir"],
+            source_date,
+        )
+    except HTTPException:
+        raise
     events = _normalize_events_payload(read_json_file(file_path))
     _, hist_file = get_files_for_date(config["predictions_dir"], config["historical_dir"], source_date)
     events = merge_result_hints_from_historical(events, hist_file)
@@ -2626,6 +3184,9 @@ def get_available_dates(sport: str):
     if historical_dir.exists():
         for f in historical_dir.glob("*.json"):
             dates.add(f.stem)
+
+    if sport == "ncaa_baseball":
+        dates.update(_get_ncaa_baseball_available_dates())
 
     out_dates = sorted(dates)
     if sport == "kbo":

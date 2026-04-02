@@ -5,7 +5,7 @@ SRC_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-import historical_predictions_mlb as mlb_hist
+from sports.mlb import historical_predictions_mlb_walkforward as mlb_hist
 
 BASE_DIR = SRC_ROOT
 

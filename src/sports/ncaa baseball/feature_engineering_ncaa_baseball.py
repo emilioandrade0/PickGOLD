@@ -5,7 +5,7 @@ SRC_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-import feature_engineering_mlb as mlb_fe
+from sports.mlb import feature_engineering_mlb_core as mlb_fe
 
 BASE_DIR = SRC_ROOT
 

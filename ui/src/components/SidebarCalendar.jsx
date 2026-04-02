@@ -36,19 +36,23 @@ export default function SidebarCalendar({
   const updateLogs = Array.isArray(updateStatus?.logs) ? updateStatus.logs : [];
 
   return (
-    <aside className="self-start rounded-3xl border border-white/10 bg-[#171a21]/85 p-5 shadow-2xl shadow-black/40 backdrop-blur-sm lg:sticky lg:top-6">
+    <aside className="self-start rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,28,38,0.96),rgba(15,18,26,0.98))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.28)] backdrop-blur-sm lg:sticky lg:top-6">
       <div className="mb-5">
-        <h2 className="text-xl font-semibold">{title}</h2>
-        <p className="text-sm text-white/60">{subtitle}</p>
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/85">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
+          Control panel
+        </div>
+        <h2 className="text-2xl font-semibold">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-white/60">{subtitle}</p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+      <div className="rounded-[26px] border border-white/10 bg-black/22 p-4">
         <div className="mb-4 flex items-center justify-between text-sm text-white/70">
           <button
             onClick={() =>
               setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))
             }
-            className="rounded-lg bg-white/5 px-3 py-1 hover:bg-white/10"
+            className="rounded-xl border border-white/8 bg-white/[0.05] px-3 py-1.5 transition hover:bg-white/[0.08]"
           >
             ?
           </button>
@@ -59,7 +63,7 @@ export default function SidebarCalendar({
             onClick={() =>
               setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))
             }
-            className="rounded-lg bg-white/5 px-3 py-1 hover:bg-white/10"
+            className="rounded-xl border border-white/8 bg-white/[0.05] px-3 py-1.5 transition hover:bg-white/[0.08]"
           >
             ?
           </button>
@@ -91,9 +95,9 @@ export default function SidebarCalendar({
                 onClick={() => onSelectDate(dateStr)}
                 className={`rounded-lg py-2 text-sm transition ${
                   active
-                    ? "bg-amber-300 font-semibold text-black"
+                    ? "bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] font-semibold text-[#131821] shadow-[0_8px_20px_rgba(246,196,83,0.25)]"
                     : dateEnabled
-                      ? "bg-white/5 text-white/70 hover:bg-cyan-300/10 hover:text-cyan-100"
+                      ? "bg-white/[0.05] text-white/70 hover:bg-cyan-300/10 hover:text-cyan-100"
                       : "cursor-not-allowed bg-white/5 text-white/25"
                 }`}
               >
@@ -107,13 +111,13 @@ export default function SidebarCalendar({
       <div className="mt-5 space-y-3">
         <button
           onClick={onLoadToday}
-          className="w-full rounded-xl border border-amber-300/50 bg-amber-300/12 px-6 py-3 text-base font-medium text-amber-200 shadow-lg shadow-black/30"
+          className="w-full rounded-2xl border border-amber-300/28 bg-[linear-gradient(180deg,rgba(255,199,76,0.16),rgba(255,199,76,0.08))] px-6 py-3 text-base font-semibold text-amber-100 shadow-[0_16px_34px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-amber-300/40"
         >
           {todayButtonLabel}
         </button>
 
         {showUpdatePanel && (
-          <div className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-slate-900/80 to-amber-400/10 p-4 shadow-lg shadow-black/25">
+          <div className="rounded-[26px] border border-cyan-400/20 bg-[linear-gradient(180deg,rgba(25,40,52,0.86),rgba(22,22,31,0.92))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
             <button
               onClick={onRunUpdate}
               disabled={updateIsRunning}
@@ -179,8 +183,8 @@ export default function SidebarCalendar({
           </div>
         )}
 
-        <div className="rounded-2xl bg-black/15 p-4">
-          <p className="text-sm text-white/50">Fecha seleccionada</p>
+        <div className="rounded-[24px] border border-white/8 bg-black/18 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Fecha seleccionada</p>
           <p className="mt-1 text-lg font-semibold">
             {selectedDate ? formatDateInput(selectedDate) : "Sin fecha"}
           </p>

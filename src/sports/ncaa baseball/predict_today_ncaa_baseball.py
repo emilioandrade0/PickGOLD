@@ -28,6 +28,28 @@ mlb_predict.CALIBRATION_FILE = mlb_predict.MODELS_DIR / "calibration_params.json
 NCAA_FEATURES_FILE = mlb_predict.FEATURES_FILE
 
 
+_original_predict_regression_market = mlb_predict.predict_regression_market
+
+
+def _safe_predict_regression_market(df: pd.DataFrame, market_key: str):
+    market_dir = mlb_predict.MODELS_DIR / market_key
+    required = [
+        market_dir / "xgb_model.pkl",
+        market_dir / "lgbm_model.pkl",
+        market_dir / "feature_columns.json",
+        market_dir / "metadata.json",
+    ]
+    if all(path.exists() for path in required):
+        return _original_predict_regression_market(df, market_key)
+
+    # NCAA Baseball can still surface board picks even when regression sidecars were never trained.
+    fallback = pd.Series(0.0, index=df.index, dtype=float).to_numpy()
+    return fallback, {"fallback": True, "market_key": market_key}
+
+
+mlb_predict.predict_regression_market = _safe_predict_regression_market
+
+
 def _clear_prediction_jsons() -> None:
     for json_file in PREDICTIONS_DIR.glob("*.json"):
         try:
@@ -64,19 +86,7 @@ def main() -> None:
     upcoming_df["date"] = upcoming_df["date"].astype(str)
     all_dates = set(upcoming_df["date"].dropna().unique().tolist())
 
-    filtered_df = upcoming_df[upcoming_df.apply(_has_bettable_market, axis=1)].copy()
-    kept_dates = set(filtered_df["date"].dropna().unique().tolist())
-    removed_dates = sorted(all_dates - kept_dates)
-
-    for date_str in removed_dates:
-        stale_file = PREDICTIONS_DIR / f"{date_str}.json"
-        if stale_file.exists():
-            stale_file.unlink()
-
-    if filtered_df.empty:
-        _clear_prediction_jsons()
-        print("NCAA Baseball: no hay juegos con mercado real; se omiten predicciones futuras.")
-        return
+    bettable_df = upcoming_df[upcoming_df.apply(_has_bettable_market, axis=1)].copy()
 
     if not NCAA_FEATURES_FILE.exists():
         _clear_prediction_jsons()
@@ -85,12 +95,12 @@ def main() -> None:
 
     with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8", newline="") as tmp:
         temp_path = Path(tmp.name)
-        filtered_df.to_csv(temp_path, index=False)
+        upcoming_df.to_csv(temp_path, index=False)
 
     try:
         mlb_predict.UPCOMING_FILE = temp_path
         print(
-            f"NCAA Baseball bettable filter: {len(filtered_df)}/{len(upcoming_df)} juegos con mercado utilizable"
+            f"NCAA Baseball: generando predicciones para {len(upcoming_df)} juegos | con linea detectable: {len(bettable_df)}"
         )
         mlb_predict.main()
     finally:

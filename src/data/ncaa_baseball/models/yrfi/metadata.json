@@ -1,0 +1,131 @@
+{
+  "market_key": "yrfi",
+  "target_col": "TARGET_yrfi",
+  "train_rows": 1310,
+  "valid_rows": 328,
+  "feature_count": 28,
+  "ensemble_threshold": 0.5,
+  "ensemble_weights": {
+    "xgboost": 0.5,
+    "lightgbm": 0.5
+  },
+  "metrics": {
+    "xgboost_valid": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "lightgbm_valid": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    },
+    "ensemble_valid": {
+      "accuracy": 1.0,
+      "logloss": 2.220446049250313e-16,
+      "roc_auc": NaN
+    }
+  },
+  "top_features": [
+    {
+      "feature": "home_r1_scored_rate_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_r1_scored_rate_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_r1_scored_rate_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_r1_scored_rate_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_r1_allowed_rate_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_r1_allowed_rate_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_r1_allowed_rate_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_r1_allowed_rate_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_pitcher_r1_allowed_rate_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_pitcher_r1_allowed_rate_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_pitcher_r1_allowed_rate_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_pitcher_r1_allowed_rate_L10",
+      "importance": 0.0
+    },
+    {
+      "feature": "home_r1_vs_away_pitcher",
+      "importance": 0.0
+    },
+    {
+      "feature": "away_r1_vs_home_pitcher",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_r1_vs_pitcher",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_r1_vs_pitcher_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "yrfi_pressure_home",
+      "importance": 0.0
+    },
+    {
+      "feature": "yrfi_pressure_away",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_yrfi_pressure",
+      "importance": 0.0
+    },
+    {
+      "feature": "total_yrfi_pressure",
+      "importance": 0.0
+    },
+    {
+      "feature": "yrfi_pressure_home_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "yrfi_pressure_away_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "diff_yrfi_pressure_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "total_yrfi_pressure_L5",
+      "importance": 0.0
+    },
+    {
+      "feature": "both_pitchers_available",
+      "importance": 0.0
+    }
+  ]
+}

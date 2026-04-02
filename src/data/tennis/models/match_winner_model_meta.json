@@ -1,0 +1,36 @@
+{
+  "feature_columns": [
+    "player_a_rank",
+    "player_b_rank",
+    "diff_rank",
+    "player_a_matches_before",
+    "player_b_matches_before",
+    "player_a_win_rate_l5",
+    "player_b_win_rate_l5",
+    "diff_win_rate_l5",
+    "player_a_win_rate_all",
+    "player_b_win_rate_all",
+    "diff_win_rate_all",
+    "player_a_streak",
+    "player_b_streak",
+    "diff_streak"
+  ],
+  "usable_feature_columns": [
+    "player_a_rank",
+    "player_b_rank",
+    "diff_rank",
+    "player_a_matches_before",
+    "player_b_matches_before",
+    "player_a_win_rate_l5",
+    "player_b_win_rate_l5",
+    "diff_win_rate_l5",
+    "player_a_win_rate_all",
+    "player_b_win_rate_all",
+    "diff_win_rate_all",
+    "player_a_streak",
+    "player_b_streak",
+    "diff_streak"
+  ],
+  "target": "TARGET_player_a_win",
+  "model_type": "logistic_regression"
+}
