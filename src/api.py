@@ -1094,6 +1094,83 @@ def build_results_lookup_for_sport(sport: str):
     return lookup
 
 
+def build_market_lookup_for_sport(sport: str):
+    if sport == "nba":
+        file_path = NBA_RAW_HISTORY
+        use_cols = [
+            "game_id", "date", "home_team", "away_team",
+            "home_spread", "spread_abs", "home_is_favorite", "odds_over_under",
+            "home_moneyline_odds", "away_moneyline_odds",
+        ]
+    else:
+        return {}
+
+    if not file_path.exists():
+        return {}
+
+    try:
+        header_cols = list(pd.read_csv(file_path, nrows=0).columns)
+    except Exception:
+        return {}
+
+    selected_cols = [c for c in use_cols if c in header_cols]
+    if len(selected_cols) < 4:
+        return {}
+
+    try:
+        df = pd.read_csv(file_path, usecols=selected_cols, dtype={"game_id": str})
+    except Exception:
+        return {}
+
+    lookup = {}
+    for _, row in df.iterrows():
+        game_id = str(row.get("game_id") or "").strip()
+        date_str = str(row.get("date") or "").strip()
+        home_team = str(row.get("home_team") or "").strip()
+        away_team = str(row.get("away_team") or "").strip()
+        payload = {col: row.get(col) for col in selected_cols if col not in {"game_id", "date", "home_team", "away_team"}}
+        if game_id:
+            lookup[("game_id", game_id)] = payload
+        if date_str and home_team and away_team:
+            lookup[("matchup", date_str, away_team, home_team)] = payload
+    return lookup
+
+
+def apply_market_data_if_available(sport: str, events: list[dict]):
+    rows = _normalize_events_payload(events)
+    if sport != "nba" or not rows:
+        return rows
+
+    lookup = build_market_lookup_for_sport(sport)
+    if not lookup:
+        return rows
+
+    enriched = []
+    for event in rows:
+        row = dict(event)
+        game_id = str(row.get("game_id") or "").strip()
+        date_str = str(row.get("date") or "").strip()
+        away_team = str(row.get("away_team") or "").strip()
+        home_team = str(row.get("home_team") or "").strip()
+        market = lookup.get(("game_id", game_id)) or lookup.get(("matchup", date_str, away_team, home_team)) or {}
+
+        for key, value in market.items():
+            if row.get(key) in (None, "", 0, 0.0, "N/A", "No Line"):
+                row[key] = value
+
+        if row.get("moneyline_odds") in (None, "", 0, 0.0, "N/A"):
+            pick = str(row.get("full_game_pick") or "").strip()
+            if pick and pick == home_team:
+                row["moneyline_odds"] = row.get("home_moneyline_odds")
+                row["pick_ml_odds"] = row.get("home_moneyline_odds")
+            elif pick and pick == away_team:
+                row["moneyline_odds"] = row.get("away_moneyline_odds")
+                row["pick_ml_odds"] = row.get("away_moneyline_odds")
+
+        enriched.append(row)
+    return enriched
+
+
 def enrich_predictions_with_results(sport: str, events: list, lookup: dict | None = None, allow_live: bool = True):
     def _target_date_from_events(items: list[dict]):
         if not items:
@@ -3151,6 +3228,7 @@ def get_today_predictions(sport: str):
         events = enrich_predictions_if_available(sport, events)
     except Exception:
         pass
+    events = apply_market_data_if_available(sport, events)
     payload = _translate_event_dates_for_sport(sport, _normalize_events_payload(events))
     return _sanitize_json_values(payload)
 
@@ -3180,6 +3258,7 @@ def get_predictions_by_date(sport: str, date_str: str):
         events = enrich_predictions_if_available(sport, events)
     except Exception:
         pass
+    events = apply_market_data_if_available(sport, events)
     payload = _translate_event_dates_for_sport(sport, _normalize_events_payload(events))
     return _sanitize_json_values(payload)
 

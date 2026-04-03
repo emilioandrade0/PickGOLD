@@ -778,6 +778,58 @@ def fetch_upcoming_games(days_ahead: int = 14):
     )
 
 
+def enrich_upcoming_games_with_market_data(df_history: pd.DataFrame, upcoming_games: pd.DataFrame):
+    if upcoming_games is None or upcoming_games.empty or df_history is None or df_history.empty:
+        return upcoming_games
+
+    market_cols = [
+        "game_id",
+        "date",
+        "home_team",
+        "away_team",
+        "home_spread",
+        "spread_abs",
+        "home_is_favorite",
+        "odds_over_under",
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "spread_parse_success",
+        "spread_is_pickem",
+        "spread_missing",
+        "odds_data_quality",
+    ]
+    available_cols = [col for col in market_cols if col in df_history.columns]
+    if len(available_cols) < 5:
+        return upcoming_games
+
+    market_df = df_history[available_cols].copy()
+    market_df["game_id"] = market_df["game_id"].astype(str)
+    market_df["date"] = market_df["date"].astype(str)
+
+    merged = upcoming_games.copy()
+    merged["game_id"] = merged["game_id"].astype(str)
+    merged["date"] = merged["date"].astype(str)
+
+    by_game = market_df.drop_duplicates(subset=["game_id"], keep="last")
+    merged = merged.merge(by_game, on="game_id", how="left", suffixes=("", "_hist"))
+
+    by_matchup = market_df.drop_duplicates(subset=["date", "away_team", "home_team"], keep="last")
+    merged = merged.merge(by_matchup, on=["date", "away_team", "home_team"], how="left", suffixes=("", "_fallback"))
+
+    for col in available_cols:
+        if col in {"game_id", "date", "home_team", "away_team"}:
+            continue
+        hist_col = f"{col}_hist"
+        fallback_col = f"{col}_fallback"
+        if hist_col in merged.columns:
+            merged[col] = merged[hist_col].combine_first(merged.get(col))
+        if fallback_col in merged.columns:
+            merged[col] = merged[col].combine_first(merged[fallback_col])
+
+    drop_cols = [col for col in merged.columns if col.endswith("_hist") or col.endswith("_fallback")]
+    return merged.drop(columns=drop_cols, errors="ignore")
+
+
 def build_prediction_features(df_history: pd.DataFrame, todays_games: pd.DataFrame, target_date: pd.Timestamp):
     elo_map = calculate_elo_map(df_history)
     current_stats = get_current_team_stats(df_history, target_date)
@@ -1015,6 +1067,7 @@ def predict_today():
 
     df_history = pd.read_csv(RAW_DATA)
     upcoming_games = fetch_upcoming_games(days_ahead=14)
+    upcoming_games = enrich_upcoming_games_with_market_data(df_history, upcoming_games)
 
     if upcoming_games.empty:
         print("📭 No hay partidos en ventana rolling NBA.")
@@ -1191,6 +1244,13 @@ def predict_today():
                 total_pick = f"Lean total {total_line}"
 
             assists_pick = "Pendiente"
+            home_ml_odds = row.get("home_moneyline_odds")
+            away_ml_odds = row.get("away_moneyline_odds")
+            selected_ml_odds = None
+            if ganador_juego == row["home_team"]:
+                selected_ml_odds = home_ml_odds
+            elif ganador_juego == row["away_team"]:
+                selected_ml_odds = away_ml_odds
 
             print(f"👉 {row['game_name']} | Spread Vegas: {row['spread']}")
             print(f"   ⏱️ 1er Cuarto: Gana {ganador_q1} (score modelo: {conf_q1:.1f}%) | {q1_action_label}")
@@ -1218,6 +1278,10 @@ def predict_today():
                     "home_spread": h_spread,
                     "spread_abs": float(row.get("spread_abs", 0) or 0),
                     "odds_over_under": total_line,
+                    "home_moneyline_odds": float(home_ml_odds) if pd.notna(home_ml_odds) else None,
+                    "away_moneyline_odds": float(away_ml_odds) if pd.notna(away_ml_odds) else None,
+                    "moneyline_odds": round(float(selected_ml_odds), 4) if selected_ml_odds is not None and pd.notna(selected_ml_odds) else None,
+                    "pick_ml_odds": round(float(selected_ml_odds), 4) if selected_ml_odds is not None and pd.notna(selected_ml_odds) else None,
                     "market_missing": int(infer_market_missing(row)),
                     "full_game_pick": ganador_juego,
                     "full_game_pick_rule": full_pick_rule,
