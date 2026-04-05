@@ -44,6 +44,10 @@ export default function PlanCheckoutActions({
           {secondaryLabel}
         </button>
       ) : null}
+
+      <p className="text-center text-[11px] leading-5 text-white/42">
+        No garantizamos resultados. Uso bajo responsabilidad.
+      </p>
     </div>
   );
 }

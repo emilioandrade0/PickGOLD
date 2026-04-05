@@ -1,131 +1,131 @@
 {
   "market_key": "yrfi",
   "target_col": "TARGET_yrfi",
-  "train_rows": 5104,
-  "valid_rows": 1276,
+  "train_rows": 5137,
+  "valid_rows": 1285,
   "feature_count": 28,
-  "ensemble_threshold": 0.5,
+  "ensemble_threshold": 0.49,
   "ensemble_weights": {
-    "xgboost": 0.75,
-    "lightgbm": 0.25
+    "xgboost": 0.6,
+    "lightgbm": 0.4
   },
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.5015673981191222,
-      "logloss": 0.6947386688650845,
-      "roc_auc": 0.5023100193402683
+      "accuracy": 0.5073929961089494,
+      "logloss": 0.6949368250159871,
+      "roc_auc": 0.500654126813385
     },
     "lightgbm_valid": {
-      "accuracy": 0.49216300940438873,
-      "logloss": 0.7039267515795553,
-      "roc_auc": 0.48194375840146664
+      "accuracy": 0.5027237354085603,
+      "logloss": 0.7009243605188196,
+      "roc_auc": 0.49340058726051683
     },
     "ensemble_valid": {
-      "accuracy": 0.5047021943573667,
-      "logloss": 0.6961309237192402,
-      "roc_auc": 0.4920525504825237
+      "accuracy": 0.5198443579766537,
+      "logloss": 0.6962489529965614,
+      "roc_auc": 0.49740287428167185
     }
   },
   "top_features": [
     {
       "feature": "total_yrfi_pressure",
-      "importance": 149.0222317352891
+      "importance": 149.51986481063068
     },
     {
       "feature": "diff_yrfi_rate_L10",
-      "importance": 144.5223798006773
+      "importance": 144.5228837914765
     },
     {
       "feature": "home_r1_allowed_rate_L10",
-      "importance": 97.02054497040808
+      "importance": 101.51887859590352
     },
     {
       "feature": "diff_yrfi_pressure",
-      "importance": 93.5199649464339
-    },
-    {
-      "feature": "diff_yrfi_pressure_L5",
-      "importance": 89.5226888563484
+      "importance": 95.51774729415774
     },
     {
       "feature": "home_yrfi_rate_L10",
-      "importance": 89.02333242818713
-    },
-    {
-      "feature": "diff_r1_vs_pitcher",
-      "importance": 87.01868072897196
+      "importance": 92.52248531207442
     },
     {
       "feature": "away_r1_allowed_rate_L10",
-      "importance": 84.02299852110445
+      "importance": 89.51982410438359
+    },
+    {
+      "feature": "diff_r1_vs_pitcher",
+      "importance": 84.51885519176722
+    },
+    {
+      "feature": "diff_yrfi_pressure_L5",
+      "importance": 83.0200686622411
     },
     {
       "feature": "away_yrfi_rate_L10",
-      "importance": 82.52048639580607
+      "importance": 82.01954614371061
     },
     {
       "feature": "away_r1_allowed_rate_L5",
-      "importance": 79.52207657136023
-    },
-    {
-      "feature": "away_r1_vs_home_pitcher",
-      "importance": 70.51809474825859
-    },
-    {
-      "feature": "total_yrfi_pressure_L5",
-      "importance": 60.51888834498823
-    },
-    {
-      "feature": "home_r1_allowed_rate_L5",
-      "importance": 58.02260171063244
+      "importance": 70.01770656555891
     },
     {
       "feature": "home_r1_scored_rate_L5",
-      "importance": 56.521074172109365
+      "importance": 62.52004261314869
     },
     {
-      "feature": "away_r1_scored_rate_L10",
-      "importance": 42.524151934310794
+      "feature": "away_r1_vs_home_pitcher",
+      "importance": 60.52057322859764
+    },
+    {
+      "feature": "total_yrfi_pressure_L5",
+      "importance": 58.515688905492425
+    },
+    {
+      "feature": "home_r1_allowed_rate_L5",
+      "importance": 52.01846111007035
     },
     {
       "feature": "yrfi_pressure_away_L5",
-      "importance": 40.518549270927906
-    },
-    {
-      "feature": "diff_r1_vs_pitcher_L5",
-      "importance": 39.023037638515234
+      "importance": 48.016296565532684
     },
     {
       "feature": "yrfi_pressure_home_L5",
-      "importance": 38.02355864085257
-    },
-    {
-      "feature": "home_r1_vs_away_pitcher",
-      "importance": 31.51796394214034
+      "importance": 42.52273221872747
     },
     {
       "feature": "yrfi_pressure_home",
-      "importance": 29.52075489796698
+      "importance": 38.01773917116225
+    },
+    {
+      "feature": "away_r1_scored_rate_L10",
+      "importance": 37.5238624047488
     },
     {
       "feature": "away_r1_scored_rate_L5",
-      "importance": 27.520378870889544
+      "importance": 35.51664627343416
+    },
+    {
+      "feature": "diff_r1_vs_pitcher_L5",
+      "importance": 35.021597841754556
+    },
+    {
+      "feature": "home_r1_vs_away_pitcher",
+      "importance": 28.515289056114852
     },
     {
       "feature": "yrfi_pressure_away",
-      "importance": 24.52229030430317
+      "importance": 23.52210339345038
     },
     {
       "feature": "home_r1_scored_rate_L10",
-      "importance": 22.521110005676746
-    },
-    {
-      "feature": "away_pitcher_r1_allowed_rate_L5",
-      "importance": 2.5
+      "importance": 19.51828127540648
     },
     {
       "feature": "home_pitcher_r1_allowed_rate_L5",
-      "importance": 0.5121606094762683
+      "importance": 3.03413974866271
+    },
+    {
+      "feature": "away_pitcher_r1_allowed_rate_L5",
+      "importance": 2.5186857283115387
     }
   ]
 }

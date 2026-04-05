@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import PlanCheckoutActions from "../components/PlanCheckoutActions.jsx";
 import { loginUser, registerUser, setActiveSession } from "../services/auth.js";
@@ -8,8 +9,67 @@ import {
   createPaypalOrder,
 } from "../services/payments.js";
 
-const VALUE_PILLS = ["Best Picks listos para vender", "Insights y scoring por dia", "Multi-deporte, multi-mercado"];
 const TELEGRAM_URL = (import.meta.env.VITE_TELEGRAM_URL || "").trim();
+
+function AuthPlanCard({
+  plan,
+  selectedPlanKey,
+  paymentLoadingKey,
+  onPaypal,
+  onSelect,
+}) {
+  const isSelected = selectedPlanKey === plan.key;
+  const wrapperClass = plan.featured
+    ? "border-amber-300/35 bg-[linear-gradient(180deg,rgba(255,199,76,0.14),rgba(255,199,76,0.05))] shadow-[0_20px_46px_rgba(246,196,83,0.14)]"
+    : plan.key === "vip"
+      ? "border-cyan-300/28 bg-cyan-300/[0.05]"
+      : "border-white/10 bg-white/[0.03]";
+
+  return (
+    <div
+      className={`rounded-[28px] border p-5 transition ${wrapperClass} ${isSelected ? "ring-1 ring-amber-300/55" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">{plan.caption}</p>
+          <h3 className="mt-2 text-[18px] font-semibold text-white">{plan.name}</h3>
+        </div>
+        {plan.featured ? (
+          <span className="rounded-full border border-amber-300/35 bg-amber-300/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200">
+            Mas elegido
+          </span>
+        ) : (
+          <span className="rounded-full border border-white/10 bg-black/18 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
+            {plan.role}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-5 flex items-end gap-2">
+        <p className="text-5xl font-semibold tracking-tight text-white">{plan.priceLabel}</p>
+        <span className="pb-2 text-sm text-white/45">/ mes</span>
+      </div>
+
+      <div className="mt-6 space-y-4 text-sm text-white/74">
+        {plan.features.map((feature) => (
+          <div key={feature} className="flex items-center gap-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            <span>{feature}</span>
+          </div>
+        ))}
+      </div>
+
+      <PlanCheckoutActions
+        plan={plan}
+        loadingProvider={paymentLoadingKey === `${plan.key}:paypal` ? "paypal" : ""}
+        onPaypal={onPaypal}
+        telegramUrl={TELEGRAM_URL}
+        secondaryLabel={isSelected ? "Plan seleccionado" : `Elegir ${plan.name}`}
+        onSecondary={onSelect}
+      />
+    </div>
+  );
+}
 
 export default function AuthPage({ onAuthenticated }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -21,6 +81,7 @@ export default function AuthPage({ onAuthenticated }) {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [paymentLoadingKey, setPaymentLoadingKey] = useState("");
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const isLogin = mode === "login";
   const selectedPlanKey = searchParams.get("plan") || "starter";
@@ -33,15 +94,15 @@ export default function AuthPage({ onAuthenticated }) {
     setSearchParams(nextParams, { replace: true });
   }
 
-  async function handleCheckout(planKey, provider) {
+  async function handleCheckout(planKey) {
     try {
       setError("");
       setInfo("");
-      setPaymentLoadingKey(`${planKey}:${provider}`);
+      setPaymentLoadingKey(`${planKey}:paypal`);
       const response = await createPaypalOrder(planKey);
       window.location.href = response.url;
     } catch (checkoutError) {
-      setError(checkoutError.message || "No se pudo iniciar el checkout.");
+      setError(checkoutError.message || "No se pudo iniciar el pago.");
       setPaymentLoadingKey("");
     }
   }
@@ -62,13 +123,13 @@ export default function AuthPage({ onAuthenticated }) {
       try {
         setError("");
         if (provider !== "paypal") {
-          setInfo("Stripe quedo desactivado por ahora. Usa PayPal o Telegram para cerrar el cobro.");
+          setInfo("Por ahora el acceso premium se activa por PayPal o contacto directo.");
           setMode("register");
           return;
         }
 
         if (paymentStatus === "cancel") {
-          setInfo("El pago de PayPal fue cancelado. Puedes intentarlo otra vez.");
+          setInfo("El pago fue cancelado. Puedes intentarlo otra vez.");
           setMode("register");
           return;
         }
@@ -77,8 +138,8 @@ export default function AuthPage({ onAuthenticated }) {
           const result = await capturePaypalOrder(paypalOrderId);
           setInfo(
             result.paid
-              ? `Pago confirmado con PayPal para ${result.plan_name}. Ahora registra al cliente para activacion manual.`
-              : "PayPal devolvio una orden sin captura confirmada todavia."
+              ? `Pago confirmado para ${result.plan_name}. Ahora registra la cuenta para activacion manual.`
+              : "La orden de PayPal aun no aparece como capturada."
           );
           setMode("register");
           return;
@@ -101,6 +162,12 @@ export default function AuthPage({ onAuthenticated }) {
     e.preventDefault();
     setError("");
     setInfo("");
+
+    if (!isLogin && !acceptedLegal) {
+      setError("Debes aceptar los términos y el aviso de privacidad para continuar.");
+      return;
+    }
+
     setLoading(true);
     const action = isLogin
       ? await loginUser({ email, password })
@@ -127,111 +194,52 @@ export default function AuthPage({ onAuthenticated }) {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,198,79,0.18),transparent_26%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_24%),linear-gradient(180deg,#090b11,#11141c)] text-white">
+    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,198,79,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_18%),linear-gradient(180deg,#090b11,#0f141d)] text-white">
       <div className="pointer-events-none absolute inset-0 opacity-80">
-        <div className="absolute left-[-80px] top-[-20px] h-80 w-80 rounded-full bg-amber-300/10 blur-3xl" />
-        <div className="absolute right-[-40px] top-20 h-72 w-72 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="absolute left-[-90px] top-[-30px] h-[380px] w-[380px] rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="absolute right-[-50px] top-14 h-[320px] w-[320px] rounded-full bg-cyan-300/10 blur-3xl" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 py-12">
-        <div className="grid w-full gap-12 xl:grid-cols-[minmax(0,1fr)_460px] xl:items-center">
+        <div className="grid w-full gap-12 xl:grid-cols-[minmax(0,1fr)_460px] xl:items-start">
           <section>
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-300/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/90">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]" />
-              Acceso premium
+            <div className="text-3xl font-light tracking-tight text-white sm:text-4xl">
+              PICK<span className="font-semibold text-amber-300">GOLD</span>
             </div>
 
-            <h1 className="mt-6 max-w-4xl text-5xl font-light leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
-              NBA <span className="font-semibold text-amber-300">GOLD</span>
-              <span className="mt-3 block text-white/96">compra confianza. entra con ventaja.</span>
+            <h1 className="mt-8 max-w-4xl text-5xl font-light leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-7xl">
+              compra confianza. entra
+              <span className="block">con ventaja.</span>
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-white/68">
-              Elige tu nivel, cobra con PayPal y usa Telegram como ruta directa para cerrar ventas manuales.
+            <p className="mt-6 text-2xl font-light text-white/84">
+              Elige tu nivel.
             </p>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-amber-100/70">
-              Pro es el plan ancla de conversion. Stripe queda fuera por ahora para simplificar la operacion.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              {VALUE_PILLS.map((pill) => (
-                <span
-                  key={pill}
-                  className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/78"
-                >
-                  {pill}
-                </span>
-              ))}
-            </div>
 
             <div className="mt-10 grid gap-4 lg:grid-cols-3">
               {PLANS.map((plan) => (
-                <div
+                <AuthPlanCard
                   key={plan.key}
-                  className={`rounded-[28px] border p-5 transition ${plan.accent} ${
-                    selectedPlan.key === plan.key ? "ring-2 ring-amber-300/60" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">{plan.caption}</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white">{plan.name}</h3>
-                    </div>
-                    {plan.featured && (
-                      <span className="rounded-full border border-amber-300/35 bg-amber-300/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">
-                        Mas elegido
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-4 flex items-center justify-between">
-                    <p className="text-4xl font-semibold text-white">
-                      {plan.priceLabel}
-                      <span className="text-base font-medium text-white/52"> / mes</span>
-                    </p>
-                    <span className="rounded-full border border-white/10 bg-black/18 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
-                      {plan.role}
-                    </span>
-                  </div>
-                  <div className="mt-5 space-y-3 text-sm text-white/72">
-                    {plan.features.map((feature) => (
-                      <div key={feature} className="flex items-center gap-3">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <PlanCheckoutActions
-                    plan={plan}
-                    loadingProvider={paymentLoadingKey === `${plan.key}:paypal` ? "paypal" : ""}
-                    onPaypal={() => handleCheckout(plan.key, "paypal")}
-                    telegramUrl={TELEGRAM_URL}
-                    secondaryLabel={selectedPlan.key === plan.key ? "Plan seleccionado" : `Elegir ${plan.name}`}
-                    onSecondary={() => {
-                      handlePlanSelect(plan.key);
-                      setMode("register");
-                    }}
-                  />
-                </div>
+                  plan={plan}
+                  selectedPlanKey={selectedPlan.key}
+                  paymentLoadingKey={paymentLoadingKey}
+                  onPaypal={() => handleCheckout(plan.key)}
+                  onSelect={() => {
+                    handlePlanSelect(plan.key);
+                    setMode("register");
+                  }}
+                />
               ))}
             </div>
           </section>
 
           <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,28,38,0.96),rgba(16,19,27,0.98))] p-6 shadow-[0_26px_70px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Acceso privado</p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight">Entra a tu panel premium</h2>
-              </div>
-              <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
-                Live access
-              </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Acceso privado</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white">Entra a tu panel premium</h2>
             </div>
 
-            <p className="mt-3 max-w-md text-sm leading-6 text-white/68">
-              Si ya pagaste, registra al cliente aqui para dejar la cuenta lista. Si ya tiene acceso, solo inicia sesion.
-            </p>
-            <div className="mt-4 rounded-[24px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100/88">
+            <div className="mt-5 rounded-[24px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100/88">
               Plan seleccionado: <span className="font-semibold">{selectedPlan.name}</span> ({selectedPlan.priceLabel} MXN al mes).
             </div>
 
@@ -239,7 +247,7 @@ export default function AuthPage({ onAuthenticated }) {
               <button
                 type="button"
                 onClick={() => setMode("login")}
-                className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
                   isLogin ? "bg-amber-300 text-[#131821] shadow-[0_10px_22px_rgba(246,196,83,0.22)]" : "text-white/65 hover:text-white"
                 }`}
               >
@@ -248,8 +256,8 @@ export default function AuthPage({ onAuthenticated }) {
               <button
                 type="button"
                 onClick={() => setMode("register")}
-                className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                  !isLogin ? "bg-cyan-300 text-[#0c1620] shadow-[0_10px_22px_rgba(92,200,232,0.20)]" : "text-white/65 hover:text-white"
+                className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
+                  !isLogin ? "bg-white/[0.06] text-white" : "text-white/65 hover:text-white"
                 }`}
               >
                 Registro
@@ -264,7 +272,7 @@ export default function AuthPage({ onAuthenticated }) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-2xl border border-white/12 bg-black/16 px-4 py-3 outline-none transition focus:border-cyan-300/55 focus:bg-black/24"
+                    className="w-full rounded-2xl border border-white/12 bg-black/16 px-4 py-3 outline-none transition focus:border-cyan-300/45 focus:bg-black/22"
                     placeholder="Tu nombre"
                     required
                   />
@@ -277,7 +285,7 @@ export default function AuthPage({ onAuthenticated }) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-2xl border border-white/12 bg-black/16 px-4 py-3 outline-none transition focus:border-cyan-300/55 focus:bg-black/24"
+                  className="w-full rounded-2xl border border-white/12 bg-black/16 px-4 py-3 outline-none transition focus:border-cyan-300/45 focus:bg-black/22"
                   placeholder="correo@ejemplo.com"
                   required
                 />
@@ -289,27 +297,48 @@ export default function AuthPage({ onAuthenticated }) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-2xl border border-white/12 bg-black/16 px-4 py-3 outline-none transition focus:border-cyan-300/55 focus:bg-black/24"
+                  className="w-full rounded-2xl border border-white/12 bg-black/16 px-4 py-3 outline-none transition focus:border-cyan-300/45 focus:bg-black/22"
                   placeholder="********"
                   required
                 />
               </label>
+
+              {!isLogin && (
+                <label className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/72">
+                  <input
+                    type="checkbox"
+                    checked={acceptedLegal}
+                    onChange={(e) => setAcceptedLegal(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-white/20 bg-black/20"
+                  />
+                  <span>
+                    Acepto los{" "}
+                    <Link to="/terms" className="text-amber-200 underline underline-offset-4">
+                      términos y condiciones
+                    </Link>{" "}
+                    y el{" "}
+                    <Link to="/privacy" className="text-cyan-200 underline underline-offset-4">
+                      aviso de privacidad
+                    </Link>.
+                  </span>
+                </label>
+              )}
 
               {error && <p className="text-sm text-rose-300">{error}</p>}
               {info && <p className="text-sm text-amber-200">{info}</p>}
 
               <button
                 type="submit"
-                className="w-full rounded-2xl bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] px-4 py-3 font-bold text-[#141821] shadow-[0_18px_34px_rgba(246,196,83,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:opacity-60"
+                className="w-full rounded-2xl bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] px-4 py-3.5 font-bold text-[#141821] shadow-[0_18px_34px_rgba(246,196,83,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:opacity-60"
                 disabled={loading}
               >
                 {loading ? "Procesando..." : isLogin ? "Entrar al panel" : "Crear cuenta premium"}
               </button>
             </form>
 
-            <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.035] p-4 text-sm text-white/66">
-              Acceso privado con aprobacion manual para mantener el producto limpio y premium.
-            </div>
+            <p className="mt-5 text-xs leading-6 text-white/45">
+              No garantizamos resultados. Uso bajo responsabilidad.
+            </p>
           </section>
         </div>
       </div>

@@ -1,50 +1,50 @@
 {
-  "rows": 555,
-  "accuracy": 0.6324324324324324,
-  "published_accuracy": 0.6773049645390071,
-  "coverage": 0.5081081081081081,
-  "published_coverage": 0.5081081081081081,
-  "mae": 3.53430641678044,
-  "rmse": 4.667350604415895,
-  "r2": -0.032204523490861225,
+  "rows": 564,
+  "accuracy": 0.6329787234042553,
+  "published_accuracy": 0.6795774647887324,
+  "coverage": 0.5035460992907801,
+  "published_coverage": 0.5035460992907801,
+  "mae": 3.542511403025627,
+  "rmse": 4.677839603931385,
+  "r2": -0.029590329673623517,
   "published_confidence_buckets": {
     "0.53-0.56": {
-      "rows": 28,
+      "rows": 29,
       "coverage": 0.0,
-      "accuracy": 0.5714285714285714,
+      "accuracy": 0.5517241379310345,
       "published_rows": 0,
       "published_accuracy": 0.0
     },
     "0.56-0.60": {
-      "rows": 30,
+      "rows": 31,
       "coverage": 0.0,
-      "accuracy": 0.9,
+      "accuracy": 0.9032258064516129,
       "published_rows": 0,
       "published_accuracy": 0.0
     },
     "0.60-0.65": {
-      "rows": 58,
+      "rows": 60,
       "coverage": 0.0,
-      "accuracy": 0.5344827586206896,
+      "accuracy": 0.5333333333333333,
       "published_rows": 0,
       "published_accuracy": 0.0
     },
     "0.65+": {
-      "rows": 413,
-      "coverage": 0.6828087167070218,
-      "accuracy": 0.6343825665859564,
-      "published_rows": 282,
-      "published_accuracy": 0.6773049645390071
+      "rows": 417,
+      "coverage": 0.6810551558752997,
+      "accuracy": 0.6378896882494005,
+      "published_rows": 284,
+      "published_accuracy": 0.6795774647887324
     },
     "<=0.53": {
-      "rows": 26,
+      "rows": 27,
       "coverage": 0.0,
-      "accuracy": 0.5769230769230769,
+      "accuracy": 0.5555555555555556,
       "published_rows": 0,
       "published_accuracy": 0.0
     }
   },
-  "splits": 53,
+  "splits": 54,
   "fallback_splits": 0,
   "avg_missing_pitchers_rate_test": 0.0,
   "avg_prob_shrink": 0.0

@@ -16,13 +16,40 @@ import WeekdayScoringPage from "./pages/WeekdayScoringPage.jsx";
 import BestPicksPage from "./pages/BestPicksPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import AdminUserApproval from "./pages/AdminUserApproval.jsx";
+import TermsPage from "./pages/TermsPage.jsx";
+import PrivacyPage from "./pages/PrivacyPage.jsx";
+import DisclaimerPage from "./pages/DisclaimerPage.jsx";
 import { getActiveSession, logoutUser, refreshSession } from "./services/auth.js";
+import { Link } from "react-router-dom";
+
+function AppFooter() {
+  return (
+    <footer className="border-t border-white/8 bg-black/18">
+      <div className="mx-auto flex max-w-[1780px] flex-wrap items-center justify-center gap-5 px-4 py-4 text-center text-sm text-white/50 xl:px-6 2xl:px-8">
+        <Link to="/terms" className="transition hover:text-white/80">
+          Términos y condiciones
+        </Link>
+        <Link to="/privacy" className="transition hover:text-white/80">
+          Política de privacidad
+        </Link>
+        <Link to="/disclaimer" className="transition hover:text-white/80">
+          Disclaimer
+        </Link>
+      </div>
+    </footer>
+  );
+}
 
 function ProtectedLayout({ onLogout, userName }) {
   return (
     <div className="min-h-screen bg-transparent text-white">
       <Header onLogout={onLogout} userName={userName} />
-      <Outlet />
+      <div className="flex min-h-[calc(100vh-80px)] flex-col">
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <AppFooter />
+      </div>
     </div>
   );
 }
@@ -62,11 +89,39 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route
+        path="/"
+        element={(
+          <div className="min-h-screen bg-transparent text-white">
+            <div className="flex min-h-screen flex-col">
+              <div className="flex-1">
+                <LandingPage />
+              </div>
+              <AppFooter />
+            </div>
+          </div>
+        )}
+      />
       <Route
         path="/auth"
-        element={session ? <Navigate to="/nba" replace /> : <AuthPage onAuthenticated={handleAuthenticated} />}
+        element={
+          session ? (
+            <Navigate to="/nba" replace />
+          ) : (
+            <div className="min-h-screen bg-transparent text-white">
+              <div className="flex min-h-screen flex-col">
+                <div className="flex-1">
+                  <AuthPage onAuthenticated={handleAuthenticated} />
+                </div>
+                <AppFooter />
+              </div>
+            </div>
+          )
+        }
       />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/disclaimer" element={<DisclaimerPage />} />
 
       <Route
         element={

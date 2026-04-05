@@ -448,55 +448,8 @@ export default function LeaguePage({ sportKey, sportLabel }) {
 
   return (
     <>
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <section className="mb-8 overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,198,79,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(52,211,153,0.12),transparent_26%),linear-gradient(180deg,rgba(22,26,36,0.96),rgba(14,17,24,0.98))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_420px] xl:items-center">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/90">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
-                Board premium de {sportLabel}
-              </div>
-              <h2 className="max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl">
-                Una vista que hace sentir el valor de tus picks desde el primer segundo.
-              </h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-white/68">
-                Menos saturacion, mejor foco. Selecciona fecha, detecta picks fuertes y navega
-                tu board como si fuera un producto premium listo para convertir usuarios en clientes.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/70">
-                <span className="rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">Confianza visible</span>
-                <span className="rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">Mercados accionables</span>
-                <span className="rounded-full border border-white/10 bg-white/[0.045] px-4 py-2">Lectura instantanea</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Eventos activos</p>
-                <p className="mt-3 text-4xl font-semibold text-white">{events.length}</p>
-                <p className="mt-2 text-sm text-white/55">Slate disponible para {selectedDate || "hoy"}</p>
-              </div>
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Premium / Elite</p>
-                <p className="mt-3 text-4xl font-semibold text-amber-200">{premiumCount}</p>
-                <p className="mt-2 text-sm text-white/55">Picks con narrativa de mayor valor</p>
-              </div>
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">% acierto</p>
-                <p className="mt-3 text-4xl font-semibold text-emerald-300">{hitRate.toFixed(1)}%</p>
-                <p className="mt-2 text-sm text-white/55">Prueba social basada en resultado real</p>
-              </div>
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Pendientes</p>
-                <p className="mt-3 text-4xl font-semibold text-cyan-200">{upcomingCount}</p>
-                <p className="mt-2 text-sm text-white/55">Partidos listos para explorar o vender</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <main className="mx-auto max-w-[1780px] px-4 py-8 xl:px-6 2xl:px-8">
+        <div className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)_300px] 2xl:grid-cols-[310px_minmax(0,1fr)_320px]">
           <SidebarCalendar
             calendarMonth={calendarMonth}
             setCalendarMonth={setCalendarMonth}
@@ -588,7 +541,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                     />
                   </div>
 
-                  <div className="mt-10 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
+                  <div className="mt-10">
                     <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,28,38,0.96),rgba(16,19,27,0.98))] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
                       <div className="flex items-center justify-between gap-4">
                         <div>
@@ -621,40 +574,48 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                         </div>
                       </div>
                     </div>
-
-                    <div className="rounded-[30px] border border-amber-300/22 bg-[linear-gradient(180deg,rgba(255,199,76,0.14),rgba(255,199,76,0.05))] p-6 shadow-[0_24px_60px_rgba(246,196,83,0.14)]">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-amber-100/70">Oferta premium</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white">Escala esto como un producto de suscripción</h3>
-                      <p className="mt-4 text-sm leading-6 text-white/76">
-                        Usa este board como escaparate premium: best picks, insights, scoring y mercados destacados.
-                      </p>
-
-                      <div className="mt-5 space-y-3 text-sm text-white/78">
-                        <div className="flex items-center gap-3">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                          <span>Plan mensual con acceso al board diario</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                          <span>Upsell a Best Picks e Insights avanzados</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                          <span>Percepción de valor reforzada por diseño + métricas</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 rounded-[24px] border border-black/10 bg-black/18 p-4">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Anchor price</p>
-                        <p className="mt-2 text-4xl font-semibold text-white">$79<span className="text-base font-medium text-white/55"> / mes</span></p>
-                        <p className="mt-2 text-sm text-white/68">Best Picks + Insights + experiencia premium de picks.</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </>
             )}
           </section>
+
+          <aside className="self-start xl:sticky xl:top-6">
+            <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,198,79,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(52,211,153,0.10),transparent_30%),linear-gradient(180deg,rgba(22,26,36,0.96),rgba(14,17,24,0.98))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/85">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
+                Board de {sportLabel}
+              </div>
+
+              <h3 className="mt-4 text-2xl font-semibold leading-tight text-white">
+                Resumen General del Dia
+                (Mercado MonyLine).
+              </h3>
+
+              <div className="mt-6 grid gap-3">
+                <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Eventos activos</p>
+                  <p className="mt-3 text-4xl font-semibold text-white">{events.length}</p>
+                  <p className="mt-2 text-sm text-white/55">Slate disponible para {selectedDate || "hoy"}</p>
+                </div>
+                <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Premium / Elite</p>
+                  <p className="mt-3 text-4xl font-semibold text-amber-200">{premiumCount}</p>
+                  <p className="mt-2 text-sm text-white/55">Picks con narrativa de mayor valor</p>
+                </div>
+                <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">% acierto</p>
+                  <p className="mt-3 text-4xl font-semibold text-emerald-300">{hitRate.toFixed(1)}%</p>
+                  <p className="mt-2 text-sm text-white/55">Prueba social basada en resultado real</p>
+                </div>
+                <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Pendientes</p>
+                  <p className="mt-3 text-4xl font-semibold text-cyan-200">{upcomingCount}</p>
+                  <p className="mt-2 text-sm text-white/55">Partidos listos para explorar o vender</p>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       </main>
 

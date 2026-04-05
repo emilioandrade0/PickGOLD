@@ -17,24 +17,10 @@ function getSportTitle(pathname) {
   return "NBA";
 }
 
-function getBoardCopy(pathname) {
-  if (pathname.startsWith("/best-picks")) {
-    return "Los picks mas fuertes del dia, curados para entrar rapido y vender mejor.";
-  }
-  if (pathname.startsWith("/weekday-scoring")) {
-    return "Lectura por dia, consistencia por mercado y ritmo real de cada deporte.";
-  }
-  if (pathname.startsWith("/insights")) {
-    return "Tendencias, metricas y contexto para entender donde esta el valor.";
-  }
-  return "Tu board diario con picks claros, mercados clave y lectura rapida en una sola vista.";
-}
-
 export default function Header({ onLogout, userName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const sportTitle = getSportTitle(location.pathname);
-  const boardCopy = getBoardCopy(location.pathname);
   const userRole = getActiveSession()?.role || null;
 
   return (
@@ -44,13 +30,12 @@ export default function Header({ onLogout, userName }) {
         <div className="absolute right-10 top-0 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-6 py-5">
+      <div className="relative mx-auto max-w-[1780px] px-4 py-5 xl:px-6 2xl:px-8">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/85">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
-                PickGold premium
+                
               </div>
 
               <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-2">
@@ -61,33 +46,6 @@ export default function Header({ onLogout, userName }) {
                 <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/58">
                   Board en vivo
                 </span>
-              </div>
-
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-                {boardCopy}
-              </p>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate("/best-picks")}
-                  className="rounded-2xl bg-amber-300 px-5 py-3 text-sm font-bold text-[#141821] shadow-[0_12px_28px_rgba(246,196,83,0.22)] transition hover:-translate-y-0.5 hover:bg-amber-200"
-                >
-                  Ver Best Picks
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/insights")}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/86 transition hover:border-white/16 hover:bg-white/[0.07]"
-                >
-                  Ver Insights
-                </button>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2.5 text-xs text-white/60">
-                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">Multi-deporte</span>
-                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">Historial por fecha</span>
-                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">Mercados accionables</span>
               </div>
             </div>
 

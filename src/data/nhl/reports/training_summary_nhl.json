@@ -3,7 +3,7 @@
     "market": "full_game",
     "target_col": "TARGET_full_game",
     "problem_type": "binary",
-    "threshold": 0.46,
+    "threshold": 0.49000000000000005,
     "feature_columns": [
       "away_elo_pre",
       "away_goalie_confirmed",
@@ -32,11 +32,11 @@
       "home_win_rate_l10",
       "home_win_rate_l5"
     ],
-    "n_rows": 1215,
+    "n_rows": 1249,
     "n_features": 26,
-    "valid_accuracy": 0.5020576131687243,
-    "valid_logloss": 0.7897133904679156,
-    "valid_auc": 0.5108386397507113,
+    "valid_accuracy": 0.544,
+    "valid_logloss": 0.7622919878441603,
+    "valid_auc": 0.5521633384536611,
     "classes": [
       0,
       1
@@ -46,7 +46,7 @@
     "market": "spread_2_5",
     "target_col": "TARGET_over_55",
     "problem_type": "binary",
-    "threshold": 0.5100000000000001,
+    "threshold": 0.38,
     "feature_columns": [
       "away_elo_pre",
       "away_goalie_confirmed",
@@ -110,11 +110,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1215,
+    "n_rows": 1249,
     "n_features": 61,
-    "valid_accuracy": 0.5761316872427984,
-    "valid_logloss": 0.7968189918437858,
-    "valid_auc": 0.5037957211870254,
+    "valid_accuracy": 0.568,
+    "valid_logloss": 0.7900237008948174,
+    "valid_auc": 0.4870283018867924,
     "classes": [
       0,
       1
@@ -124,7 +124,7 @@
     "market": "home_over_2_5",
     "target_col": "TARGET_home_over_25",
     "problem_type": "binary",
-    "threshold": 0.5000000000000001,
+    "threshold": 0.44000000000000006,
     "feature_columns": [
       "away_elo_pre",
       "away_goalie_confirmed",
@@ -188,11 +188,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1215,
+    "n_rows": 1249,
     "n_features": 61,
-    "valid_accuracy": 0.6090534979423868,
-    "valid_logloss": 0.7677789934844481,
-    "valid_auc": 0.5677609427609428,
+    "valid_accuracy": 0.604,
+    "valid_logloss": 0.7308916555128767,
+    "valid_auc": 0.5648538363770153,
     "classes": [
       0,
       1
