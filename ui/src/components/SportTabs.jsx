@@ -17,16 +17,16 @@ const SPORTS = [
 
 export default function SportTabs() {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2">
       {SPORTS.map((sport) => (
         <NavLink
           key={sport.key}
           to={sport.path}
           className={({ isActive }) =>
-            `rounded-2xl border px-5 py-2.5 text-sm font-semibold tracking-[0.01em] transition ${
+            `rounded-xl border px-4 py-2.5 text-sm font-semibold tracking-[0.01em] transition ${
               isActive
-                ? "border-amber-300 bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#0f1218] shadow-[0_10px_24px_rgba(246,196,83,0.28)]"
-                : "border-white/10 bg-white/[0.045] text-white/78 hover:border-cyan-300/30 hover:bg-cyan-300/10 hover:text-cyan-100"
+                ? "border-amber-300/70 bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#0f1218] shadow-[0_10px_24px_rgba(246,196,83,0.18)]"
+                : "border-white/8 bg-white/[0.025] text-white/72 hover:border-white/16 hover:bg-white/[0.055] hover:text-white"
             }`
           }
         >

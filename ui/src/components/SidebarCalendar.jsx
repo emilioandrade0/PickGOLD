@@ -12,7 +12,7 @@ export default function SidebarCalendar({
   updateStatus,
   availableDates,
   title = "Calendario",
-  subtitle = "Consulta predicciones historicas por fecha.",
+  subtitle = "Consulta el historial y cambia de fecha en segundos.",
   todayButtonLabel = "Cargar hoy",
   updateActionLabel = "Actualizar ahora",
   updateRunningLabel = "Actualizando...",
@@ -40,7 +40,7 @@ export default function SidebarCalendar({
       <div className="mb-5">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/85">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
-          Control panel
+          Centro de control
         </div>
         <h2 className="text-2xl font-semibold">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-white/60">{subtitle}</p>
@@ -54,7 +54,7 @@ export default function SidebarCalendar({
             }
             className="rounded-xl border border-white/8 bg-white/[0.05] px-3 py-1.5 transition hover:bg-white/[0.08]"
           >
-            ?
+            ‹
           </button>
 
           <span className="capitalize">{monthLabel}</span>
@@ -65,7 +65,7 @@ export default function SidebarCalendar({
             }
             className="rounded-xl border border-white/8 bg-white/[0.05] px-3 py-1.5 transition hover:bg-white/[0.08]"
           >
-            ?
+            ›
           </button>
         </div>
 

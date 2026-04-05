@@ -9,6 +9,10 @@ This repository includes `render.yaml` for one-click deployment.
 3. Set the following environment variables in Render:
 	- `THEODDSAPI_KEY` (required)
 	- `FRONTEND_ORIGIN` (required in production, example: `https://pickgold.vercel.app`)
+	- `STRIPE_SECRET_KEY` (optional, required para checkout con Stripe)
+	- `PAYPAL_CLIENT_ID` (optional, required para checkout con PayPal)
+	- `PAYPAL_CLIENT_SECRET` (optional, required para checkout con PayPal)
+	- `PAYPAL_ENV` (optional, `sandbox` o `live`)
 	- `FLASHSCORE_ENABLED` (optional, default `1`)
 	- `THEODDSAPI_DAYS_AHEAD` (optional, default `2`)
 4. Deploy and verify:

@@ -27,7 +27,7 @@ export default function WeekdayScoringPage() {
         if (err?.name === "AbortError") {
           setError("La carga tardó demasiado. Intenta de nuevo en unos segundos.");
         } else {
-          setError(err.message || "No se pudieron cargar los insights de scoring por dia.");
+          setError(err.message || "No se pudo cargar el resumen de scoring por dia.");
         }
       } finally {
         setLoading(false);
@@ -40,9 +40,9 @@ export default function WeekdayScoringPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
       <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-2xl font-semibold">Altas y Bajas por Dia</h2>
+        <h2 className="text-2xl font-semibold">Scoring por dia</h2>
         <p className="mt-2 text-sm text-white/70">
-          Ranking por deporte para identificar que dias de la semana tienden a tener mayor o menor scoring.
+          Detecta que dias de la semana suelen producir marcadores mas altos o mas bajos por deporte.
         </p>
         {data?.generated_at && (
           <p className="mt-2 text-xs text-white/50">Actualizado: {data.generated_at}</p>

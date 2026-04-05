@@ -1,0 +1,145 @@
+<svg width="1600" height="2200" viewBox="0 0 1600 2200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="2200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#090B11"/>
+      <stop offset="1" stop-color="#111522"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFE27A"/>
+      <stop offset="1" stop-color="#FFB800"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#3CF2D0"/>
+      <stop offset="1" stop-color="#0FB9A8"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#171B25"/>
+      <stop offset="1" stop-color="#11141C"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="30" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="glowGold" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#FFC939" flood-opacity="0.40"/>
+    </filter>
+    <filter id="glowTeal" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#23E3C3" flood-opacity="0.35"/>
+    </filter>
+    <style>
+      .h1{font: 800 86px 'Segoe UI', Arial, sans-serif; letter-spacing:-2px; fill:#F7F8FB}
+      .h2{font: 800 54px 'Segoe UI', Arial, sans-serif; letter-spacing:-1px; fill:#F7F8FB}
+      .h3{font: 700 28px 'Segoe UI', Arial, sans-serif; fill:#F7F8FB}
+      .body{font: 400 28px 'Segoe UI', Arial, sans-serif; fill:#AAB2C5}
+      .small{font: 600 18px 'Segoe UI', Arial, sans-serif; fill:#9EA7BA; letter-spacing:1px}
+      .chip{font: 700 18px 'Segoe UI', Arial, sans-serif; fill:#E7EAF1}
+      .cta{font: 800 24px 'Segoe UI', Arial, sans-serif; fill:#11141C}
+      .cta2{font: 800 24px 'Segoe UI', Arial, sans-serif; fill:#E8EDF7}
+      .metric{font: 800 48px 'Segoe UI', Arial, sans-serif; fill:#F7F8FB}
+      .metricLabel{font: 600 18px 'Segoe UI', Arial, sans-serif; fill:#8E97AA; letter-spacing:1px}
+    </style>
+  </defs>
+
+  <rect width="1600" height="2200" fill="url(#bg)"/>
+  <circle cx="1280" cy="220" r="260" fill="#18E0C3" fill-opacity="0.08"/>
+  <circle cx="250" cy="180" r="200" fill="#FFC739" fill-opacity="0.08"/>
+  <circle cx="1460" cy="1180" r="300" fill="#FFC739" fill-opacity="0.05"/>
+
+  <text x="110" y="115" class="h3">NBA <tspan fill="url(#gold)">GOLD</tspan></text>
+  <rect x="1170" y="70" rx="24" ry="24" width="145" height="52" fill="#121722" stroke="#2C3341"/>
+  <text x="1218" y="103" class="chip">LOGIN</text>
+  <rect x="1335" y="70" rx="24" ry="24" width="175" height="52" fill="url(#gold)" filter="url(#glowGold)"/>
+  <text x="1368" y="104" class="cta">GET PICKS</text>
+
+  <text x="110" y="270" class="small">DAILY EDGE FOR SERIOUS BETTORS</text>
+  <text x="110" y="380" class="h1">Convierte datos complejos en<tspan x="110" dy="96">picks premium que s? se sienten</tspan><tspan fill="url(#gold)"> vendibles</tspan></text>
+  <text x="110" y="610" class="body">Una plataforma de predicciones deportivas dise?ada para comunicar valor al instante:</text>
+  <text x="110" y="655" class="body">confianza visual, prueba social, picks accionables y una narrativa que empuja a comprar.</text>
+
+  <rect x="110" y="725" rx="28" ry="28" width="240" height="72" fill="url(#gold)" filter="url(#glowGold)"/>
+  <text x="162" y="771" class="cta">START NOW</text>
+  <rect x="370" y="725" rx="28" ry="28" width="250" height="72" fill="#141926" stroke="#2C3444"/>
+  <text x="425" y="771" class="cta2">WATCH DEMO</text>
+
+  <rect x="110" y="865" rx="26" ry="26" width="640" height="120" fill="#111722" stroke="#232B39"/>
+  <circle cx="170" cy="925" r="20" fill="#23E3C3"/>
+  <text x="210" y="912" class="metric">77.8%</text>
+  <text x="210" y="949" class="metricLabel">HIT RATE VISUALIZADO COMO PRUEBA DE AUTORIDAD</text>
+  <text x="510" y="912" class="metric">+12</text>
+  <text x="510" y="949" class="metricLabel">MERCADOS ACTIVOS</text>
+
+  <g filter="url(#shadow)">
+    <rect x="835" y="210" rx="36" ry="36" width="660" height="840" fill="url(#panel)" stroke="#2A3040"/>
+    <rect x="875" y="260" rx="20" ry="20" width="220" height="48" fill="#0E131C" stroke="#2A3140"/>
+    <text x="925" y="291" class="chip">LIVE DASHBOARD</text>
+    <rect x="1120" y="260" rx="20" ry="20" width="120" height="48" fill="#10211C" stroke="#205345"/>
+    <text x="1156" y="291" class="chip" fill="#B7FFF0">+23%</text>
+    <rect x="1260" y="260" rx="20" ry="20" width="195" height="48" fill="#2B2312" stroke="#7F6320"/>
+    <text x="1306" y="291" class="chip" fill="#FFE395">LIMITED ACCESS</text>
+
+    <rect x="875" y="350" rx="24" ry="24" width="270" height="250" fill="#141925" stroke="#2A3140"/>
+    <text x="907" y="395" class="small">TODAY'S PREMIUM PICK</text>
+    <text x="907" y="465" class="h3">Boston Celtics</text>
+    <text x="907" y="510" class="body">vs Miami Heat</text>
+    <rect x="907" y="540" rx="18" ry="18" width="170" height="42" fill="#0F2B25" stroke="#1C6B59"/>
+    <circle cx="936" cy="561" r="6" fill="#22E2C2" filter="url(#glowTeal)"/>
+    <text x="952" y="568" class="chip" fill="#B8FFF0">ELITE PICK</text>
+
+    <rect x="1170" y="350" rx="24" ry="24" width="285" height="250" fill="#141925" stroke="#2A3140"/>
+    <text x="1202" y="395" class="small">CONVERSION PANEL</text>
+    <text x="1202" y="450" class="metric">84.6%</text>
+    <text x="1202" y="492" class="metricLabel">Trust score</text>
+    <rect x="1202" y="532" rx="16" ry="16" width="218" height="16" fill="#0F1420"/>
+    <rect x="1202" y="532" rx="16" ry="16" width="184" height="16" fill="url(#gold)"/>
+    <text x="1202" y="584" class="body">Escasez + claridad + feedback inmediato</text>
+
+    <rect x="875" y="630" rx="24" ry="24" width="580" height="150" fill="#121722" stroke="#283041"/>
+    <text x="907" y="676" class="small">WHY USERS PAY</text>
+    <text x="907" y="725" class="body">? Picks jerarquizados por valor</text>
+    <text x="907" y="765" class="body">? Dise?o que hace sentir premium el producto</text>
+
+    <rect x="875" y="810" rx="24" ry="24" width="180" height="180" fill="#131824" stroke="#293142"/>
+    <rect x="1075" y="810" rx="24" ry="24" width="180" height="180" fill="#131824" stroke="#293142"/>
+    <rect x="1275" y="810" rx="24" ry="24" width="180" height="180" fill="#131824" stroke="#293142"/>
+    <text x="915" y="870" class="metric">9</text><text x="915" y="912" class="metricLabel">BEST PICKS</text>
+    <text x="1115" y="870" class="metric">7</text><text x="1115" y="912" class="metricLabel">WINS TODAY</text>
+    <text x="1315" y="870" class="metric">1.82</text><text x="1315" y="912" class="metricLabel">AVG ODDS</text>
+  </g>
+
+  <text x="110" y="1170" class="h2">Redise?o pensado para vender, no solo para mostrar datos</text>
+  <text x="110" y="1235" class="body">La estructura usa psicolog?a visual: contraste premium, prueba social, anclas de valor,</text>
+  <text x="110" y="1280" class="body">foco en beneficios y CTAs claros para transformar curiosidad en intenci?n de compra.</text>
+
+  <rect x="110" y="1360" rx="28" ry="28" width="430" height="300" fill="#131824" stroke="#283141"/>
+  <rect x="585" y="1360" rx="28" ry="28" width="430" height="300" fill="#131824" stroke="#283141"/>
+  <rect x="1060" y="1360" rx="28" ry="28" width="430" height="300" fill="#131824" stroke="#283141"/>
+
+  <text x="150" y="1430" class="h3">1. Hero que vende</text>
+  <text x="150" y="1490" class="body">Headline emocional + promesa</text>
+  <text x="150" y="1530" class="body">clara + CTA inmediato.</text>
+
+  <text x="625" y="1430" class="h3">2. Autoridad instant?nea</text>
+  <text x="625" y="1490" class="body">M?tricas, rachas y picks elite</text>
+  <text x="625" y="1530" class="body">como se?ales de confianza.</text>
+
+  <text x="1100" y="1430" class="h3">3. Fricci?n m?nima</text>
+  <text x="1100" y="1490" class="body">Jerarqu?a visual limpia para que</text>
+  <text x="1100" y="1530" class="body">el usuario entienda y compre r?pido.</text>
+
+  <text x="110" y="1795" class="h2">Secci?n de pricing y urgencia</text>
+  <rect x="110" y="1860" rx="34" ry="34" width="1380" height="250" fill="#121722" stroke="#2C3341"/>
+  <rect x="160" y="1910" rx="26" ry="26" width="320" height="150" fill="#171D2A" stroke="#2D3647"/>
+  <text x="195" y="1960" class="small">PLAN MENSUAL</text>
+  <text x="195" y="2025" class="metric">$29</text>
+  <text x="195" y="2065" class="body">Ideal para validar valor r?pido.</text>
+
+  <rect x="515" y="1890" rx="30" ry="30" width="400" height="190" fill="#191408" stroke="#A47A12" filter="url(#glowGold)"/>
+  <text x="555" y="1940" class="small" fill="#FFE7A5">MOST POPULAR</text>
+  <text x="555" y="2002" class="h3">Plan Pro + Best Picks + Insights</text>
+  <text x="555" y="2055" class="body">Ancla de valor para maximizar conversi?n.</text>
+
+  <rect x="950" y="1910" rx="26" ry="26" width="490" height="150" fill="#111B19" stroke="#22594D"/>
+  <text x="990" y="1960" class="small" fill="#B6FFF2">URGENT CTA</text>
+  <text x="990" y="2018" class="h3">?nete hoy y desbloquea picks premium en tiempo real</text>
+  <rect x="1180" y="2010" rx="22" ry="22" width="215" height="54" fill="url(#teal)" filter="url(#glowTeal)"/>
+  <text x="1222" y="2045" class="cta">GET ACCESS</text>
+</svg>

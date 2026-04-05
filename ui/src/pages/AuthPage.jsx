@@ -1,44 +1,18 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import PlanCheckoutActions from "../components/PlanCheckoutActions.jsx";
 import { loginUser, registerUser, setActiveSession } from "../services/auth.js";
+import { getPlanByKey, PLANS } from "../config/plans.js";
+import {
+  capturePaypalOrder,
+  createPaypalOrder,
+} from "../services/payments.js";
 
-const VALUE_PILLS = [
-  "Best Picks listos para vender",
-  "Insights y scoring por día",
-  "Multi-deporte, multi-mercado",
-];
-
-const SOCIAL_PROOF = [
-  { label: "Hit rate visual", value: "77.8%" },
-  { label: "Mercados activos", value: "12" },
-  { label: "Lectura premium", value: "A+" },
-];
-
-const PLANS = [
-  {
-    name: "Starter",
-    price: "$29",
-    caption: "Entrada rápida",
-    features: ["Board diario", "Historial por fecha", "Picks principales"],
-    accent: "border-white/10 bg-white/[0.04]",
-  },
-  {
-    name: "Pro",
-    price: "$79",
-    caption: "Más vendido",
-    features: ["Best Picks", "Insights avanzados", "Jerarquía premium de picks"],
-    accent: "border-amber-300/35 bg-[linear-gradient(180deg,rgba(255,199,76,0.14),rgba(255,199,76,0.05))] shadow-[0_18px_40px_rgba(246,196,83,0.18)]",
-    featured: true,
-  },
-  {
-    name: "VIP",
-    price: "$149",
-    caption: "Alta percepción de valor",
-    features: ["Todos los deportes", "Paneles premium", "Experiencia orientada a conversión"],
-    accent: "border-cyan-300/20 bg-cyan-300/[0.06]",
-  },
-];
+const VALUE_PILLS = ["Best Picks listos para vender", "Insights y scoring por dia", "Multi-deporte, multi-mercado"];
+const TELEGRAM_URL = (import.meta.env.VITE_TELEGRAM_URL || "").trim();
 
 export default function AuthPage({ onAuthenticated }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,28 +20,100 @@ export default function AuthPage({ onAuthenticated }) {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [paymentLoadingKey, setPaymentLoadingKey] = useState("");
 
   const isLogin = mode === "login";
+  const selectedPlanKey = searchParams.get("plan") || "starter";
+  const selectedPlan = useMemo(() => getPlanByKey(selectedPlanKey) || PLANS[0], [selectedPlanKey]);
+  const handledPaymentRef = useRef("");
+
+  function handlePlanSelect(planKey) {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("plan", planKey);
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  async function handleCheckout(planKey, provider) {
+    try {
+      setError("");
+      setInfo("");
+      setPaymentLoadingKey(`${planKey}:${provider}`);
+      const response = await createPaypalOrder(planKey);
+      window.location.href = response.url;
+    } catch (checkoutError) {
+      setError(checkoutError.message || "No se pudo iniciar el checkout.");
+      setPaymentLoadingKey("");
+    }
+  }
+
+  useEffect(() => {
+    const provider = searchParams.get("provider");
+    const paymentStatus = searchParams.get("payment");
+    const planKey = searchParams.get("plan") || "starter";
+    const paypalOrderId = searchParams.get("token");
+
+    if (!provider || !paymentStatus) return;
+
+    const paymentKey = `${provider}:${paymentStatus}:${paypalOrderId || planKey}`;
+    if (handledPaymentRef.current === paymentKey) return;
+    handledPaymentRef.current = paymentKey;
+
+    async function syncPaymentStatus() {
+      try {
+        setError("");
+        if (provider !== "paypal") {
+          setInfo("Stripe quedo desactivado por ahora. Usa PayPal o Telegram para cerrar el cobro.");
+          setMode("register");
+          return;
+        }
+
+        if (paymentStatus === "cancel") {
+          setInfo("El pago de PayPal fue cancelado. Puedes intentarlo otra vez.");
+          setMode("register");
+          return;
+        }
+
+        if (provider === "paypal" && paypalOrderId) {
+          const result = await capturePaypalOrder(paypalOrderId);
+          setInfo(
+            result.paid
+              ? `Pago confirmado con PayPal para ${result.plan_name}. Ahora registra al cliente para activacion manual.`
+              : "PayPal devolvio una orden sin captura confirmada todavia."
+          );
+          setMode("register");
+          return;
+        }
+
+        setInfo("Regresaste del checkout. Si ya se cobro, puedes continuar con el registro.");
+        setMode("register");
+      } catch (paymentError) {
+        setError(paymentError.message || "No se pudo verificar el pago.");
+        setMode("register");
+      } finally {
+        setPaymentLoadingKey("");
+      }
+    }
+
+    syncPaymentStatus();
+  }, [searchParams]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setInfo("");
     setLoading(true);
-    let action;
-    if (isLogin) {
-      action = await loginUser({ email, password });
-    } else {
-      action = await registerUser({ name, email, password });
-    }
+    const action = isLogin
+      ? await loginUser({ email, password })
+      : await registerUser({ name, email, password });
     setLoading(false);
+
     if (!action.ok) {
-      setError(action.error || "No se pudo completar la acción.");
+      setError(action.error || "No se pudo completar la accion.");
       return;
     }
 
     if (action.pending) {
-      setInfo(action.message || "Tu cuenta sigue pendiente de aprobación.");
+      setInfo(action.message || "Tu cuenta sigue pendiente de aprobacion.");
       return;
     }
 
@@ -88,22 +134,23 @@ export default function AuthPage({ onAuthenticated }) {
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 py-12">
-        <div className="grid w-full gap-10 xl:grid-cols-[minmax(0,1.15fr)_460px] xl:items-center">
+        <div className="grid w-full gap-12 xl:grid-cols-[minmax(0,1fr)_460px] xl:items-center">
           <section>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-300/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200/90">
               <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]" />
-              Sports intelligence reimagined
+              Acceso premium
             </div>
 
-            <h1 className="mt-6 max-w-4xl text-5xl font-light leading-none tracking-tight sm:text-6xl lg:text-7xl">
+            <h1 className="mt-6 max-w-4xl text-5xl font-light leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
               NBA <span className="font-semibold text-amber-300">GOLD</span>
-              <span className="mt-3 block text-white/96">haz que tus picks se sientan premium, claros y vendibles.</span>
+              <span className="mt-3 block text-white/96">compra confianza. entra con ventaja.</span>
             </h1>
 
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-white/72">
-              No es solo una app de predicciones. Es una experiencia diseñada para elevar percepción,
-              confianza y conversión: picks premium, historial limpio, insights accionables y una interfaz
-              que transmite valor desde el primer segundo.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-white/68">
+              Elige tu nivel, cobra con PayPal y usa Telegram como ruta directa para cerrar ventas manuales.
+            </p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-amber-100/70">
+              Pro es el plan ancla de conversion. Stripe queda fuera por ahora para simplificar la operacion.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -117,18 +164,14 @@ export default function AuthPage({ onAuthenticated }) {
               ))}
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              {SOCIAL_PROOF.map((item) => (
-                <div key={item.label} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">{item.label}</p>
-                  <p className="mt-3 text-4xl font-semibold text-white">{item.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            <div className="mt-10 grid gap-4 lg:grid-cols-3">
               {PLANS.map((plan) => (
-                <div key={plan.name} className={`rounded-[28px] border p-5 ${plan.accent}`}>
+                <div
+                  key={plan.key}
+                  className={`rounded-[28px] border p-5 transition ${plan.accent} ${
+                    selectedPlan.key === plan.key ? "ring-2 ring-amber-300/60" : ""
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">{plan.caption}</p>
@@ -136,11 +179,19 @@ export default function AuthPage({ onAuthenticated }) {
                     </div>
                     {plan.featured && (
                       <span className="rounded-full border border-amber-300/35 bg-amber-300/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">
-                        Popular
+                        Mas elegido
                       </span>
                     )}
                   </div>
-                  <p className="mt-4 text-4xl font-semibold text-white">{plan.price}<span className="text-base font-medium text-white/52"> / mes</span></p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-4xl font-semibold text-white">
+                      {plan.priceLabel}
+                      <span className="text-base font-medium text-white/52"> / mes</span>
+                    </p>
+                    <span className="rounded-full border border-white/10 bg-black/18 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
+                      {plan.role}
+                    </span>
+                  </div>
                   <div className="mt-5 space-y-3 text-sm text-white/72">
                     {plan.features.map((feature) => (
                       <div key={feature} className="flex items-center gap-3">
@@ -149,6 +200,18 @@ export default function AuthPage({ onAuthenticated }) {
                       </div>
                     ))}
                   </div>
+
+                  <PlanCheckoutActions
+                    plan={plan}
+                    loadingProvider={paymentLoadingKey === `${plan.key}:paypal` ? "paypal" : ""}
+                    onPaypal={() => handleCheckout(plan.key, "paypal")}
+                    telegramUrl={TELEGRAM_URL}
+                    secondaryLabel={selectedPlan.key === plan.key ? "Plan seleccionado" : `Elegir ${plan.name}`}
+                    onSecondary={() => {
+                      handlePlanSelect(plan.key);
+                      setMode("register");
+                    }}
+                  />
                 </div>
               ))}
             </div>
@@ -165,9 +228,12 @@ export default function AuthPage({ onAuthenticated }) {
               </div>
             </div>
 
-            <p className="mt-3 text-sm leading-6 text-white/68">
-              Regístrate una vez, entra rápido y accede al board de picks, insights y mejores selecciones.
+            <p className="mt-3 max-w-md text-sm leading-6 text-white/68">
+              Si ya pagaste, registra al cliente aqui para dejar la cuenta lista. Si ya tiene acceso, solo inicia sesion.
             </p>
+            <div className="mt-4 rounded-[24px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100/88">
+              Plan seleccionado: <span className="font-semibold">{selectedPlan.name}</span> ({selectedPlan.priceLabel} MXN al mes).
+            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-black/20 p-1.5">
               <button
@@ -242,8 +308,7 @@ export default function AuthPage({ onAuthenticated }) {
             </form>
 
             <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.035] p-4 text-sm text-white/66">
-              Tu acceso abre la puerta a una interfaz diseñada para que los picks se entiendan rápido,
-              se vean premium y generen mayor percepción de valor.
+              Acceso privado con aprobacion manual para mantener el producto limpio y premium.
             </div>
           </section>
         </div>

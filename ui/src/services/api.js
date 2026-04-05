@@ -198,7 +198,7 @@ export async function fetchBestPicksToday(topN = 25, rankingMode = "best_hit_rat
   return await fetchJsonWithRetry(`/insights/best-picks/today?${params.toString()}`, {
     timeoutMs: 90000,
     retries: 2,
-    errorMessage: "No se pudieron cargar los mejores picks del d?a.",
+    errorMessage: "No se pudieron cargar los mejores picks del dia.",
   });
 }
 

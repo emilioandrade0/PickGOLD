@@ -63,7 +63,7 @@ function PickCard({ row, compact = false }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">Pick m?s seguro</div>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">Pick destacado</div>
           <div className="mt-1 text-xl font-semibold text-yellow-300">{pickName}</div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-right">
@@ -178,9 +178,9 @@ export default function BestPicksPage() {
         setAvailableDates(normalized);
       } catch (err) {
         if (err?.name === "AbortError") {
-          setError("La carga de Best Picks tard? demasiado. Intenta de nuevo.");
+          setError("La carga de Best Picks tardo demasiado. Intenta de nuevo.");
         } else {
-          setError(err.message || "No se pudieron cargar los Best Picks del d?a.");
+          setError(err.message || "No se pudieron cargar los Best Picks del dia.");
         }
       } finally {
         setLoading(false);
@@ -211,7 +211,7 @@ export default function BestPicksPage() {
         setAvailableDates((prev) => [...new Set([...(prev || []), snapDate])].sort());
       }
     } catch (err) {
-      setError(err.message || "No se pudieron cargar los Best Picks del d?a.");
+      setError(err.message || "No se pudieron cargar los Best Picks del dia.");
     } finally {
       setLoading(false);
     }
@@ -228,9 +228,9 @@ export default function BestPicksPage() {
             <div className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-200">
               Best Picks multideporte
             </div>
-            <h2 className="mt-4 text-3xl font-semibold text-white">Los picks m?s seguros del d?a, en una sola vista</h2>
+            <h2 className="mt-4 text-3xl font-semibold text-white">Los picks mas fuertes del dia, en una sola vista</h2>
             <p className="mt-3 text-sm leading-7 text-white/68">
-              Aqu? curamos primero el top global entre todos los deportes y mercados, y luego te dejamos el mejor bloque de cada deporte por separado para leer r?pido y vender mejor.
+              Aqui encuentras primero el top global entre todos los deportes y mercados, y luego el mejor bloque de cada deporte para decidir rapido.
             </p>
           </div>
           <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
@@ -270,8 +270,8 @@ export default function BestPicksPage() {
             <section className="rounded-3xl border border-white/10 bg-black/20 p-5">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-white">Top global del d?a</h3>
-                  <p className="mt-1 text-sm text-white/60">Los picks m?s fuertes entre todos los deportes disponibles.</p>
+                  <h3 className="text-xl font-semibold text-white">Top global del dia</h3>
+                  <p className="mt-1 text-sm text-white/60">La seleccion mas fuerte entre todos los deportes disponibles.</p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
                   <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-white/70">modelo {bestPicksData?.ranking_model || "v1"}</span>
@@ -296,7 +296,7 @@ export default function BestPicksPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-semibold text-white">Mejores picks por deporte</h3>
-                  <p className="mt-1 text-sm text-white/60">Cada bloque muestra el subconjunto m?s fuerte de esa liga para la fecha seleccionada.</p>
+                  <p className="mt-1 text-sm text-white/60">Cada bloque muestra la mejor seleccion disponible de esa liga para la fecha elegida.</p>
                 </div>
               </div>
               <div className="space-y-5">
@@ -306,14 +306,14 @@ export default function BestPicksPage() {
               </div>
               {!sportSections.length && (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
-                  Todav?a no hay deportes con picks elegibles para esta fecha.
+                  Todavia no hay deportes con picks elegibles para esta fecha.
                 </div>
               )}
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-black/20 p-5">
-              <h3 className="text-lg font-semibold text-white">Diagn?stico de filtros</h3>
-              <p className="mt-1 text-sm text-white/60">Esto nos ayuda a ver cu?ndo estamos filtrando demasiado y por qu? se quedan fuera algunos mercados.</p>
+              <h3 className="text-lg font-semibold text-white">Diagnostico de filtros</h3>
+              <p className="mt-1 text-sm text-white/60">Aqui vemos cuando el filtro esta dejando fuera demasiados mercados o deportes.</p>
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {diagnosticItems(bestPicksData?.gate_diagnostics).map(([key, value]) => (
                   <div key={key} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
