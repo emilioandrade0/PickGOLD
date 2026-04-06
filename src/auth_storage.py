@@ -191,6 +191,26 @@ def list_pending_users() -> list[dict]:
     return [row_to_user_payload(row) for row in rows]
 
 
+def reset_user_password(user_id: str, new_password: str) -> dict | None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE users
+            SET password_hash = ?
+            WHERE id = ?
+            """,
+            (hash_password(new_password), user_id),
+        )
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row_to_user_payload(row)
+
+
+def delete_user_account(user_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
 def list_non_pending_users() -> list[dict]:
     with get_connection() as conn:
         rows = conn.execute(

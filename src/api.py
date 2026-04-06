@@ -33,6 +33,8 @@ try:
         ensure_admin_user,
         find_user_by_email,
         find_user_by_id,
+        delete_user_account,
+        delete_user_account,
         get_session,
         hash_password,
         init_auth_db,
@@ -42,6 +44,7 @@ try:
         list_pending_users,
         parse_utc,
         register_user,
+        reset_user_password,
         row_to_user_payload,
         set_user_approval,
         utc_now,
@@ -53,6 +56,7 @@ except ImportError:
         ensure_admin_user,
         find_user_by_email,
         find_user_by_id,
+        delete_user_account,
         get_session,
         hash_password,
         init_auth_db,
@@ -62,6 +66,7 @@ except ImportError:
         list_pending_users,
         parse_utc,
         register_user,
+        reset_user_password,
         row_to_user_payload,
         set_user_approval,
         utc_now,
@@ -78,6 +83,44 @@ EUROLEAGUE_RAW_HISTORY = BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_
 NCAA_BASEBALL_RAW_HISTORY = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_advanced_history.csv"
 NCAA_BASEBALL_RAW_UPCOMING = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_upcoming_schedule.csv"
 TENNIS_RAW_HISTORY = BASE_DIR / "data" / "tennis" / "raw" / "tennis_advanced_history.csv"
+SPORT_RAW_FILES = {
+    "nba": {
+        "raw_history": NBA_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "raw" / "nba_upcoming_schedule.csv",
+    },
+    "mlb": {
+        "raw_history": MLB_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "mlb" / "raw" / "mlb_upcoming_schedule.csv",
+    },
+    "kbo": {
+        "raw_history": KBO_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "kbo" / "raw" / "kbo_upcoming_schedule.csv",
+    },
+    "nhl": {
+        "raw_history": NHL_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "nhl" / "raw" / "nhl_upcoming_schedule.csv",
+    },
+    "liga_mx": {
+        "raw_history": LIGA_MX_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_upcoming_schedule.csv",
+    },
+    "laliga": {
+        "raw_history": LALIGA_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "laliga" / "raw" / "laliga_upcoming_schedule.csv",
+    },
+    "euroleague": {
+        "raw_history": EUROLEAGUE_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_upcoming_schedule.csv",
+    },
+    "ncaa_baseball": {
+        "raw_history": NCAA_BASEBALL_RAW_HISTORY,
+        "upcoming_schedule": NCAA_BASEBALL_RAW_UPCOMING,
+    },
+    "tennis": {
+        "raw_history": TENNIS_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "tennis" / "raw" / "tennis_upcoming_schedule.csv",
+    },
+}
 BEST_PICKS_SNAPSHOTS_DIR = BASE_DIR / "data" / "insights" / "best_picks"
 BEST_PICKS_SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 BEST_PICKS_EXCLUDED_SPORTS = {"ncaa_baseball"}
@@ -287,6 +330,20 @@ def _initial_update_state(sport: str):
 
 SPORT_UPDATE_STATES = {sport: _initial_update_state(sport) for sport in SPORT_UPDATE_PIPELINES}
 SPORT_UPDATE_LOCKS = {sport: threading.Lock() for sport in SPORT_UPDATE_PIPELINES}
+ALL_SPORTS_UPDATE_STATE = {
+    "status": "idle",
+    "percent": 0,
+    "message": "Listo para actualizar todos los deportes.",
+    "current_sport": None,
+    "current_sport_label": None,
+    "completed_sports": 0,
+    "total_sports": len(SPORT_UPDATE_PIPELINES),
+    "started_at": None,
+    "finished_at": None,
+    "error": None,
+    "logs": [],
+}
+ALL_SPORTS_UPDATE_LOCK = threading.Lock()
 
 
 @app.get("/health")
@@ -322,6 +379,167 @@ def _build_auth_session_payload(session_data: dict) -> dict:
         "token": session_data["token"],
         "session_expires_at": session_data["session_expires_at"],
         "user": user,
+    }
+
+
+def _safe_iso_mtime(file_path: Path) -> Optional[str]:
+    try:
+        if file_path and file_path.exists():
+            return datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(timespec="seconds")
+    except Exception:
+        return None
+    return None
+
+
+def _latest_json_file_info(directory: Path) -> dict:
+    if not directory.exists():
+        return {"count": 0, "latest_file": None, "latest_updated_at": None}
+
+    files = sorted(directory.glob("*.json"), key=lambda item: item.stat().st_mtime if item.exists() else 0, reverse=True)
+    if not files:
+        return {"count": 0, "latest_file": None, "latest_updated_at": None}
+
+    latest = files[0]
+    return {
+        "count": len(files),
+        "latest_file": latest.name,
+        "latest_updated_at": _safe_iso_mtime(latest),
+    }
+
+
+def _build_admin_sport_pipeline_snapshot(sport: str) -> dict:
+    config = SPORTS_CONFIG[sport]
+    pipeline = SPORT_UPDATE_PIPELINES.get(sport, {"label": config["label"], "steps": []})
+    raw_files = SPORT_RAW_FILES.get(sport, {})
+    predictions_info = _latest_json_file_info(config["predictions_dir"])
+    historical_info = _latest_json_file_info(config["historical_dir"])
+
+    raw_history = raw_files.get("raw_history")
+    upcoming_schedule = raw_files.get("upcoming_schedule")
+
+    raw_history_updated_at = _safe_iso_mtime(raw_history) if raw_history else None
+    upcoming_schedule_updated_at = _safe_iso_mtime(upcoming_schedule) if upcoming_schedule else None
+
+    snapshot = {
+        "sport": sport,
+        "label": pipeline.get("label") or config["label"],
+        "board_route": f"/{sport.replace('_', '-')}",
+        "predictions_dir": str(config["predictions_dir"]),
+        "historical_dir": str(config["historical_dir"]),
+        "prediction_files_count": predictions_info["count"],
+        "historical_files_count": historical_info["count"],
+        "latest_prediction_file": predictions_info["latest_file"],
+        "latest_prediction_updated_at": predictions_info["latest_updated_at"],
+        "latest_historical_file": historical_info["latest_file"],
+        "latest_historical_updated_at": historical_info["latest_updated_at"],
+        "raw_history_file": str(raw_history) if raw_history else None,
+        "raw_history_updated_at": raw_history_updated_at,
+        "upcoming_schedule_file": str(upcoming_schedule) if upcoming_schedule else None,
+        "upcoming_schedule_updated_at": upcoming_schedule_updated_at,
+        "steps": [
+            {
+                "key": step.get("key"),
+                "label": step.get("label"),
+                "script": str(step.get("script")) if step.get("script") else None,
+            }
+            for step in pipeline.get("steps", [])
+        ],
+        "update_status": _copy_update_state(sport),
+    }
+    snapshot["board_status"] = _build_public_board_status(sport, snapshot=snapshot)
+    return snapshot
+
+
+def _build_public_board_status(sport: str, target_date: Optional[str] = None, snapshot: Optional[dict] = None) -> dict:
+    snapshot = snapshot or _build_admin_sport_pipeline_snapshot(sport)
+    config = SPORTS_CONFIG[sport]
+    source_date = _kbo_source_date_from_local(target_date) if (sport == "kbo" and target_date) else target_date
+    prediction_file = None
+    historical_file = None
+    if source_date:
+        prediction_file = config["predictions_dir"] / f"{source_date}.json"
+        historical_file = config["historical_dir"] / f"{source_date}.json"
+
+    has_target_snapshot = False
+    if prediction_file and prediction_file.exists():
+        has_target_snapshot = True
+    if historical_file and historical_file.exists():
+        has_target_snapshot = True
+    if sport == "ncaa_baseball" and target_date:
+        has_target_snapshot = has_target_snapshot or (target_date in _get_ncaa_baseball_available_dates())
+
+    latest_prediction_date = None
+    latest_prediction_file = snapshot.get("latest_prediction_file")
+    if latest_prediction_file:
+        latest_prediction_date = Path(latest_prediction_file).stem
+        if sport == "kbo":
+            latest_prediction_date = _kbo_local_date_from_source(latest_prediction_date)
+
+    def _iso_to_date(value: Optional[str]):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value).date().isoformat()
+        except Exception:
+            return None
+
+    raw_history_date = _iso_to_date(snapshot.get("raw_history_updated_at"))
+    upcoming_schedule_date = _iso_to_date(snapshot.get("upcoming_schedule_updated_at"))
+    latest_prediction_update_date = _iso_to_date(snapshot.get("latest_prediction_updated_at"))
+
+    today_local = datetime.now().date().isoformat()
+    selected_date = target_date or today_local
+    update_state = snapshot.get("update_status") or {}
+
+    freshness = "ok"
+    title = "Datos al dia"
+    message = "El board esta usando la version mas reciente disponible."
+
+    if update_state.get("status") == "running":
+        freshness = "running"
+        title = "Actualizacion en curso"
+        message = update_state.get("current_step_label") or update_state.get("message") or "Estamos refrescando este deporte ahora mismo."
+    elif target_date and not has_target_snapshot:
+        freshness = "stale"
+        title = "Board pendiente de actualizar"
+        if latest_prediction_date:
+            message = f"La pestana no tiene snapshot para {selected_date}. El ultimo board disponible es {latest_prediction_date}."
+        else:
+            message = f"La pestana todavia no tiene un snapshot disponible para {selected_date}."
+    elif not raw_history_date or not upcoming_schedule_date:
+        freshness = "stale"
+        title = "Fuentes incompletas"
+        message = "Este deporte todavia no tiene sus archivos base completos. Conviene correr la actualizacion completa antes de confiar en el board."
+    elif raw_history_date < today_local or upcoming_schedule_date < today_local:
+        freshness = "stale"
+        title = "Fuentes desactualizadas"
+        message = f"Los datos base de este deporte no se actualizan desde {min(raw_history_date, upcoming_schedule_date)}. Conviene refrescar el pipeline completo."
+    elif latest_prediction_date and latest_prediction_date < today_local:
+        freshness = "stale"
+        title = "Datos desactualizados"
+        message = f"Este deporte no se actualiza desde {latest_prediction_date}. Conviene correr la actualizacion completa para llevar el board al dia."
+    elif selected_date >= today_local and latest_prediction_date and latest_prediction_date < selected_date:
+        freshness = "stale"
+        title = "Datos potencialmente desactualizados"
+        message = f"El board visible llega hasta {latest_prediction_date}. Conviene correr una actualizacion para cubrir {selected_date}."
+    elif not latest_prediction_date:
+        freshness = "warning"
+        title = "Sin snapshot detectado"
+        message = "Todavia no encontramos archivos de predicciones para este deporte."
+
+    return {
+        "sport": sport,
+        "label": snapshot.get("label") or config["label"],
+        "target_date": selected_date,
+        "latest_prediction_date": latest_prediction_date,
+        "has_target_snapshot": has_target_snapshot,
+        "freshness": freshness,
+        "title": title,
+        "message": message,
+        "raw_history_updated_at": snapshot.get("raw_history_updated_at"),
+        "upcoming_schedule_updated_at": snapshot.get("upcoming_schedule_updated_at"),
+        "latest_prediction_updated_at": snapshot.get("latest_prediction_updated_at"),
+        "update_status": update_state,
     }
 
 
@@ -653,11 +871,65 @@ def ensure_sport_exists(sport: str):
     return SPORTS_CONFIG[sport]
 
 
+def _enrich_progress_state(state: dict) -> dict:
+    payload = dict(state)
+    started_at_raw = payload.get("started_at")
+    finished_at_raw = payload.get("finished_at")
+    percent = float(payload.get("percent") or 0)
+    now = datetime.now()
+
+    try:
+        started_at = datetime.fromisoformat(started_at_raw) if started_at_raw else None
+    except Exception:
+        started_at = None
+    try:
+        finished_at = datetime.fromisoformat(finished_at_raw) if finished_at_raw else None
+    except Exception:
+        finished_at = None
+
+    if started_at:
+        elapsed_seconds = max(0, int((now - started_at).total_seconds()))
+        payload["elapsed_seconds"] = elapsed_seconds
+    else:
+        elapsed_seconds = None
+        payload["elapsed_seconds"] = None
+
+    payload["eta_seconds"] = None
+    payload["estimated_finish_at"] = None
+    if payload.get("status") == "running" and started_at and percent > 0:
+        remaining_seconds = max(0, int(elapsed_seconds * ((100 - percent) / percent)))
+        payload["eta_seconds"] = remaining_seconds
+        payload["estimated_finish_at"] = (now + timedelta(seconds=remaining_seconds)).isoformat(timespec="seconds")
+    elif payload.get("status") == "completed" and started_at and finished_at:
+        payload["elapsed_seconds"] = max(0, int((finished_at - started_at).total_seconds()))
+
+    return payload
+
+
+def _copy_all_sports_update_state():
+    with ALL_SPORTS_UPDATE_LOCK:
+        return _enrich_progress_state(dict(ALL_SPORTS_UPDATE_STATE))
+
+
+def _set_all_sports_update_state(**updates):
+    with ALL_SPORTS_UPDATE_LOCK:
+        ALL_SPORTS_UPDATE_STATE.update(updates)
+
+
+def _append_all_sports_log(line: str):
+    if not line:
+        return
+    with ALL_SPORTS_UPDATE_LOCK:
+        logs = list(ALL_SPORTS_UPDATE_STATE.get("logs", []))
+        logs.append(str(line))
+        ALL_SPORTS_UPDATE_STATE["logs"] = logs[-12:]
+
+
 def _copy_update_state(sport: str):
     state = SPORT_UPDATE_STATES[sport]
     lock = SPORT_UPDATE_LOCKS[sport]
     with lock:
-        return dict(state)
+        return _enrich_progress_state(dict(state))
 
 
 def _append_update_log(sport: str, line: str):
@@ -676,6 +948,88 @@ def _set_update_state(sport: str, **updates):
     lock = SPORT_UPDATE_LOCKS[sport]
     with lock:
         state.update(updates)
+
+
+def _run_all_sports_update_pipeline():
+    sports = list(SPORT_UPDATE_PIPELINES.keys())
+    total_sports = len(sports)
+    _set_all_sports_update_state(
+        status="running",
+        percent=0,
+        message="Preparando actualizacion global...",
+        current_sport=None,
+        current_sport_label=None,
+        completed_sports=0,
+        total_sports=total_sports,
+        started_at=datetime.now().isoformat(timespec="seconds"),
+        finished_at=None,
+        error=None,
+        logs=[],
+    )
+
+    try:
+        for idx, sport in enumerate(sports, start=1):
+            pipeline = SPORT_UPDATE_PIPELINES[sport]
+            _set_all_sports_update_state(
+                current_sport=sport,
+                current_sport_label=pipeline["label"],
+                message=f"Actualizando {pipeline['label']}...",
+                percent=int(round(((idx - 1) / total_sports) * 100)),
+            )
+            _append_all_sports_log(f"[RUN] {pipeline['label']}")
+
+            worker = threading.Thread(target=_run_update_pipeline, args=(sport,), daemon=True)
+            worker.start()
+
+            while worker.is_alive():
+                sport_state = _copy_update_state(sport)
+                sport_percent = max(0, min(100, float(sport_state.get("percent") or 0)))
+                overall_percent = int(round((((idx - 1) + (sport_percent / 100.0)) / total_sports) * 100))
+                _set_all_sports_update_state(
+                    current_sport=sport,
+                    current_sport_label=pipeline["label"],
+                    completed_sports=idx - 1,
+                    percent=overall_percent,
+                    message=sport_state.get("current_step_label") or sport_state.get("message") or f"Actualizando {pipeline['label']}...",
+                )
+                threading.Event().wait(1.0)
+
+            sport_state = _copy_update_state(sport)
+            if sport_state.get("status") != "completed":
+                _set_all_sports_update_state(
+                    status="failed",
+                    message=f"Fallo en {pipeline['label']}.",
+                    error=sport_state.get("error") or f"La actualizacion de {pipeline['label']} fallo.",
+                    finished_at=datetime.now().isoformat(timespec="seconds"),
+                    percent=int(round((((idx - 1) + (max(0, min(100, float(sport_state.get('percent') or 0))) / 100.0)) / total_sports) * 100)),
+                    completed_sports=idx - 1,
+                )
+                return
+
+            _set_all_sports_update_state(
+                completed_sports=idx,
+                percent=int(round((idx / total_sports) * 100)),
+                message=f"{pipeline['label']} completado.",
+            )
+            _append_all_sports_log(f"[OK] {pipeline['label']}")
+
+        _set_all_sports_update_state(
+            status="completed",
+            percent=100,
+            message="Actualizacion completa de todos los deportes terminada.",
+            current_sport=None,
+            current_sport_label=None,
+            completed_sports=total_sports,
+            finished_at=datetime.now().isoformat(timespec="seconds"),
+            error=None,
+        )
+    except Exception as exc:
+        _set_all_sports_update_state(
+            status="failed",
+            message="La actualizacion global se detuvo por un error inesperado.",
+            finished_at=datetime.now().isoformat(timespec="seconds"),
+            error=str(exc),
+        )
 
 
 def _run_update_pipeline(sport: str):
@@ -3288,6 +3642,53 @@ def get_available_dates(sport: str):
     return out_dates
 
 
+@app.get("/api/admin/sport-updates")
+def admin_sport_updates(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    sports = [
+        _build_admin_sport_pipeline_snapshot(sport)
+        for sport in ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
+    ]
+    return {"ok": True, "sports": sports}
+
+
+@app.get("/api/admin/all-sports-update-status")
+def admin_all_sports_update_status(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    return {"ok": True, **_copy_all_sports_update_state()}
+
+
+@app.post("/api/admin/update-all-sports")
+def admin_update_all_sports(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    state = _copy_all_sports_update_state()
+    if state.get("status") == "running":
+        return {"ok": True, **state}
+
+    worker = threading.Thread(target=_run_all_sports_update_pipeline, daemon=True)
+    worker.start()
+    return {
+        "ok": True,
+        "status": "running",
+        "percent": 0,
+        "message": "Actualizacion global iniciada.",
+        "current_sport": None,
+        "current_sport_label": None,
+        "completed_sports": 0,
+        "total_sports": len(SPORT_UPDATE_PIPELINES),
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+        "finished_at": None,
+        "error": None,
+        "logs": [],
+    }
+
+
+@app.get("/api/{sport}/board-status")
+def get_sport_board_status(sport: str, date: Optional[str] = None):
+    ensure_sport_exists(sport)
+    return _build_public_board_status(sport, date)
+
+
 @app.get("/api/{sport}/update-status")
 def get_sport_update_status(sport: str):
     if sport not in SPORT_UPDATE_PIPELINES:
@@ -3449,6 +3850,43 @@ def get_best_picks_available_dates():
             continue
         out.append(date_part)
     return sorted(set(out))
+
+
+@app.get("/api/insights/best-picks/today")
+def get_best_picks_today(top_n: int = 25, force_refresh: bool = False, ranking_mode: str = "best_hit_rate"):
+    today_local = date.today().strftime("%Y-%m-%d")
+    generation_top_n = max(int(top_n), 50)
+    effective_force_refresh = bool(force_refresh)
+    mode = _best_picks_normalize_ranking_mode(ranking_mode)
+    payload = _best_picks_get_or_create_snapshot(
+        date_str=today_local,
+        generation_top_n=generation_top_n,
+        force_refresh=effective_force_refresh,
+        ranking_mode=mode,
+    )
+    payload = _best_picks_trim_payload(payload, top_n=top_n)
+    return _best_picks_with_results(payload)
+
+
+@app.get("/api/insights/best-picks/{date_str}")
+def get_best_picks_by_date(date_str: str, top_n: int = 25, force_refresh: bool = False, ranking_mode: str = "best_hit_rate"):
+    parse_date_str(date_str)
+    generation_top_n = max(int(top_n), 50)
+    effective_force_refresh = bool(force_refresh)
+    mode = _best_picks_normalize_ranking_mode(ranking_mode)
+    payload = _best_picks_get_or_create_snapshot(
+        date_str=date_str,
+        generation_top_n=generation_top_n,
+        force_refresh=effective_force_refresh,
+        ranking_mode=mode,
+    )
+    payload = _best_picks_trim_payload(payload, top_n=top_n)
+    return _best_picks_with_results(payload)
+
+
+@app.get("/api/insights/tier-performance")
+def get_tier_performance_insights():
+    return build_tier_performance_summary()
 
 
 @app.get("/api/insights/best-picks/today")

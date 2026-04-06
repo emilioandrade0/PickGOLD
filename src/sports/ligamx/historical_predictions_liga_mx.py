@@ -55,6 +55,58 @@ def load_json(path: Path):
         return json.load(f)
 
 
+def _resolve_ensemble_weights(metadata: dict, catboost_available: bool) -> dict:
+    weights = metadata.get("ensemble_weights", {}) if isinstance(metadata, dict) else {}
+    wx = float(weights.get("xgboost", 1.0 / 3.0))
+    wl = float(weights.get("lightgbm_primary", 1.0 / 3.0))
+    ws = float(weights.get("lightgbm_secondary", 1.0 / 3.0))
+    wc = float(weights.get("catboost", 0.0)) if catboost_available else 0.0
+
+    parts = {
+        "xgboost": max(0.0, wx),
+        "lightgbm_primary": max(0.0, wl),
+        "lightgbm_secondary": max(0.0, ws),
+        "catboost": max(0.0, wc),
+    }
+    total = sum(parts.values())
+    if total <= 0:
+        parts = {
+            "xgboost": 1.0 / 3.0,
+            "lightgbm_primary": 1.0 / 3.0,
+            "lightgbm_secondary": 1.0 / 3.0,
+            "catboost": 0.0,
+        }
+        total = 1.0
+    return {k: v / total for k, v in parts.items()}
+
+
+def _binary_positive_proba(model, X: pd.DataFrame) -> np.ndarray:
+    probs = np.asarray(model.predict_proba(X), dtype=float)
+    if probs.ndim == 1:
+        return probs
+    if probs.shape[1] == 1:
+        return probs[:, 0]
+    return probs[:, 1]
+
+
+def _two_stage_full_game_probs(model_pack: dict, X: pd.DataFrame) -> np.ndarray:
+    p_draw = _binary_positive_proba(model_pack["draw_model"], X)
+    p_home_cond = _binary_positive_proba(model_pack["winner_model"], X)
+    p_home_cond = np.clip(p_home_cond, 1e-9, 1 - 1e-9)
+    p_away_cond = 1.0 - p_home_cond
+    p_no_draw = np.clip(1.0 - p_draw, 0.0, 1.0)
+    probs = np.column_stack([p_no_draw * p_away_cond, p_no_draw * p_home_cond, p_draw]).astype(float)
+    probs = np.clip(probs, 1e-9, None)
+    probs = probs / probs.sum(axis=1, keepdims=True)
+    return probs
+
+
+def _model_predict_proba(model, X: pd.DataFrame, market_key: str) -> np.ndarray:
+    if market_key == "full_game" and isinstance(model, dict) and model.get("model_type") == "two_stage_full_game":
+        return _two_stage_full_game_probs(model, X)
+    return np.asarray(model.predict_proba(X), dtype=float)
+
+
 def load_market_assets(market_key: str, market_sources: dict):
     market_dir = resolve_market_model_dir(
         market_key=market_key,
@@ -89,6 +141,7 @@ def load_market_assets(market_key: str, market_sources: dict):
         "catboost": catboost,
         "feature_columns": feat_list,
         "threshold": threshold,
+        "metadata": metadata,
     }
 
 
@@ -96,16 +149,22 @@ def predict_market_probabilities(row_df: pd.DataFrame, market_key: str, assets: 
     feat_list = assets[market_key]["feature_columns"]
     X = row_df[feat_list].replace([np.inf, -np.inf], np.nan).fillna(0)
 
-    xgb_probs = assets[market_key]["xgb"].predict_proba(X)
-    lgbm_probs = assets[market_key]["lgbm"].predict_proba(X)
-    lgbm_sec_probs = assets[market_key]["lgbm_secondary"].predict_proba(X)
-    probs = xgb_probs + lgbm_probs + lgbm_sec_probs
-    model_count = 3
-    if assets[market_key]["catboost"] is not None:
-        probs = probs + assets[market_key]["catboost"].predict_proba(X)
-        model_count += 1
+    xgb_probs = _model_predict_proba(assets[market_key]["xgb"], X, market_key)
+    lgbm_probs = _model_predict_proba(assets[market_key]["lgbm"], X, market_key)
+    lgbm_sec_probs = _model_predict_proba(assets[market_key]["lgbm_secondary"], X, market_key)
 
-    probs = probs / float(model_count)
+    catboost_model = assets[market_key].get("catboost")
+    metadata = assets[market_key].get("metadata", {})
+    weights = _resolve_ensemble_weights(metadata, catboost_available=(catboost_model is not None))
+
+    probs = (
+        weights["xgboost"] * xgb_probs
+        + weights["lightgbm_primary"] * lgbm_probs
+        + weights["lightgbm_secondary"] * lgbm_sec_probs
+    )
+    if catboost_model is not None:
+        probs = probs + weights["catboost"] * catboost_model.predict_proba(X)
+
     return probs[0]
 
 

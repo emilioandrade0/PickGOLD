@@ -2,186 +2,186 @@
   "full_game": {
     "market_key": "full_game",
     "target_col": "TARGET_home_win",
-    "threshold": 0.4,
+    "threshold": 0.51,
     "xgb_metrics": {
-      "accuracy": 0.4709480122324159,
-      "logloss": 0.7485048572262116,
-      "roc_auc": 0.48364520958083834
+      "accuracy": 0.5060240963855421,
+      "logloss": 0.7402660036122554,
+      "roc_auc": 0.5143314418739996
     },
     "lgbm_metrics": {
-      "accuracy": 0.4648318042813456,
-      "logloss": 0.8871717229247771,
-      "roc_auc": 0.4811751497005987
+      "accuracy": 0.5,
+      "logloss": 0.8442423050472639,
+      "roc_auc": 0.5194238323876037
     },
     "ensemble_metrics": {
-      "accuracy": 0.5076452599388379,
-      "logloss": 0.7977391496712932,
-      "roc_auc": 0.481062874251497
+      "accuracy": 0.5421686746987951,
+      "logloss": 0.7660200034426173,
+      "roc_auc": 0.5190600902080605
     },
     "top_features": [
       {
         "feature": "away_elo_pre",
-        "importance": 222.50628088554367
-      },
-      {
-        "feature": "home_elo_pre",
-        "importance": 170.00591557472944
-      },
-      {
-        "feature": "away_momentum_run_diff",
-        "importance": 164.50723499571905
+        "importance": 222.5063726422377
       },
       {
         "feature": "diff_elo",
-        "importance": 154.00718692829832
+        "importance": 178.0072725256905
       },
       {
-        "feature": "away_away_only_run_diff_L5",
-        "importance": 148.50603243196383
+        "feature": "away_momentum_run_diff",
+        "importance": 166.0069590448402
       },
       {
         "feature": "away_win_pct_L10_vs_league",
-        "importance": 143.50550606567413
+        "importance": 146.50573438499123
       },
       {
-        "feature": "diff_runs_scored_L5",
-        "importance": 137.50612003076822
+        "feature": "home_elo_pre",
+        "importance": 144.00645361095667
       },
       {
-        "feature": "diff_runs_allowed_L5",
-        "importance": 137.0060640843585
+        "feature": "home_run_diff_L10_vs_league",
+        "importance": 136.5066762403585
+      },
+      {
+        "feature": "diff_surface_run_diff_L5",
+        "importance": 136.50593396136537
+      },
+      {
+        "feature": "home_momentum_run_diff",
+        "importance": 135.50618999497965
+      },
+      {
+        "feature": "away_away_only_run_diff_L5",
+        "importance": 135.00588846299797
       },
       {
         "feature": "diff_momentum_run_diff",
-        "importance": 136.50670100701973
-      },
-      {
-        "feature": "away_runs_allowed_L5",
-        "importance": 135.0064935325645
+        "importance": 132.00667771045119
       }
     ]
   },
   "yrfi": {
     "market_key": "yrfi",
     "target_col": "TARGET_yrfi",
-    "threshold": 0.35,
+    "threshold": 0.49,
     "xgb_metrics": {
-      "accuracy": 0.3,
-      "logloss": 1.0874431055802105,
-      "roc_auc": 0.25
+      "accuracy": 0.5,
+      "logloss": 0.855046444925779,
+      "roc_auc": 0.4814814814814815
     },
     "lgbm_metrics": {
-      "accuracy": 0.6,
-      "logloss": 0.6756508364921704,
-      "roc_auc": 0.5
+      "accuracy": 0.3333333333333333,
+      "logloss": 0.9444353398391301,
+      "roc_auc": 0.308641975308642
     },
     "ensemble_metrics": {
-      "accuracy": 0.6,
-      "logloss": 0.726288939021855,
-      "roc_auc": 0.25
+      "accuracy": 0.5,
+      "logloss": 0.8562711917969569,
+      "roc_auc": 0.4444444444444444
     },
     "top_features": [
       {
-        "feature": "home_runs_allowed_L5",
-        "importance": 0.03018271178007126
+        "feature": "away_elo_pre",
+        "importance": 40.01115585397929
       },
       {
-        "feature": "home_surface_edge",
-        "importance": 0.027055006474256516
-      },
-      {
-        "feature": "diff_hits_allowed_L5",
-        "importance": 0.02241659164428711
-      },
-      {
-        "feature": "away_hits_L5",
-        "importance": 0.02234184369444847
-      },
-      {
-        "feature": "away_away_only_run_diff_L5",
-        "importance": 0.021086273714900017
-      },
-      {
-        "feature": "diff_runs_scored_L5",
-        "importance": 0.018162718042731285
+        "feature": "home_momentum_run_diff",
+        "importance": 30.507345157209784
       },
       {
         "feature": "away_f5_win_pct_L5_vs_league",
-        "importance": 0.017003508284687996
+        "importance": 23.00989271234721
       },
       {
-        "feature": "home_yrfi_rate_L10_vs_league",
-        "importance": 0.016831660643219948
+        "feature": "diff_surface_edge",
+        "importance": 22.010168961249292
       },
       {
-        "feature": "home_games_last_3_days",
-        "importance": 0.016667360439896584
+        "feature": "away_hits_L5",
+        "importance": 18.50870033726096
       },
       {
         "feature": "diff_runs_allowed_L5",
-        "importance": 0.016591139137744904
+        "importance": 18.508348542265594
+      },
+      {
+        "feature": "home_hits_allowed_L5",
+        "importance": 15.506750399712473
+      },
+      {
+        "feature": "home_runs_allowed_L5",
+        "importance": 15.007543587125838
+      },
+      {
+        "feature": "diff_form_power",
+        "importance": 14.010294144041836
+      },
+      {
+        "feature": "home_runs_scored_L5",
+        "importance": 13.010919485241175
       }
     ]
   },
   "f5": {
     "market_key": "f5",
     "target_col": "TARGET_home_win_f5",
-    "threshold": 0.55,
+    "threshold": 0.5,
     "xgb_metrics": {
-      "accuracy": 0.3,
-      "logloss": 0.8993497761818554,
-      "roc_auc": 0.2916666666666667
+      "accuracy": 0.5555555555555556,
+      "logloss": 0.9653877970024808,
+      "roc_auc": 0.5194805194805195
     },
     "lgbm_metrics": {
-      "accuracy": 0.6,
-      "logloss": 0.6931471771539659,
-      "roc_auc": 0.5
+      "accuracy": 0.5,
+      "logloss": 0.9977319748402304,
+      "roc_auc": 0.5454545454545454
     },
     "ensemble_metrics": {
-      "accuracy": 0.6,
-      "logloss": 0.7237144727000467,
-      "roc_auc": 0.2916666666666667
+      "accuracy": 0.6111111111111112,
+      "logloss": 0.9701721123660535,
+      "roc_auc": 0.5454545454545454
     },
     "top_features": [
       {
-        "feature": "away_games_last_3_days",
-        "importance": 0.029815716668963432
-      },
-      {
-        "feature": "away_form_power",
-        "importance": 0.02952856384217739
-      },
-      {
-        "feature": "away_run_diff_L10",
-        "importance": 0.02050715498626232
-      },
-      {
         "feature": "home_run_diff_L5",
-        "importance": 0.02040025219321251
+        "importance": 30.510821234434843
       },
       {
-        "feature": "home_run_diff_L10",
-        "importance": 0.019028397276997566
+        "feature": "away_hits_L5",
+        "importance": 23.006096236407757
       },
       {
-        "feature": "diff_runs_scored_L5",
-        "importance": 0.01895754784345627
+        "feature": "home_runs_allowed_L5",
+        "importance": 21.011554511263967
+      },
+      {
+        "feature": "away_run_diff_L5",
+        "importance": 20.508782017976046
       },
       {
         "feature": "away_f5_win_pct_L5_vs_league",
-        "importance": 0.018573354929685593
+        "importance": 20.01056848745793
       },
       {
-        "feature": "home_f5_win_pct_L5_vs_league",
-        "importance": 0.014684258960187435
+        "feature": "home_elo_pre",
+        "importance": 15.008004727773368
       },
       {
-        "feature": "home_home_only_run_diff_L5",
-        "importance": 0.014505348168313503
+        "feature": "diff_runs_allowed_L5",
+        "importance": 15.006182049866766
       },
       {
-        "feature": "home_games_last_7_days",
-        "importance": 0.013997443951666355
+        "feature": "away_run_diff_L10",
+        "importance": 13.507368105463684
+      },
+      {
+        "feature": "home_win_pct_L5",
+        "importance": 13.004348800051957
+      },
+      {
+        "feature": "diff_hits_L5",
+        "importance": 12.511760556139052
       }
     ]
   }

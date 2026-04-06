@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -42,8 +42,60 @@ def load_json(path: Path):
         return json.load(f)
 
 
+def _resolve_ensemble_weights(metadata: dict, catboost_available: bool) -> dict:
+    weights = metadata.get("ensemble_weights", {}) if isinstance(metadata, dict) else {}
+    wx = float(weights.get("xgboost", 1.0 / 3.0))
+    wl = float(weights.get("lightgbm_primary", 1.0 / 3.0))
+    ws = float(weights.get("lightgbm_secondary", 1.0 / 3.0))
+    wc = float(weights.get("catboost", 0.0)) if catboost_available else 0.0
+
+    parts = {
+        "xgboost": max(0.0, wx),
+        "lightgbm_primary": max(0.0, wl),
+        "lightgbm_secondary": max(0.0, ws),
+        "catboost": max(0.0, wc),
+    }
+    total = sum(parts.values())
+    if total <= 0:
+        parts = {
+            "xgboost": 1.0 / 3.0,
+            "lightgbm_primary": 1.0 / 3.0,
+            "lightgbm_secondary": 1.0 / 3.0,
+            "catboost": 0.0,
+        }
+        total = 1.0
+    return {k: v / total for k, v in parts.items()}
+
+
+def _binary_positive_proba(model, X: pd.DataFrame) -> np.ndarray:
+    probs = np.asarray(model.predict_proba(X), dtype=float)
+    if probs.ndim == 1:
+        return probs
+    if probs.shape[1] == 1:
+        return probs[:, 0]
+    return probs[:, 1]
+
+
+def _two_stage_full_game_probs(model_pack: dict, X: pd.DataFrame) -> np.ndarray:
+    p_draw = _binary_positive_proba(model_pack["draw_model"], X)
+    p_home_cond = _binary_positive_proba(model_pack["winner_model"], X)
+    p_home_cond = np.clip(p_home_cond, 1e-9, 1 - 1e-9)
+    p_away_cond = 1.0 - p_home_cond
+    p_no_draw = np.clip(1.0 - p_draw, 0.0, 1.0)
+    probs = np.column_stack([p_no_draw * p_away_cond, p_no_draw * p_home_cond, p_draw]).astype(float)
+    probs = np.clip(probs, 1e-9, None)
+    probs = probs / probs.sum(axis=1, keepdims=True)
+    return probs
+
+
+def _model_predict_proba(model, X: pd.DataFrame, market_key: str) -> np.ndarray:
+    if market_key == "full_game" and isinstance(model, dict) and model.get("model_type") == "two_stage_full_game":
+        return _two_stage_full_game_probs(model, X)
+    return np.asarray(model.predict_proba(X), dtype=float)
+
+
 def load_market_assets(market_key: str, market_sources: dict):
-    """Carga modelos, features y metadata de un mercado específico."""
+    """Carga modelos, features y metadata de un mercado especÃ­fico."""
     market_dir = resolve_market_model_dir(
         market_key=market_key,
         market_sources=market_sources,
@@ -81,34 +133,36 @@ def predict_market(df: pd.DataFrame, market_key: str, market_sources: dict):
         feat_list = feature_columns
 
     X = df[feat_list].replace([np.inf, -np.inf], np.nan).fillna(0)
-    
+    weights = _resolve_ensemble_weights(metadata, catboost_available=(catboost is not None))
+
     if market_key == "full_game":
-        # Para multiclass: promedio de 3/4 modelos según disponibilidad de CatBoost.
-        xgb_probs = xgb.predict_proba(X)
-        lgbm_probs = lgbm.predict_proba(X)
-        lgbm_sec_probs = lgbm_secondary.predict_proba(X)
-        probs = xgb_probs + lgbm_probs + lgbm_sec_probs
-        model_count = 3.0
+        # Multiclass weighted ensemble.
+        xgb_probs = _model_predict_proba(xgb, X, market_key)
+        lgbm_probs = _model_predict_proba(lgbm, X, market_key)
+        lgbm_sec_probs = _model_predict_proba(lgbm_secondary, X, market_key)
+        probs = (
+            weights["xgboost"] * xgb_probs
+            + weights["lightgbm_primary"] * lgbm_probs
+            + weights["lightgbm_secondary"] * lgbm_sec_probs
+        )
         if catboost is not None:
-            probs = probs + catboost.predict_proba(X)
-            model_count += 1.0
-        probs = probs / model_count
+            probs = probs + weights["catboost"] * catboost.predict_proba(X)
         preds = np.argmax(probs, axis=1)
         return probs, preds, threshold, metadata
-    else:
-        # Para binary (over_25, btts): promedio de 3/4 modelos según disponibilidad de CatBoost.
-        xgb_probs = xgb.predict_proba(X)[:, 1]
-        lgbm_probs = lgbm.predict_proba(X)[:, 1]
-        lgbm_sec_probs = lgbm_secondary.predict_proba(X)[:, 1]
-        probs = xgb_probs + lgbm_probs + lgbm_sec_probs
-        model_count = 3.0
-        if catboost is not None:
-            probs = probs + catboost.predict_proba(X)[:, 1]
-            model_count += 1.0
-        probs = probs / model_count
-        preds = (probs >= threshold).astype(int)
-        return probs, preds, threshold, metadata
 
+    # Binary weighted ensemble.
+    xgb_probs = _model_predict_proba(xgb, X, market_key)[:, 1]
+    lgbm_probs = _model_predict_proba(lgbm, X, market_key)[:, 1]
+    lgbm_sec_probs = _model_predict_proba(lgbm_secondary, X, market_key)[:, 1]
+    probs = (
+        weights["xgboost"] * xgb_probs
+        + weights["lightgbm_primary"] * lgbm_probs
+        + weights["lightgbm_secondary"] * lgbm_sec_probs
+    )
+    if catboost is not None:
+        probs = probs + weights["catboost"] * catboost.predict_proba(X)[:, 1]
+    preds = (probs >= threshold).astype(int)
+    return probs, preds, threshold, metadata
 
 def confidence_from_prob(prob: float) -> int:
     prob = float(np.clip(prob, 0.0, 1.0))
@@ -1000,7 +1054,7 @@ def build_output_rows(
 
 
 def write_empty_predictions(output_path: Path, date_str: str):
-    """Escribe un JSON vacío cuando no hay partidos."""
+    """Escribe un JSON vacÃ­o cuando no hay partidos."""
     payload = {
         "date": date_str,
         "sport": "liga_mx",
@@ -1019,7 +1073,7 @@ def main():
         raise FileNotFoundError(f"No existe el archivo de features: {FEATURES_FILE}")
 
     if not UPCOMING_FILE.exists():
-        print(f"⚠️ No existe el archivo de agenda: {UPCOMING_FILE}")
+        print(f"âš ï¸ No existe el archivo de agenda: {UPCOMING_FILE}")
         output_path = PREDICTIONS_DIR / f"{today_date}.json"
         write_empty_predictions(output_path, today_date)
         return
@@ -1036,7 +1090,7 @@ def main():
             raw_history_df = pd.DataFrame()
 
     if history_df.empty or schedule_df.empty:
-        print("⚠️ Dataset vacío")
+        print("âš ï¸ Dataset vacÃ­o")
         output_path = PREDICTIONS_DIR / f"{today_date}.json"
         write_empty_predictions(output_path, today_date)
         return
@@ -1069,7 +1123,7 @@ def main():
 
         if not feature_rows:
             write_empty_predictions(output_path, date_str)
-            print(f"ℹ️ {date_str}: sin features suficientes")
+            print(f"â„¹ï¸ {date_str}: sin features suficientes")
             continue
 
         df_features = pd.DataFrame(feature_rows)
@@ -1096,3 +1150,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

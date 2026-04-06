@@ -166,6 +166,62 @@ export async function approveUser({ userId, role, accessDays }) {
   });
 }
 
+export async function getAdminSportUpdates() {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/sport-updates", {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function getAdminAllSportsUpdateStatus() {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/all-sports-update-status", {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function startAdminAllSportsUpdate() {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/update-all-sports", {
+    method: "POST",
+    headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({}),
+  });
+}
+
+export async function adminResetUserPassword({ userId, newPassword }) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/reset-user-password", {
+    method: "POST",
+    headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({ user_id: userId, new_password: newPassword }),
+  });
+}
+
+export async function adminDeleteUser({ userId }) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/delete-user", {
+    method: "POST",
+    headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
 export async function getAdminUsers() {
   const session = getActiveSession();
   if (!session?.token) {

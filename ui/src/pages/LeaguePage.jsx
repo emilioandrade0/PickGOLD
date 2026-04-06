@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import EventCard from "../components/EventCard.jsx";
 import DetailModal from "../components/DetailModal.jsx";
 import {
   fetchAvailableDates,
-  fetchSportUpdateStatus,
   fetchPredictionsByDate,
   fetchTodayPredictions,
-  startSportUpdateAll,
 } from "../services/api.js";
 
 function toYmdLocal(dateObj) {
@@ -50,8 +48,6 @@ function normalizeSearchText(value) {
 export default function LeaguePage({ sportKey, sportLabel }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const supportsUpdatePipeline = ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"].includes(sportKey);
-
   const [events, setEvents] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [activeEvent, setActiveEvent] = useState(null);
@@ -61,15 +57,6 @@ export default function LeaguePage({ sportKey, sportLabel }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
   const [eventSearch, setEventSearch] = useState("");
-  const [updateStatus, setUpdateStatus] = useState({
-    status: "idle",
-    percent: 0,
-    message: `Listo para actualizar ${sportLabel}.`,
-    completed_steps: 0,
-    total_steps: 0,
-    logs: [],
-  });
-  const previousUpdateStatusRef = useRef("idle");
 
   function findNearestDate(targetDate, availableDates) {
     if (!targetDate || availableDates.length === 0) return "";
@@ -299,21 +286,6 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     }
   }, [selectedDate, sportKey]);
 
-  async function handleRunSportUpdate() {
-    try {
-      const nextStatus = await startSportUpdateAll(sportKey);
-      previousUpdateStatusRef.current = nextStatus?.status || "idle";
-      setUpdateStatus(nextStatus);
-    } catch (err) {
-      setUpdateStatus((current) => ({
-        ...current,
-        status: "failed",
-        message: `No se pudo iniciar la actualizacion ${sportLabel}.`,
-        error: err.message || "Error desconocido.",
-      }));
-    }
-  }
-
   useEffect(() => {
     const queryDate = searchParams.get("date");
 
@@ -336,59 +308,6 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     setLoading(true);
     setEventSearch("");
   }, [sportKey]);
-
-  useEffect(() => {
-    setUpdateStatus({
-      status: "idle",
-      percent: 0,
-      message: `Listo para actualizar ${sportLabel}.`,
-      completed_steps: 0,
-      total_steps: 0,
-      logs: [],
-    });
-    previousUpdateStatusRef.current = "idle";
-  }, [sportKey, sportLabel]);
-
-  useEffect(() => {
-    if (!supportsUpdatePipeline) return undefined;
-
-    let active = true;
-    let timerId = null;
-
-    const pollStatus = async () => {
-      try {
-        const status = await fetchSportUpdateStatus(sportKey);
-        if (!active) return;
-        setUpdateStatus(status);
-
-        if (status?.status === "running") {
-          timerId = setTimeout(pollStatus, 2000);
-        } else if (
-          previousUpdateStatusRef.current === "running" &&
-          status?.status === "completed"
-        ) {
-          await refreshAvailableDates();
-          if (selectedDate) {
-            await loadByDate(selectedDate);
-          } else {
-            await loadToday();
-          }
-        }
-
-        previousUpdateStatusRef.current = status?.status || "idle";
-      } catch {
-        if (!active) return;
-        timerId = setTimeout(pollStatus, 4000);
-      }
-    };
-
-    pollStatus();
-
-    return () => {
-      active = false;
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [loadByDate, loadToday, refreshAvailableDates, selectedDate, sportKey, supportsUpdatePipeline, updateStatus.status]);
 
   useEffect(() => {
     if (sportKey !== "nba") return undefined;
@@ -458,11 +377,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
             error={error}
             onSelectDate={loadByDate}
             onLoadToday={loadToday}
-            onRunUpdate={supportsUpdatePipeline ? handleRunSportUpdate : undefined}
-            updateStatus={supportsUpdatePipeline ? updateStatus : undefined}
             availableDates={availableDates}
-            updateActionLabel={`Actualizar ${sportLabel} ahora`}
-            updateRunningLabel={`Actualizando ${sportLabel}...`}
           />
 
           <section className="min-w-0">

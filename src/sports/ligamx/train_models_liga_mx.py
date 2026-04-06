@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -15,6 +15,10 @@ import sys
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 BASE_DIR = SRC_ROOT
 INPUT_FILE = BASE_DIR / "data" / "liga_mx" / "processed" / "model_ready_features_liga_mx.csv"
@@ -100,6 +104,33 @@ class ConstantBinaryModel:
         return probs
 
 
+def _binary_positive_proba(model, X: pd.DataFrame) -> np.ndarray:
+    probs = model.predict_proba(X)
+    probs = np.asarray(probs, dtype=float)
+    if probs.ndim == 1:
+        return probs
+    if probs.shape[1] == 1:
+        return probs[:, 0]
+    return probs[:, 1]
+
+
+def _full_game_two_stage_predict_proba(model_pack: dict, X: pd.DataFrame) -> np.ndarray:
+    p_draw = _binary_positive_proba(model_pack["draw_model"], X)
+    p_home_cond = _binary_positive_proba(model_pack["winner_model"], X)
+    p_home_cond = np.clip(p_home_cond, 1e-9, 1 - 1e-9)
+    p_away_cond = 1.0 - p_home_cond
+
+    p_no_draw = np.clip(1.0 - p_draw, 0.0, 1.0)
+    away = p_no_draw * p_away_cond
+    home = p_no_draw * p_home_cond
+    draw = np.clip(p_draw, 0.0, 1.0)
+
+    probs = np.column_stack([away, home, draw]).astype(float)
+    probs = np.clip(probs, 1e-9, None)
+    probs = probs / probs.sum(axis=1, keepdims=True)
+    return probs
+
+
 def _safe_feature_importance(model, feature_cols: List[str]):
     values = getattr(model, "feature_importances_", None)
     if values is None:
@@ -123,7 +154,7 @@ def get_feature_columns(df: pd.DataFrame) -> List[str]:
 
 
 def time_based_split(df: pd.DataFrame, valid_fraction: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Split temporal: últimos N% para validación."""
+    """Split temporal: Ãºltimos N% para validaciÃ³n."""
     if len(df) < 100:
         train_df, valid_df = train_test_split(df, test_size=valid_fraction, shuffle=False)
         return train_df.copy(), valid_df.copy()
@@ -170,15 +201,15 @@ def build_xgb_multiclass() -> XGBClassifier:
         objective="multi:softprob",
         eval_metric="mlogloss",
         num_class=3,
-        n_estimators=350,
+        n_estimators=450,
         max_depth=6,
-        learning_rate=0.04,
-        subsample=0.80,
-        colsample_bytree=0.80,
-        reg_alpha=0.2,
+        learning_rate=0.03,
+        subsample=0.85,
+        colsample_bytree=0.85,
+        reg_alpha=0.1,
         reg_lambda=1.2,
         min_child_weight=2,
-        random_state=42,
+        random_state=7,
         n_jobs=-1,
     )
 
@@ -209,23 +240,23 @@ def build_lgbm_multiclass() -> LGBMClassifier:
         objective="multiclass",
         metric="multi_logloss",
         num_class=3,
-        n_estimators=400,
-        learning_rate=0.04,
+        n_estimators=520,
+        learning_rate=0.03,
         num_leaves=31,
         max_depth=-1,
-        min_child_samples=15,
-        subsample=0.80,
-        colsample_bytree=0.80,
-        reg_alpha=0.15,
-        reg_lambda=1.0,
-        random_state=42,
+        min_child_samples=16,
+        subsample=0.85,
+        colsample_bytree=0.85,
+        reg_alpha=0.08,
+        reg_lambda=1.2,
+        random_state=7,
         n_jobs=-1,
         verbose=-1,
     )
 
 
 def build_lgbm_secondary_binary(scale_pos_weight: float) -> LGBMClassifier:
-    """LightGBM secundario para problemas binarios (hiperparámetros alternativos)."""
+    """LightGBM secundario para problemas binarios (hiperparÃ¡metros alternativos)."""
     return LGBMClassifier(
         objective="binary",
         metric="binary_logloss",
@@ -245,28 +276,28 @@ def build_lgbm_secondary_binary(scale_pos_weight: float) -> LGBMClassifier:
 
 
 def build_lgbm_secondary_multiclass() -> LGBMClassifier:
-    """LightGBM secundario para problemas multiclase (hiperparámetros alternativos)."""
+    """LightGBM secundario para problemas multiclase (hiperparÃ¡metros alternativos)."""
     return LGBMClassifier(
         objective="multiclass",
         metric="multi_logloss",
         num_class=3,
-        n_estimators=300,
+        n_estimators=320,
         learning_rate=0.06,
-        num_leaves=27,
+        num_leaves=63,
         max_depth=-1,
-        min_child_samples=18,
+        min_child_samples=10,
         subsample=0.75,
         colsample_bytree=0.75,
         reg_alpha=0.25,
         reg_lambda=1.2,
-        random_state=123,
+        random_state=7,
         n_jobs=-1,
         verbose=-1,
     )
 
 
 def evaluate_probs_binary(y_true: pd.Series, probs: np.ndarray, threshold: float) -> Dict[str, float]:
-    """Evalúa predicciones binarias."""
+    """EvalÃºa predicciones binarias."""
     preds = (probs >= threshold).astype(int)
     metrics = {
         "accuracy": float(accuracy_score(y_true, preds)),
@@ -280,7 +311,7 @@ def evaluate_probs_binary(y_true: pd.Series, probs: np.ndarray, threshold: float
 
 
 def evaluate_probs_multiclass(y_true: pd.Series, probs: np.ndarray) -> Dict[str, float]:
-    """Evalúa predicciones multiclase."""
+    """EvalÃºa predicciones multiclase."""
     probs = np.asarray(probs, dtype=float)
     probs = np.clip(probs, 1e-12, None)
     row_sums = probs.sum(axis=1, keepdims=True)
@@ -300,7 +331,7 @@ def evaluate_probs_multiclass(y_true: pd.Series, probs: np.ndarray) -> Dict[str,
 
 
 def choose_best_threshold_binary(y_true: pd.Series, probs: np.ndarray) -> Dict[str, float]:
-    """Elige threshold óptimo para binario."""
+    """Elige threshold Ã³ptimo para binario."""
     candidates = np.arange(0.35, 0.651, 0.01)
 
     best = {
@@ -314,8 +345,7 @@ def choose_best_threshold_binary(y_true: pd.Series, probs: np.ndarray) -> Dict[s
         preds = (probs >= thr).astype(int)
         acc = float(accuracy_score(y_true, preds))
         positive_rate = float(preds.mean())
-        balance_penalty = abs(positive_rate - 0.5) * 0.03
-        score = acc - balance_penalty
+        score = acc
 
         if score > best["score"]:
             best = {
@@ -366,6 +396,55 @@ def choose_best_ensemble_weights_multiclass(
     return best
 
 
+def choose_best_ensemble_weights_binary(
+    y_true: pd.Series,
+    xgb_probs: np.ndarray,
+    lgbm_probs: np.ndarray,
+    lgbm_sec_probs: np.ndarray,
+) -> Dict[str, float]:
+    """Busca pesos + threshold para binario maximizando score de validaciÃ³n."""
+    best = {
+        "xgb_weight": 1 / 3,
+        "lgbm_weight": 1 / 3,
+        "lgbm_secondary_weight": 1 / 3,
+        "threshold": 0.50,
+        "accuracy": -1.0,
+        "logloss": 999.0,
+        "positive_rate": 0.0,
+        "score": -999.0,
+    }
+
+    for wx in np.arange(0.0, 1.01, 0.05):
+        for wl in np.arange(0.0, 1.01 - wx, 0.05):
+            ws = 1.0 - wx - wl
+            if ws < 0:
+                continue
+
+            probs = wx * xgb_probs + wl * lgbm_probs + ws * lgbm_sec_probs
+            threshold_info = choose_best_threshold_binary(y_true, probs)
+            metrics = evaluate_probs_binary(y_true, probs, threshold_info["threshold"])
+
+            score = float(threshold_info["score"])
+            acc = float(metrics["accuracy"])
+            ll = float(metrics["logloss"])
+
+            if (acc > best["accuracy"]) or (
+                acc == best["accuracy"] and (ll < best["logloss"] or (ll == best["logloss"] and score > best["score"]))
+            ):
+                best = {
+                    "xgb_weight": float(round(wx, 3)),
+                    "lgbm_weight": float(round(wl, 3)),
+                    "lgbm_secondary_weight": float(round(ws, 3)),
+                    "threshold": float(threshold_info["threshold"]),
+                    "accuracy": acc,
+                    "logloss": ll,
+                    "positive_rate": float(threshold_info["positive_rate"]),
+                    "score": score,
+                }
+
+    return best
+
+
 def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feature_cols: List[str], problem_type: str) -> Dict:
     """Entrena un modelo individual para un mercado."""
     market_dir = MODELS_DIR / market_key
@@ -391,16 +470,21 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     X_valid = valid_df[model_feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
     y_valid = valid_df[target_col].astype(int)
 
-    print(f"\n🚀 Entrenando mercado Liga MX: {market_key}")
+    print(f"\nðŸš€ Entrenando mercado Liga MX: {market_key}")
     print(f"   Target        : {target_col} ({problem_type})")
     print(f"   Train rows    : {len(X_train)}")
     print(f"   Valid rows    : {len(X_valid)}")
     print(f"   Features      : {len(model_feature_cols)}")
 
     if problem_type == "binary":
+        ensemble_weights = {
+            "xgb_weight": 1 / 3,
+            "lgbm_weight": 1 / 3,
+            "lgbm_secondary_weight": 1 / 3,
+        }
         if y_train.nunique() < 2:
             constant_class = int(y_train.iloc[0]) if len(y_train) else 0
-            print(f"   ⚠️ Single-class detectado ({constant_class}). Se usa fallback constante.")
+            print(f"   âš ï¸ Single-class detectado ({constant_class}). Se usa fallback constante.")
 
             xgb_model = ConstantBinaryModel(constant_class)
             lgbm_model = ConstantBinaryModel(constant_class)
@@ -432,41 +516,154 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             lgbm_valid_probs = lgbm_model.predict_proba(X_valid)[:, 1]
             lgbm_sec_valid_probs = lgbm_secondary.predict_proba(X_valid)[:, 1]
 
-            # Ensemble: promedio ponderado
-            ensemble_valid_probs = (xgb_valid_probs + lgbm_valid_probs + lgbm_sec_valid_probs) / 3.0
-
-            threshold_info = choose_best_threshold_binary(y_valid, ensemble_valid_probs)
-            best_threshold = threshold_info["threshold"]
+            # Ensemble: bÃºsqueda de pesos + threshold sobre validaciÃ³n temporal
+            ensemble_weights = choose_best_ensemble_weights_binary(
+                y_valid, xgb_valid_probs, lgbm_valid_probs, lgbm_sec_valid_probs
+            )
+            ensemble_valid_probs = (
+                ensemble_weights["xgb_weight"] * xgb_valid_probs
+                + ensemble_weights["lgbm_weight"] * lgbm_valid_probs
+                + ensemble_weights["lgbm_secondary_weight"] * lgbm_sec_valid_probs
+            )
+            best_threshold = ensemble_weights["threshold"]
 
             xgb_metrics = evaluate_probs_binary(y_valid, xgb_valid_probs, 0.50)
             lgbm_metrics = evaluate_probs_binary(y_valid, lgbm_valid_probs, 0.50)
             lgbm_sec_metrics = evaluate_probs_binary(y_valid, lgbm_sec_valid_probs, 0.50)
             ensemble_metrics = evaluate_probs_binary(y_valid, ensemble_valid_probs, best_threshold)
 
-            print(f"   ✅ Threshold ens. : {best_threshold}")
-            print(f"   ✅ XGB Accuracy   : {xgb_metrics['accuracy']:.4f}")
-            print(f"   ✅ LGBM Accuracy  : {lgbm_metrics['accuracy']:.4f}")
-            print(f"   ✅ LGBM-Sec Acc   : {lgbm_sec_metrics['accuracy']:.4f}")
-            print(f"   ✅ Ensemble Acc   : {ensemble_metrics['accuracy']:.4f}")
-            print(f"   ✅ LogLoss ens.   : {ensemble_metrics['logloss']:.4f}")
-            print(f"   ✅ ROC AUC ens.   : {ensemble_metrics['roc_auc']:.4f}")
+            print(f"   âœ… Threshold ens. : {best_threshold}")
+            print(f"   âœ… XGB Accuracy   : {xgb_metrics['accuracy']:.4f}")
+            print(f"   âœ… LGBM Accuracy  : {lgbm_metrics['accuracy']:.4f}")
+            print(f"   âœ… LGBM-Sec Acc   : {lgbm_sec_metrics['accuracy']:.4f}")
+            print(f"   âœ… Ensemble Acc   : {ensemble_metrics['accuracy']:.4f}")
+            print(f"   âœ… LogLoss ens.   : {ensemble_metrics['logloss']:.4f}")
+            print(f"   âœ… ROC AUC ens.   : {ensemble_metrics['roc_auc']:.4f}")
 
-    else:  # multiclass
-        xgb_model = build_xgb_multiclass()
-        lgbm_model = build_lgbm_multiclass()
-        lgbm_secondary = build_lgbm_secondary_multiclass()
+    else:  # multiclass (full_game)
+        seed_candidates = [7, 11, 23, 42, 77]
+        best_pack = None
 
-        xgb_model.fit(X_train, y_train)
-        lgbm_model.fit(X_train, y_train)
-        lgbm_secondary.fit(X_train, y_train)
+        y_draw_train = (y_train == 2).astype(int)
+        winner_mask = y_train != 2
+        X_winner_train = X_train.loc[winner_mask]
+        y_winner_train = (y_train.loc[winner_mask] == 1).astype(int)
 
-        xgb_valid_probs = xgb_model.predict_proba(X_valid)
-        lgbm_valid_probs = lgbm_model.predict_proba(X_valid)
-        lgbm_sec_valid_probs = lgbm_secondary.predict_proba(X_valid)
+        draw_pos_weight = get_scale_pos_weight(y_draw_train)
+        winner_pos_weight = get_scale_pos_weight(y_winner_train) if len(y_winner_train) else 1.0
 
-        ensemble_weights = choose_best_ensemble_weights_multiclass(
-            y_valid, xgb_valid_probs, lgbm_valid_probs, lgbm_sec_valid_probs
-        )
+        for seed in seed_candidates:
+            # XGB two-stage
+            if y_draw_train.nunique() < 2:
+                xgb_draw = ConstantBinaryModel(int(y_draw_train.iloc[0]))
+            else:
+                xgb_draw = build_xgb_binary(draw_pos_weight)
+                xgb_draw.set_params(random_state=seed)
+                xgb_draw.fit(X_train, y_draw_train)
+
+            if y_winner_train.nunique() < 2:
+                xgb_winner = ConstantBinaryModel(int(y_winner_train.iloc[0]) if len(y_winner_train) else 0)
+            else:
+                xgb_winner = build_xgb_binary(winner_pos_weight)
+                xgb_winner.set_params(random_state=seed)
+                xgb_winner.fit(X_winner_train, y_winner_train)
+
+            xgb_model_try = {
+                "model_type": "two_stage_full_game",
+                "draw_model": xgb_draw,
+                "winner_model": xgb_winner,
+                "seed": seed,
+                "family": "xgboost",
+            }
+
+            # LGBM two-stage
+            if y_draw_train.nunique() < 2:
+                lgbm_draw = ConstantBinaryModel(int(y_draw_train.iloc[0]))
+            else:
+                lgbm_draw = build_lgbm_binary(draw_pos_weight)
+                lgbm_draw.set_params(random_state=seed)
+                lgbm_draw.fit(X_train, y_draw_train)
+
+            if y_winner_train.nunique() < 2:
+                lgbm_winner = ConstantBinaryModel(int(y_winner_train.iloc[0]) if len(y_winner_train) else 0)
+            else:
+                lgbm_winner = build_lgbm_binary(winner_pos_weight)
+                lgbm_winner.set_params(random_state=seed)
+                lgbm_winner.fit(X_winner_train, y_winner_train)
+
+            lgbm_model_try = {
+                "model_type": "two_stage_full_game",
+                "draw_model": lgbm_draw,
+                "winner_model": lgbm_winner,
+                "seed": seed,
+                "family": "lightgbm_primary",
+            }
+
+            # LGBM secondary two-stage
+            if y_draw_train.nunique() < 2:
+                lgbm_sec_draw = ConstantBinaryModel(int(y_draw_train.iloc[0]))
+            else:
+                lgbm_sec_draw = build_lgbm_secondary_binary(draw_pos_weight)
+                lgbm_sec_draw.set_params(random_state=seed)
+                lgbm_sec_draw.fit(X_train, y_draw_train)
+
+            if y_winner_train.nunique() < 2:
+                lgbm_sec_winner = ConstantBinaryModel(int(y_winner_train.iloc[0]) if len(y_winner_train) else 0)
+            else:
+                lgbm_sec_winner = build_lgbm_secondary_binary(winner_pos_weight)
+                lgbm_sec_winner.set_params(random_state=seed)
+                lgbm_sec_winner.fit(X_winner_train, y_winner_train)
+
+            lgbm_secondary_try = {
+                "model_type": "two_stage_full_game",
+                "draw_model": lgbm_sec_draw,
+                "winner_model": lgbm_sec_winner,
+                "seed": seed,
+                "family": "lightgbm_secondary",
+            }
+
+            xgb_valid_probs_try = _full_game_two_stage_predict_proba(xgb_model_try, X_valid)
+            lgbm_valid_probs_try = _full_game_two_stage_predict_proba(lgbm_model_try, X_valid)
+            lgbm_sec_valid_probs_try = _full_game_two_stage_predict_proba(lgbm_secondary_try, X_valid)
+
+            ensemble_weights_try = choose_best_ensemble_weights_multiclass(
+                y_valid, xgb_valid_probs_try, lgbm_valid_probs_try, lgbm_sec_valid_probs_try
+            )
+            ensemble_valid_probs_try = (
+                ensemble_weights_try["xgb_weight"] * xgb_valid_probs_try
+                + ensemble_weights_try["lgbm_weight"] * lgbm_valid_probs_try
+                + ensemble_weights_try["lgbm_secondary_weight"] * lgbm_sec_valid_probs_try
+            )
+            ensemble_metrics_try = evaluate_probs_multiclass(y_valid, ensemble_valid_probs_try)
+
+            candidate = {
+                "seed": seed,
+                "xgb_model": xgb_model_try,
+                "lgbm_model": lgbm_model_try,
+                "lgbm_secondary": lgbm_secondary_try,
+                "xgb_valid_probs": xgb_valid_probs_try,
+                "lgbm_valid_probs": lgbm_valid_probs_try,
+                "lgbm_sec_valid_probs": lgbm_sec_valid_probs_try,
+                "ensemble_weights": ensemble_weights_try,
+                "ensemble_metrics": ensemble_metrics_try,
+            }
+            if best_pack is None:
+                best_pack = candidate
+            else:
+                curr = best_pack["ensemble_metrics"]
+                new = candidate["ensemble_metrics"]
+                if (new["accuracy"] > curr["accuracy"]) or (
+                    new["accuracy"] == curr["accuracy"] and new["logloss"] < curr["logloss"]
+                ):
+                    best_pack = candidate
+
+        xgb_model = best_pack["xgb_model"]
+        lgbm_model = best_pack["lgbm_model"]
+        lgbm_secondary = best_pack["lgbm_secondary"]
+        xgb_valid_probs = best_pack["xgb_valid_probs"]
+        lgbm_valid_probs = best_pack["lgbm_valid_probs"]
+        lgbm_sec_valid_probs = best_pack["lgbm_sec_valid_probs"]
+        ensemble_weights = best_pack["ensemble_weights"]
 
         ensemble_valid_probs = (
             ensemble_weights["xgb_weight"] * xgb_valid_probs
@@ -486,6 +683,7 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
         print(f"   ✅ Ensemble Acc   : {ensemble_metrics['accuracy']:.4f}")
         print(f"   ✅ LogLoss ens.   : {ensemble_metrics['logloss']:.4f}")
         print(f"   ✅ ROC AUC ens.   : {ensemble_metrics['roc_auc']:.4f}")
+        print(f"   ✅ Best seed      : {best_pack['seed']}")
         print(
             f"   ✅ Pesos ens.     : XGB={ensemble_weights['xgb_weight']:.2f}, "
             f"LGBM={ensemble_weights['lgbm_weight']:.2f}, "
@@ -527,9 +725,9 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
         }
     else:
         ensemble_weight_payload = {
-            "xgboost": 0.333,
-            "lightgbm_primary": 0.333,
-            "lightgbm_secondary": 0.334,
+            "xgboost": float(ensemble_weights["xgb_weight"]),
+            "lightgbm_primary": float(ensemble_weights["lgbm_weight"]),
+            "lightgbm_secondary": float(ensemble_weights["lgbm_secondary_weight"]),
         }
 
     metadata = {
@@ -556,9 +754,9 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"   ✅ Guardado XGB   : {xgb_path}")
-    print(f"   ✅ Guardado LGBM  : {lgbm_path}")
-    print(f"   ✅ Guardado LGBM-Sec : {lgbm_sec_path}")
+    print(f"   âœ… Guardado XGB   : {xgb_path}")
+    print(f"   âœ… Guardado LGBM  : {lgbm_path}")
+    print(f"   âœ… Guardado LGBM-Sec : {lgbm_sec_path}")
 
     return {
         "market_key": market_key,
@@ -575,13 +773,13 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 def train_all_models() -> Dict:
     """Entrena todos los modelos para Liga MX."""
     print("=" * 70)
-    print("🎯 ENTRENAMIENTO DE MODELOS PARA LIGA MX")
+    print("ðŸŽ¯ ENTRENAMIENTO DE MODELOS PARA LIGA MX")
     print("=" * 70)
 
     df = load_dataset()
     feature_cols = get_feature_columns(df)
 
-    print("\n📦 Dataset Liga MX cargado")
+    print("\nðŸ“¦ Dataset Liga MX cargado")
     print(f"   Filas totales : {len(df)}")
     print(f"   Features      : {len(feature_cols)}")
     print(f"   Archivo       : {INPUT_FILE}")
@@ -603,7 +801,7 @@ def train_all_models() -> Dict:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 70)
-    print("📊 RESUMEN FINAL LIGA MX")
+    print("ðŸ“Š RESUMEN FINAL LIGA MX")
     print("=" * 70)
     for market_key, result in results.items():
         metrics = result["ensemble_metrics"]
@@ -615,10 +813,11 @@ def train_all_models() -> Dict:
             f"\n   {thr_str}"
         )
 
-    print(f"\n💾 Resumen guardado en: {summary_path}")
+    print(f"\nðŸ’¾ Resumen guardado en: {summary_path}")
     print("=" * 70)
     return results
 
 
 if __name__ == "__main__":
     train_all_models()
+

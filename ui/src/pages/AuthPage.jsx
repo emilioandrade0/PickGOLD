@@ -1,21 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import PlanCheckoutActions from "../components/PlanCheckoutActions.jsx";
 import { loginUser, registerUser, setActiveSession } from "../services/auth.js";
 import { getPlanByKey, PLANS } from "../config/plans.js";
-import {
-  capturePaypalOrder,
-  createPaypalOrder,
-} from "../services/payments.js";
 
 const TELEGRAM_URL = (import.meta.env.VITE_TELEGRAM_URL || "").trim();
 
 function AuthPlanCard({
   plan,
   selectedPlanKey,
-  paymentLoadingKey,
-  onPaypal,
   onSelect,
 }) {
   const isSelected = selectedPlanKey === plan.key;
@@ -61,8 +54,6 @@ function AuthPlanCard({
 
       <PlanCheckoutActions
         plan={plan}
-        loadingProvider={paymentLoadingKey === `${plan.key}:paypal` ? "paypal" : ""}
-        onPaypal={onPaypal}
         telegramUrl={TELEGRAM_URL}
         secondaryLabel={isSelected ? "Plan seleccionado" : `Elegir ${plan.name}`}
         onSecondary={onSelect}
@@ -80,13 +71,11 @@ export default function AuthPage({ onAuthenticated }) {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
-  const [paymentLoadingKey, setPaymentLoadingKey] = useState("");
   const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const isLogin = mode === "login";
   const selectedPlanKey = searchParams.get("plan") || "starter";
   const selectedPlan = useMemo(() => getPlanByKey(selectedPlanKey) || PLANS[0], [selectedPlanKey]);
-  const handledPaymentRef = useRef("");
 
   function handlePlanSelect(planKey) {
     const nextParams = new URLSearchParams(searchParams);
@@ -94,77 +83,13 @@ export default function AuthPage({ onAuthenticated }) {
     setSearchParams(nextParams, { replace: true });
   }
 
-  async function handleCheckout(planKey) {
-    try {
-      setError("");
-      setInfo("");
-      setPaymentLoadingKey(`${planKey}:paypal`);
-      const response = await createPaypalOrder(planKey);
-      window.location.href = response.url;
-    } catch (checkoutError) {
-      setError(checkoutError.message || "No se pudo iniciar el pago.");
-      setPaymentLoadingKey("");
-    }
-  }
-
-  useEffect(() => {
-    const provider = searchParams.get("provider");
-    const paymentStatus = searchParams.get("payment");
-    const planKey = searchParams.get("plan") || "starter";
-    const paypalOrderId = searchParams.get("token");
-
-    if (!provider || !paymentStatus) return;
-
-    const paymentKey = `${provider}:${paymentStatus}:${paypalOrderId || planKey}`;
-    if (handledPaymentRef.current === paymentKey) return;
-    handledPaymentRef.current = paymentKey;
-
-    async function syncPaymentStatus() {
-      try {
-        setError("");
-        if (provider !== "paypal") {
-          setInfo("Por ahora el acceso premium se activa por PayPal o contacto directo.");
-          setMode("register");
-          return;
-        }
-
-        if (paymentStatus === "cancel") {
-          setInfo("El pago fue cancelado. Puedes intentarlo otra vez.");
-          setMode("register");
-          return;
-        }
-
-        if (provider === "paypal" && paypalOrderId) {
-          const result = await capturePaypalOrder(paypalOrderId);
-          setInfo(
-            result.paid
-              ? `Pago confirmado para ${result.plan_name}. Ahora registra la cuenta para activacion manual.`
-              : "La orden de PayPal aun no aparece como capturada."
-          );
-          setMode("register");
-          return;
-        }
-
-        setInfo("Regresaste del checkout. Si ya se cobro, puedes continuar con el registro.");
-        setMode("register");
-      } catch (paymentError) {
-        setError(paymentError.message || "No se pudo verificar el pago.");
-        setMode("register");
-      } finally {
-        setPaymentLoadingKey("");
-      }
-    }
-
-    syncPaymentStatus();
-  }, [searchParams]);
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setInfo("");
 
     if (!isLogin && !acceptedLegal) {
-      setError("Debes aceptar los términos y el aviso de privacidad para continuar.");
+      setError("Debes aceptar los terminos y el aviso de privacidad para continuar.");
       return;
     }
 
@@ -208,12 +133,16 @@ export default function AuthPage({ onAuthenticated }) {
             </div>
 
             <h1 className="mt-8 max-w-4xl text-5xl font-light leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              compra confianza. entra
-              <span className="block">con ventaja.</span>
+              crea tu cuenta
+              <span className="block">o inicia sesion.</span>
             </h1>
 
-            <p className="mt-6 text-2xl font-light text-white/84">
-              Elige tu nivel.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-white/72">
+              Registra una cuenta para solicitar acceso o inicia sesion si ya tienes una cuenta activa.
+            </p>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-amber-100/70">
+              El cobro y la activacion se gestionan manualmente por Telegram. Plataforma informativa para mayores de 18 anos.
             </p>
 
             <div className="mt-10 grid gap-4 lg:grid-cols-3">
@@ -222,8 +151,6 @@ export default function AuthPage({ onAuthenticated }) {
                   key={plan.key}
                   plan={plan}
                   selectedPlanKey={selectedPlan.key}
-                  paymentLoadingKey={paymentLoadingKey}
-                  onPaypal={() => handleCheckout(plan.key)}
                   onSelect={() => {
                     handlePlanSelect(plan.key);
                     setMode("register");
@@ -235,12 +162,20 @@ export default function AuthPage({ onAuthenticated }) {
 
           <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,28,38,0.96),rgba(16,19,27,0.98))] p-6 shadow-[0_26px_70px_rgba(0,0,0,0.28)] backdrop-blur-sm">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Acceso privado</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white">Entra a tu panel premium</h2>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Cuenta</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white">Accede o crea tu cuenta</h2>
             </div>
 
             <div className="mt-5 rounded-[24px] border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100/88">
               Plan seleccionado: <span className="font-semibold">{selectedPlan.name}</span> ({selectedPlan.priceLabel} MXN al mes).
+            </div>
+
+            <div className="mt-4 rounded-[24px] border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-white/68">
+              1. Contactanos por Telegram para confirmar tu plan.
+              <br />
+              2. Crea tu cuenta aqui con el mismo correo.
+              <br />
+              3. Activamos tu acceso manualmente.
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-black/20 p-1.5">
@@ -251,7 +186,7 @@ export default function AuthPage({ onAuthenticated }) {
                   isLogin ? "bg-amber-300 text-[#131821] shadow-[0_10px_22px_rgba(246,196,83,0.22)]" : "text-white/65 hover:text-white"
                 }`}
               >
-                Login
+                Iniciar sesion
               </button>
               <button
                 type="button"
@@ -312,14 +247,7 @@ export default function AuthPage({ onAuthenticated }) {
                     className="mt-1 h-4 w-4 rounded border-white/20 bg-black/20"
                   />
                   <span>
-                    Acepto los{" "}
-                    <Link to="/terms" className="text-amber-200 underline underline-offset-4">
-                      términos y condiciones
-                    </Link>{" "}
-                    y el{" "}
-                    <Link to="/privacy" className="text-cyan-200 underline underline-offset-4">
-                      aviso de privacidad
-                    </Link>.
+                    Confirmo que soy mayor de 18 anos y acepto los terminos, condiciones y aviso de privacidad.
                   </span>
                 </label>
               )}
@@ -332,12 +260,12 @@ export default function AuthPage({ onAuthenticated }) {
                 className="w-full rounded-2xl bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] px-4 py-3.5 font-bold text-[#141821] shadow-[0_18px_34px_rgba(246,196,83,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:opacity-60"
                 disabled={loading}
               >
-                {loading ? "Procesando..." : isLogin ? "Entrar al panel" : "Crear cuenta premium"}
+                {loading ? "Procesando..." : isLogin ? "Iniciar sesion" : "Crear cuenta"}
               </button>
             </form>
 
             <p className="mt-5 text-xs leading-6 text-white/45">
-              No garantizamos resultados. Uso bajo responsabilidad.
+              Solo para mayores de 18 anos. Contenido con fines informativos; apuesta con responsabilidad.
             </p>
           </section>
         </div>

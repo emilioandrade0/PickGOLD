@@ -164,6 +164,17 @@ export async function startSportUpdateAll(sport) {
   return await fetchJsonPost(`/${sport}/update-all`);
 }
 
+export async function fetchSportBoardStatus(sport, dateStr = "") {
+  const params = new URLSearchParams();
+  if (dateStr) params.set("date", dateStr);
+  return await fetchJsonWithRetry(`/${sport}/board-status${params.toString() ? `?${params.toString()}` : ""}`, {
+    timeoutMs: 30000,
+    retries: 1,
+    retryDelayMs: 1500,
+    errorMessage: `No se pudo consultar el estado del board ${String(sport || "").toUpperCase()}.`,
+  });
+}
+
 export async function fetchSportUpdateStatus(sport) {
   return await fetchJsonWithRetry(`/${sport}/update-status`, {
     timeoutMs: 30000,

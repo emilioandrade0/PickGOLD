@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PlanCheckoutActions from "../components/PlanCheckoutActions.jsx";
 import { getActiveSession } from "../services/auth.js";
 import { PLANS } from "../config/plans.js";
-import { createPaypalOrder } from "../services/payments.js";
 
 const SIGNALS = ["Best Picks diarios", "Multi-deporte", "Historial claro"];
 const ACCESS_MATRIX = [
@@ -15,7 +13,7 @@ const ACCESS_MATRIX = [
 
 const TELEGRAM_URL = (import.meta.env.VITE_TELEGRAM_URL || "").trim();
 
-function PlanCard({ plan, onSelect, onPaypalCheckout, loadingProvider }) {
+function PlanCard({ plan, onSelect }) {
   const rolePillClass = plan.featured
     ? "border-amber-300/30 bg-amber-300/12 text-amber-200"
     : "border-white/10 bg-white/[0.04] text-white/55";
@@ -54,10 +52,8 @@ function PlanCard({ plan, onSelect, onPaypalCheckout, loadingProvider }) {
 
       <PlanCheckoutActions
         plan={plan}
-        loadingProvider={loadingProvider}
-        onPaypal={onPaypalCheckout}
         telegramUrl={TELEGRAM_URL}
-        secondaryLabel={`Ver acceso ${plan.name}`}
+        secondaryLabel={`Crear cuenta ${plan.name}`}
         onSecondary={onSelect}
       />
     </div>
@@ -67,20 +63,6 @@ function PlanCard({ plan, onSelect, onPaypalCheckout, loadingProvider }) {
 export default function LandingPage() {
   const navigate = useNavigate();
   const session = getActiveSession();
-  const [loadingKey, setLoadingKey] = useState("");
-  const [paymentError, setPaymentError] = useState("");
-
-  async function handleCheckout(planKey) {
-    try {
-      setPaymentError("");
-      setLoadingKey(`${planKey}:paypal`);
-      const response = await createPaypalOrder(planKey);
-      window.location.href = response.url;
-    } catch (error) {
-      setPaymentError(error.message || "No se pudo iniciar el checkout.");
-      setLoadingKey("");
-    }
-  }
 
   return (
     <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,198,79,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.08),transparent_20%),linear-gradient(180deg,#07090f,#0c1017)] text-white">
@@ -159,9 +141,8 @@ export default function LandingPage() {
             Tres planes. Una progresion que convierte.
           </h2>
           <p className="mt-3 text-sm leading-6 text-white/56 sm:text-base">
-            Starter para probar, Pro como ancla de conversion y VIP para quien va en serio.
+            Starter para probar, Pro como ancla de conversion y VIP para quien va en serio. El cobro y la activacion se coordinan manualmente por Telegram.
           </p>
-          {paymentError ? <p className="mt-4 text-sm text-rose-300">{paymentError}</p> : null}
         </div>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
@@ -169,8 +150,6 @@ export default function LandingPage() {
             <PlanCard
               key={plan.key}
               plan={plan}
-              loadingProvider={loadingKey === `${plan.key}:paypal` ? "paypal" : ""}
-              onPaypalCheckout={() => handleCheckout(plan.key)}
               onSelect={() => navigate(`/auth?plan=${encodeURIComponent(plan.key)}`)}
             />
           ))}
