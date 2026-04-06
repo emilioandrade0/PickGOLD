@@ -1,7 +1,7 @@
 {
   "date": "2026-04-12",
   "sport": "liga_mx",
-  "generated_at": "2026-04-06T06:07:49.509270",
+  "generated_at": "2026-04-06T08:02:51.123758",
   "games": [
     {
       "game_id": "401840939",
@@ -25,6 +25,15 @@
           "contribution": 0.014400000000000001,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -52,6 +61,13 @@
           "strength": 0.02,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -101,6 +117,15 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.023999999999999997,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        },
+        {
           "event_name": "both_teams_btts_trend",
           "direction": "positive",
           "strength": 0.03,
@@ -132,8 +157,8 @@
       "btts_confidence": 90,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.098568,
-      "btts_adjusted_probability": 0.134968,
-      "btts_adjustment_amount": 0.0364,
+      "btts_adjusted_probability": 0.156808,
+      "btts_adjustment_amount": 0.05824,
       "btts_adjustment_breakdown": [
         {
           "event_name": "away_team_weak_defense",
@@ -143,6 +168,15 @@
           "contribution": 0.016,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.023999999999999997,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -164,7 +198,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 86.5,
+      "btts_recommended_score": 84.3,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
