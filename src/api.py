@@ -10,6 +10,7 @@ import re
 from typing import Optional
 
 import pandas as pd
+import numpy as np
 import requests
 from fastapi import FastAPI, HTTPException, Body, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -1493,7 +1494,7 @@ def build_results_lookup_for_sport(sport: str):
                 else:
                     q1_winner = "TIE"
 
-            lookup[game_id] = {
+            payload = {
                 "date": str(row["date"]),
                 "home_team": home_team,
                 "away_team": away_team,
@@ -1515,57 +1516,89 @@ def build_results_lookup_for_sport(sport: str):
                 "full_game_winner": full_game_winner,
                 "q1_winner": q1_winner,
             }
+            lookup[game_id] = payload
+            lookup[(str(row["date"]), away_team, home_team)] = payload
         except Exception:
             continue
 
     return lookup
 
 
+def _market_lookup_columns_for_sport(sport: str):
+    common = [
+        "odds_details",
+        "odds_over_under",
+        "odds_data_quality",
+        "home_is_favorite",
+        "home_spread",
+        "spread_abs",
+        "closing_spread_line",
+        "closing_total_line",
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "closing_moneyline_odds",
+        "closing_spread_odds",
+        "closing_total_odds",
+    ]
+    if sport == "tennis":
+        return common + ["player_a_odds", "player_b_odds"]
+    if sport == "euroleague":
+        return common + ["odds_spread"]
+    return common
+
+
 def build_market_lookup_for_sport(sport: str):
-    if sport == "nba":
-        file_path = NBA_RAW_HISTORY
-        use_cols = [
-            "game_id", "date", "home_team", "away_team",
-            "home_spread", "spread_abs", "home_is_favorite", "odds_over_under",
-            "home_moneyline_odds", "away_moneyline_odds",
-        ]
-    else:
-        return {}
-
-    if not file_path.exists():
-        return {}
-
-    try:
-        header_cols = list(pd.read_csv(file_path, nrows=0).columns)
-    except Exception:
-        return {}
-
-    selected_cols = [c for c in use_cols if c in header_cols]
-    if len(selected_cols) < 4:
-        return {}
-
-    try:
-        df = pd.read_csv(file_path, usecols=selected_cols, dtype={"game_id": str})
-    except Exception:
-        return {}
+    raw_files = SPORT_RAW_FILES.get(sport) or {}
+    source_files = [raw_files.get("raw_history"), raw_files.get("upcoming_schedule")]
+    use_cols = ["game_id", "date", "home_team", "away_team", *_market_lookup_columns_for_sport(sport)]
 
     lookup = {}
-    for _, row in df.iterrows():
-        game_id = str(row.get("game_id") or "").strip()
-        date_str = str(row.get("date") or "").strip()
-        home_team = str(row.get("home_team") or "").strip()
-        away_team = str(row.get("away_team") or "").strip()
-        payload = {col: row.get(col) for col in selected_cols if col not in {"game_id", "date", "home_team", "away_team"}}
-        if game_id:
-            lookup[("game_id", game_id)] = payload
-        if date_str and home_team and away_team:
-            lookup[("matchup", date_str, away_team, home_team)] = payload
+    for file_path in source_files:
+        if not file_path or not Path(file_path).exists():
+            continue
+
+        try:
+            header_cols = list(pd.read_csv(file_path, nrows=0).columns)
+        except Exception:
+            continue
+
+        selected_cols = [c for c in use_cols if c in header_cols]
+        if len(selected_cols) < 4:
+            continue
+
+        try:
+            df = pd.read_csv(file_path, usecols=selected_cols, dtype={"game_id": str})
+        except Exception:
+            continue
+
+        for _, row in df.iterrows():
+            game_id = str(row.get("game_id") or "").strip()
+            date_str = str(row.get("date") or "").strip()
+            home_team = str(row.get("home_team") or "").strip()
+            away_team = str(row.get("away_team") or "").strip()
+            payload = {
+                col: row.get(col)
+                for col in selected_cols
+                if col not in {"game_id", "date", "home_team", "away_team"}
+            }
+            if game_id:
+                lookup[("game_id", game_id)] = payload
+            if date_str and home_team and away_team:
+                lookup[("matchup", date_str, away_team, home_team)] = payload
     return lookup
 
 
 def apply_market_data_if_available(sport: str, events: list[dict]):
+    def _is_missing(value):
+        if value in (None, "", 0, 0.0, "N/A", "No Line"):
+            return True
+        try:
+            return bool(pd.isna(value))
+        except Exception:
+            return False
+
     rows = _normalize_events_payload(events)
-    if sport != "nba" or not rows:
+    if not rows:
         return rows
 
     lookup = build_market_lookup_for_sport(sport)
@@ -1573,24 +1606,29 @@ def apply_market_data_if_available(sport: str, events: list[dict]):
         return rows
 
     enriched = []
-    for event in rows:
-        row = dict(event)
+    for row in rows:
         game_id = str(row.get("game_id") or "").strip()
         date_str = str(row.get("date") or "").strip()
-        away_team = str(row.get("away_team") or "").strip()
         home_team = str(row.get("home_team") or "").strip()
+        away_team = str(row.get("away_team") or "").strip()
         market = lookup.get(("game_id", game_id)) or lookup.get(("matchup", date_str, away_team, home_team)) or {}
 
         for key, value in market.items():
-            if row.get(key) in (None, "", 0, 0.0, "N/A", "No Line"):
+            if _is_missing(row.get(key)) and not _is_missing(value):
                 row[key] = value
 
-        if row.get("moneyline_odds") in (None, "", 0, 0.0, "N/A"):
+        if _is_missing(row.get("closing_total_line")):
+            total_line = row.get("odds_over_under")
+            if not _is_missing(total_line):
+                row["closing_total_line"] = total_line
+
+        if _is_missing(row.get("moneyline_odds")):
             pick = str(row.get("full_game_pick") or "").strip()
-            if pick and pick == home_team:
+            pick_upper = pick.upper()
+            if pick and (pick == home_team or pick_upper == "HOME WIN") and not _is_missing(row.get("home_moneyline_odds")):
                 row["moneyline_odds"] = row.get("home_moneyline_odds")
                 row["pick_ml_odds"] = row.get("home_moneyline_odds")
-            elif pick and pick == away_team:
+            elif pick and (pick == away_team or pick_upper == "AWAY WIN") and not _is_missing(row.get("away_moneyline_odds")):
                 row["moneyline_odds"] = row.get("away_moneyline_odds")
                 row["pick_ml_odds"] = row.get("away_moneyline_odds")
 
@@ -1923,11 +1961,195 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 continue
         return False
 
+    def _safe_float_or_none(value):
+        try:
+            numeric = float(value)
+        except Exception:
+            return None
+        if not np.isfinite(numeric):
+            return None
+        return numeric
+
+    def _extract_signed_line(value):
+        match = re.search(r"([+-]?\d+(?:\.\d+)?)", str(value or "").strip())
+        if not match:
+            return None
+        try:
+            return float(match.group(1))
+        except Exception:
+            return None
+
+    def _format_signed_line(value):
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except Exception:
+            return None
+        if not np.isfinite(numeric) or abs(numeric) < 1e-9:
+            return None
+        return f"{numeric:+.1f}"
+
+    def _resolve_spread_side_team(item: dict):
+        home_team = str(item.get("home_team") or "").strip()
+        away_team = str(item.get("away_team") or "").strip()
+        side_team = str(item.get("spread_side_team") or "").strip()
+        if side_team in {home_team, away_team}:
+            return side_team
+
+        spread_pick = str(item.get("spread_pick") or "").strip()
+        spread_pick_upper = spread_pick.upper()
+        if home_team and home_team.upper() in spread_pick_upper:
+            return home_team
+        if away_team and away_team.upper() in spread_pick_upper:
+            return away_team
+        if "HOME" in spread_pick_upper or "LOCAL" in spread_pick_upper:
+            return home_team or None
+        if "AWAY" in spread_pick_upper or "VISITOR" in spread_pick_upper or "VISITANTE" in spread_pick_upper:
+            return away_team or None
+
+        full_game_pick = str(item.get("full_game_pick") or "").strip()
+        if full_game_pick in {home_team, away_team} and _resolve_spread_context(item):
+            return full_game_pick
+        return None
+
+    def _resolve_signed_spread_line(item: dict, side_team: str | None):
+        if not side_team:
+            return None
+
+        home_team = str(item.get("home_team") or "").strip()
+        away_team = str(item.get("away_team") or "").strip()
+        line_abs = _safe_float_or_none(item.get("spread_abs"))
+        if line_abs is None or abs(line_abs) < 1e-9:
+            for candidate in (
+                item.get("home_spread"),
+                item.get("closing_spread_line"),
+                _extract_signed_line(item.get("spread_pick")),
+            ):
+                numeric = _safe_float_or_none(candidate)
+                if numeric is not None and abs(numeric) > 0:
+                    line_abs = abs(numeric)
+                    break
+
+        home_spread = _safe_float_or_none(item.get("home_spread"))
+        if home_spread is not None and abs(home_spread) > 0:
+            if side_team == home_team:
+                return home_spread
+            if side_team == away_team:
+                return -home_spread
+
+        predicted_home_margin = _safe_float_or_none(item.get("predicted_home_margin"))
+        if line_abs is not None and line_abs > 0 and predicted_home_margin is not None:
+            side_margin = predicted_home_margin if side_team == home_team else -predicted_home_margin
+            return -line_abs if side_margin >= line_abs else line_abs
+
+        explicit_line = _extract_signed_line(item.get("spread_pick"))
+        if explicit_line is not None:
+            return explicit_line
+
+        closing_line = _safe_float_or_none(item.get("closing_spread_line"))
+        if closing_line is not None and abs(closing_line) > 0:
+            if side_team == home_team:
+                return closing_line
+            if side_team == away_team:
+                return -closing_line
+        return None
+
+    def _normalize_spread_fields(item: dict):
+        side_team = _resolve_spread_side_team(item)
+        signed_line = _resolve_signed_spread_line(item, side_team)
+        if side_team:
+            item["spread_side_team"] = side_team
+        if signed_line is not None:
+            item["spread_line_signed"] = round(float(signed_line), 2)
+            item["spread_line_display"] = _format_signed_line(signed_line)
+            if side_team:
+                item["spread_pick_display"] = f"{side_team} {item['spread_line_display']}"
+        elif side_team:
+            item["spread_pick_display"] = side_team
+
+    def _evaluate_signed_spread(item: dict, home_score: int, away_score: int):
+        side_team = str(item.get("spread_side_team") or "").strip()
+        signed_line = _safe_float_or_none(item.get("spread_line_signed"))
+        home_team = str(item.get("home_team") or "").strip()
+        away_team = str(item.get("away_team") or "").strip()
+        if not side_team or signed_line is None or abs(signed_line) < 1e-9:
+            return None
+
+        if side_team == home_team:
+            adjusted_score = float(home_score) + float(signed_line)
+            opponent_score = float(away_score)
+        elif side_team == away_team:
+            adjusted_score = float(away_score) + float(signed_line)
+            opponent_score = float(home_score)
+        else:
+            return None
+
+        if adjusted_score > opponent_score:
+            return True
+        if adjusted_score < opponent_score:
+            return False
+        return None
+
     def _synthesize_missing_market_picks(item: dict):
         spread_pick = item.get("spread_pick")
         full_game_pick = str(item.get("full_game_pick") or "").strip()
         if _is_pending_pick(spread_pick) and full_game_pick and _resolve_spread_context(item):
             item["spread_pick"] = full_game_pick
+        _normalize_spread_fields(item)
+
+    def _normalize_full_game_schema(item: dict):
+        def _first_valid_pick(values):
+            for value in values:
+                if not _is_pending_pick(value):
+                    return str(value).strip()
+            return ""
+
+        home_team = str(item.get("home_team") or "").strip().upper()
+        away_team = str(item.get("away_team") or "").strip().upper()
+        market = str(item.get("market") or "").strip().upper()
+        generic_pick = str(item.get("pick") or "").strip()
+        generic_pick_u = generic_pick.upper()
+        is_generic_team_pick = bool(generic_pick) and generic_pick_u in {home_team, away_team}
+
+        candidate_picks = [
+            item.get("full_game_pick"),
+            item.get("moneyline_pick"),
+            item.get("pick_team"),
+        ]
+        if is_generic_team_pick or market in {"FULL_GAME", "MONEYLINE", "ML"}:
+            candidate_picks.append(generic_pick)
+        resolved_pick = _first_valid_pick(candidate_picks)
+        if resolved_pick:
+            item["full_game_pick"] = resolved_pick
+
+        if item.get("full_game_confidence") in (None, "", "nan"):
+            for key in ("moneyline_confidence", "confidence"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["full_game_confidence"] = val
+                    break
+
+        if item.get("full_game_recommended_score") in (None, "", "nan"):
+            for key in ("moneyline_recommended_score", "recommended_score"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["full_game_recommended_score"] = val
+                    break
+
+        if item.get("full_game_result_winner") in (None, "", "nan"):
+            for key in ("moneyline_actual", "actual_winner"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["full_game_result_winner"] = val
+                    break
+
+        if _to_bool_or_none(item.get("full_game_hit")) is None:
+            for key in ("moneyline_correct", "correct_full_game_adjusted", "correct_full_game", "correct"):
+                val = _to_bool_or_none(item.get(key))
+                if val is not None:
+                    item["full_game_hit"] = val
+                    break
 
     def _winner_from_score(home_team: str, away_team: str, home_score: int, away_score: int):
         if home_score > away_score:
@@ -2091,7 +2313,10 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                         winner=full_game_winner,
                     )
         else:
-            if _to_bool_or_none(item.get("correct_spread")) is None:
+            normalized_spread_hit = _evaluate_signed_spread(item, home_score, away_score)
+            if normalized_spread_hit is not None:
+                item["correct_spread"] = normalized_spread_hit
+            elif _to_bool_or_none(item.get("correct_spread")) is None:
                 spread_pick = str(item.get("spread_pick") or "").strip()
                 if spread_pick and spread_pick.upper() not in {"PENDIENTE", "N/A", "NAN", "RECONSTRUIDO"}:
                     item["correct_spread"] = _evaluate_team_like_pick(
@@ -2164,6 +2389,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
     for event in events:
         item = dict(event)
+        _normalize_full_game_schema(item)
         _synthesize_missing_market_picks(item)
         game_id = str(item.get("game_id", ""))
 
@@ -2193,6 +2419,13 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 item["away_q4_score"] = live.get("away_q4_score")
 
         result = lookup.get(game_id)
+        if not result:
+            matchup_key = (
+                str(item.get("date") or "")[:10],
+                str(item.get("away_team") or "").strip(),
+                str(item.get("home_team") or "").strip(),
+            )
+            result = lookup.get(matchup_key)
 
         # If ESPN says the game is still pre/live, do not overwrite it with raw-history
         # rows that may already contain partial scores for the same date.

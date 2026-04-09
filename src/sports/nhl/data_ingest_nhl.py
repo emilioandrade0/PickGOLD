@@ -26,6 +26,10 @@ RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 FILE_PATH_ADVANCED = RAW_DATA_DIR / "nhl_advanced_history.csv"
 FILE_PATH_UPCOMING = RAW_DATA_DIR / "nhl_upcoming_schedule.csv"
+FILE_PATH_ODDS_SNAPSHOTS = RAW_DATA_DIR / "nhl_odds_snapshots.csv"
+ODDS_PROVIDER_DIR = BASE_DIR / "data" / "odds_provider"
+ODDS_PROVIDER_OVERRIDES = ODDS_PROVIDER_DIR / "closing_odds_overrides.csv"
+ODDS_PROVIDER_BULK_ENTRY = ODDS_PROVIDER_DIR / "Nueva carpeta" / "closing_odds_bulk_entry.csv"
 
 SEASONS_TO_FETCH = {
     "2025": ("2025-10-01", "2025-12-31"),
@@ -69,6 +73,19 @@ def safe_bool_to_int(value):
     return 1 if bool(value) else 0
 
 
+def _empty_summary_odds_payload() -> dict:
+    return {
+        "summary_home_moneyline_odds": None,
+        "summary_away_moneyline_odds": None,
+        "summary_closing_moneyline_odds": None,
+        "summary_closing_spread_odds": None,
+        "summary_closing_total_odds": None,
+        "summary_odds_over_under": None,
+        "summary_odds_details": "",
+        "summary_odds_data_quality": "fallback",
+    }
+
+
 def normalize_text(text: str) -> str:
     if not text:
         return ""
@@ -97,6 +114,187 @@ def normalize_team_abbr(team_data: dict):
     }
 
     return nhl_teams.get(abbr, abbr)
+
+
+def _extract_period_score(linescores, period_idx: int):
+    if not isinstance(linescores, list) or period_idx < 0 or period_idx >= len(linescores):
+        return None
+    period = linescores[period_idx] or {}
+    for key in ("value", "displayValue", "score"):
+        parsed = safe_int(period.get(key), default=None)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _odds_columns():
+    return [
+        "odds_over_under",
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "closing_moneyline_odds",
+        "closing_spread_odds",
+        "closing_total_odds",
+    ]
+
+
+def _has_real_odds(row: pd.Series) -> bool:
+    for c in _odds_columns():
+        v = pd.to_numeric(pd.Series([row.get(c)]), errors="coerce").iloc[0]
+        if pd.notna(v) and float(v) != 0.0:
+            return True
+    return False
+
+
+def persist_odds_snapshots(df_upcoming: pd.DataFrame):
+    if df_upcoming.empty:
+        return
+
+    keep_cols = ["game_id", "date", "time", "home_team", "away_team", "odds_data_quality"] + _odds_columns()
+    for c in keep_cols:
+        if c not in df_upcoming.columns:
+            df_upcoming[c] = None
+
+    snap = df_upcoming[keep_cols].copy()
+    snap["has_real_odds"] = snap.apply(_has_real_odds, axis=1)
+    snap = snap[snap["has_real_odds"]].drop(columns=["has_real_odds"])
+    if snap.empty:
+        return
+
+    snap["snapshot_ts"] = datetime.now().astimezone().isoformat()
+    if FILE_PATH_ODDS_SNAPSHOTS.exists():
+        try:
+            old = pd.read_csv(FILE_PATH_ODDS_SNAPSHOTS, dtype={"game_id": str})
+        except Exception:
+            old = pd.DataFrame()
+        snap = pd.concat([old, snap], ignore_index=True)
+
+    snap["game_id"] = snap["game_id"].astype(str).str.strip()
+    snap = snap.sort_values(["game_id", "snapshot_ts"]).drop_duplicates(subset=["game_id"], keep="last")
+    snap.to_csv(FILE_PATH_ODDS_SNAPSHOTS, index=False)
+    print(f"Snapshots NHL guardados: {len(snap)} juegos -> {FILE_PATH_ODDS_SNAPSHOTS}")
+
+
+def backfill_history_odds_from_snapshots(df_history: pd.DataFrame) -> pd.DataFrame:
+    if df_history.empty or not FILE_PATH_ODDS_SNAPSHOTS.exists():
+        return df_history
+    try:
+        snap = pd.read_csv(FILE_PATH_ODDS_SNAPSHOTS, dtype={"game_id": str})
+    except Exception as e:
+        print(f"Warning: no se pudo leer snapshots NHL: {e}")
+        return df_history
+    if snap.empty or "game_id" not in snap.columns:
+        return df_history
+
+    for c in _odds_columns():
+        if c not in snap.columns:
+            return df_history
+
+    snap = snap.sort_values("snapshot_ts").drop_duplicates(subset=["game_id"], keep="last").set_index("game_id")
+
+    updated = 0
+    for idx, row in df_history.iterrows():
+        gid = str(row.get("game_id") or "").strip()
+        if not gid or gid not in snap.index:
+            continue
+        snap_row = snap.loc[gid]
+        row_changed = False
+        for c in _odds_columns():
+            curr = pd.to_numeric(pd.Series([row.get(c)]), errors="coerce").iloc[0]
+            repl = pd.to_numeric(pd.Series([snap_row.get(c)]), errors="coerce").iloc[0]
+            if (pd.isna(curr) or float(curr) == 0.0) and pd.notna(repl) and float(repl) != 0.0:
+                df_history.at[idx, c] = float(repl)
+                row_changed = True
+        if row_changed:
+            df_history.at[idx, "odds_data_quality"] = "real"
+            updated += 1
+
+    if updated:
+        print(f"Backfill NHL odds aplicado en {updated} juegos historicos.")
+    return df_history
+
+
+def backfill_history_odds_from_provider_files(df_history: pd.DataFrame) -> pd.DataFrame:
+    if df_history.empty:
+        return df_history
+
+    provider_files = [ODDS_PROVIDER_OVERRIDES, ODDS_PROVIDER_BULK_ENTRY]
+    available_files = [p for p in provider_files if p.exists()]
+    if not available_files:
+        return df_history
+
+    records = []
+    for file_path in available_files:
+        try:
+            tmp = pd.read_csv(file_path, dtype=str)
+        except Exception:
+            continue
+        if tmp.empty:
+            continue
+        if "sport" in tmp.columns:
+            tmp = tmp[tmp["sport"].fillna("").str.lower().str.strip() == "nhl"]
+        if tmp.empty:
+            continue
+        needed_cols = ["date", "game_id"] + _odds_columns()
+        for c in needed_cols:
+            if c not in tmp.columns:
+                tmp[c] = None
+        records.append(tmp[needed_cols].copy())
+
+    if not records:
+        return df_history
+
+    src = pd.concat(records, ignore_index=True)
+    src["game_id"] = src["game_id"].fillna("").astype(str).str.strip()
+    src["date"] = src["date"].fillna("").astype(str).str.strip()
+    src = src[(src["game_id"] != "") & (src["date"] != "")]
+    if src.empty:
+        return df_history
+
+    for c in _odds_columns():
+        src[c] = pd.to_numeric(src[c], errors="coerce")
+
+    # Keep rows that bring at least one non-zero odds value.
+    non_zero_mask = pd.Series(False, index=src.index)
+    for c in _odds_columns():
+        non_zero_mask |= src[c].notna() & (src[c] != 0)
+    src = src[non_zero_mask]
+    if src.empty:
+        return df_history
+
+    src = src.sort_values(["date", "game_id"]).drop_duplicates(subset=["game_id", "date"], keep="last")
+    by_key = {
+        (str(r["game_id"]).strip(), str(r["date"]).strip()): r
+        for _, r in src.iterrows()
+    }
+    by_gid = {
+        str(r["game_id"]).strip(): r
+        for _, r in src.sort_values("date").iterrows()
+    }
+
+    updated = 0
+    for idx, row in df_history.iterrows():
+        gid = str(row.get("game_id") or "").strip()
+        date_key = str(row.get("date") or "").strip()
+        if not gid:
+            continue
+        src_row = by_key.get((gid, date_key)) or by_gid.get(gid)
+        if src_row is None:
+            continue
+        changed = False
+        for c in _odds_columns():
+            curr = pd.to_numeric(pd.Series([row.get(c)]), errors="coerce").iloc[0]
+            repl = pd.to_numeric(pd.Series([src_row.get(c)]), errors="coerce").iloc[0]
+            if (pd.isna(curr) or float(curr) == 0.0) and pd.notna(repl) and float(repl) != 0.0:
+                df_history.at[idx, c] = float(repl)
+                changed = True
+        if changed:
+            df_history.at[idx, "odds_data_quality"] = "real"
+            updated += 1
+
+    if updated:
+        print(f"Backfill NHL odds desde provider files aplicado en {updated} juegos historicos.")
+    return df_history
 
 
 def _request_json(url: str, params: dict | None = None, timeout: int = REQUEST_TIMEOUT):
@@ -359,6 +557,38 @@ def _extract_goalies_from_summary(summary_data: dict, home_team: str, away_team:
     }
 
 
+def _extract_market_odds_from_summary(summary_data: dict) -> dict:
+    payload = _empty_summary_odds_payload()
+    if not isinstance(summary_data, dict):
+        return payload
+
+    odds_node = None
+    pickcenter = summary_data.get("pickcenter")
+    if isinstance(pickcenter, list) and pickcenter:
+        odds_node = pickcenter[0] or {}
+
+    if not isinstance(odds_node, dict):
+        raw_odds = summary_data.get("odds")
+        if isinstance(raw_odds, list) and raw_odds:
+            odds_node = raw_odds[0] or {}
+        elif isinstance(raw_odds, dict):
+            odds_node = raw_odds
+
+    if not isinstance(odds_node, dict):
+        return payload
+
+    extracted = extract_market_odds_fields(odds_node)
+    payload["summary_home_moneyline_odds"] = extracted.get("home_moneyline_odds")
+    payload["summary_away_moneyline_odds"] = extracted.get("away_moneyline_odds")
+    payload["summary_closing_moneyline_odds"] = extracted.get("closing_moneyline_odds")
+    payload["summary_closing_spread_odds"] = extracted.get("closing_spread_odds")
+    payload["summary_closing_total_odds"] = extracted.get("closing_total_odds")
+    payload["summary_odds_over_under"] = safe_float(odds_node.get("overUnder"), default=None)
+    payload["summary_odds_details"] = str(odds_node.get("details") or "").strip()
+    payload["summary_odds_data_quality"] = odds_data_quality(extracted)
+    return payload
+
+
 def fetch_goalie_info_for_event(event_id: str, home_team: str, away_team: str) -> dict:
     """
     Fetch goalie enrichment from ESPN summary endpoint for a single event.
@@ -373,6 +603,7 @@ def fetch_goalie_info_for_event(event_id: str, home_team: str, away_team: str) -
         "home_goalie_found": 0,
         "away_goalie_found": 0,
         "goalie_data_quality": "missing",
+        **_empty_summary_odds_payload(),
     }
 
     if not event_id:
@@ -384,6 +615,10 @@ def fetch_goalie_info_for_event(event_id: str, home_team: str, away_team: str) -
             try:
                 data = _request_json(url, params={"event": event_id}, timeout=REQUEST_TIMEOUT)
                 enriched = _extract_goalies_from_summary(data, home_team, away_team)
+                enriched = {
+                    **enriched,
+                    **_extract_market_odds_from_summary(data),
+                }
                 if enriched.get("goalie_data_quality") != "missing":
                     return enriched
                 # even if missing, this is a valid response; keep it in case the other endpoint is equal
@@ -540,6 +775,8 @@ def parse_event_to_row(event: dict, season: str | None = None, goalie_map: dict 
 
     home_score = safe_int(home_data.get("score"))
     away_score = safe_int(away_data.get("score"))
+    home_p1_goals = _extract_period_score(home_data.get("linescores"), 0)
+    away_p1_goals = _extract_period_score(away_data.get("linescores"), 0)
 
     venue = comp.get("venue") or {}
 
@@ -569,10 +806,41 @@ def parse_event_to_row(event: dict, season: str | None = None, goalie_map: dict 
         "home_goalie_found": 0,
         "away_goalie_found": 0,
         "goalie_data_quality": "missing",
+        **_empty_summary_odds_payload(),
     }
 
     if goalie_map and game_id in goalie_map:
         goalie_payload = goalie_map[game_id]
+
+    # NHL scoreboard often omits odds; fallback to summary/pickcenter payload.
+    for base_key, summary_key in [
+        ("home_moneyline_odds", "summary_home_moneyline_odds"),
+        ("away_moneyline_odds", "summary_away_moneyline_odds"),
+        ("closing_moneyline_odds", "summary_closing_moneyline_odds"),
+        ("closing_spread_odds", "summary_closing_spread_odds"),
+        ("closing_total_odds", "summary_closing_total_odds"),
+    ]:
+        if market_odds_fields.get(base_key) is None:
+            summary_val = goalie_payload.get(summary_key)
+            if summary_val is not None:
+                market_odds_fields[base_key] = summary_val
+
+    if odds_over_under in (None, 0, 0.0):
+        summary_ou = goalie_payload.get("summary_odds_over_under")
+        if summary_ou not in (None, 0, 0.0):
+            odds_over_under = summary_ou
+
+    if odds_details in ("N/A", "", "nan", None):
+        summary_details = str(goalie_payload.get("summary_odds_details") or "").strip()
+        if summary_details:
+            odds_details = summary_details
+
+    final_odds_quality = odds_data_quality(market_odds_fields)
+    if final_odds_quality == "fallback" and odds_over_under not in (None, 0, 0.0):
+        final_odds_quality = "real"
+    clean_goalie_payload = {
+        k: v for k, v in goalie_payload.items() if not str(k).startswith("summary_")
+    }
 
     return {
         "game_id": game_id,
@@ -583,15 +851,27 @@ def parse_event_to_row(event: dict, season: str | None = None, goalie_map: dict 
         "away_team": away_team,
         "home_score": home_score,
         "away_score": away_score,
+        "home_p1_goals": home_p1_goals,
+        "away_p1_goals": away_p1_goals,
+        "total_p1_goals": (
+            int(home_p1_goals) + int(away_p1_goals)
+            if home_p1_goals is not None and away_p1_goals is not None
+            else None
+        ),
         "total_goals": home_score + away_score,
         "is_draw": 1 if home_score == away_score else 0,
         "completed": int(completed),
         "venue_name": venue.get("fullName", ""),
         "odds_over_under": odds_over_under,
         "odds_details": odds_details,
+        "home_moneyline_odds": market_odds_fields.get("home_moneyline_odds"),
+        "away_moneyline_odds": market_odds_fields.get("away_moneyline_odds"),
+        "closing_moneyline_odds": market_odds_fields.get("closing_moneyline_odds"),
+        "closing_spread_odds": market_odds_fields.get("closing_spread_odds"),
+        "closing_total_odds": market_odds_fields.get("closing_total_odds"),
         **market_odds_fields,
-        "odds_data_quality": odds_data_quality(market_odds_fields),
-        **goalie_payload,
+        "odds_data_quality": final_odds_quality,
+        **clean_goalie_payload,
     }
 
 
@@ -631,6 +911,8 @@ def ingest_all_seasons():
         df_completed = df_completed.sort_values(["date", "time", "game_id"]).drop_duplicates(
             subset=["game_id"], keep="last"
         )
+        df_completed = backfill_history_odds_from_snapshots(df_completed)
+        df_completed = backfill_history_odds_from_provider_files(df_completed)
         df_completed.to_csv(FILE_PATH_ADVANCED, index=False)
         print(f"\n✅ Historical data guardado: {FILE_PATH_ADVANCED}")
         print(f"   Total de juegos jugados: {len(df_completed)}")
@@ -642,6 +924,7 @@ def ingest_all_seasons():
             subset=["game_id"], keep="last"
         )
         df_upcoming.to_csv(FILE_PATH_UPCOMING, index=False)
+        persist_odds_snapshots(df_upcoming)
         print(f"\n✅ Upcoming games guardado: {FILE_PATH_UPCOMING}")
         print(f"   Total de juegos futuros: {len(df_upcoming)}")
     else:

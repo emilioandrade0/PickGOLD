@@ -61,6 +61,66 @@ function resolveLineValue(event, keys) {
   return null;
 }
 
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolveResultState(event) {
+  const state = String(event?.status_state || "").trim().toLowerCase();
+  const hasResult =
+    event?.result_available === true ||
+    ["post", "final", "completed"].includes(state) ||
+    Boolean(String(event?.final_score_text || "").trim());
+  const isLive = !hasResult && state === "in";
+  return { hasResult, isLive, state };
+}
+
+function resolveSpreadSideTeam(event, teams, fullGamePick) {
+  const explicit = String(event?.spread_side_team || "").trim();
+  if (explicit) return explicit;
+
+  const raw = String(event?.spread_pick || "").trim();
+  const upper = raw.toUpperCase();
+  if (teams.homeTeam && upper.includes(String(teams.homeTeam).toUpperCase())) return teams.homeTeam;
+  if (teams.awayTeam && upper.includes(String(teams.awayTeam).toUpperCase())) return teams.awayTeam;
+  if (upper.includes("HOME") || upper.includes("LOCAL")) return teams.homeTeam;
+  if (upper.includes("AWAY") || upper.includes("VISITANTE") || upper.includes("VISITOR")) return teams.awayTeam;
+
+  return fullGamePick || null;
+}
+
+function resolveSignedSpreadLine(event, teams, sideTeam) {
+  const display = String(event?.spread_line_display || "").trim();
+  if (display) return display;
+
+  const normalized = toFiniteNumber(event?.spread_line_signed);
+  if (normalized !== null && normalized !== 0) {
+    return normalized > 0 ? `+${normalized.toFixed(1)}` : normalized.toFixed(1);
+  }
+
+  const homeSpread = toFiniteNumber(event?.home_spread);
+  if (homeSpread !== null && homeSpread !== 0 && sideTeam) {
+    const line = sideTeam === teams.homeTeam ? homeSpread : sideTeam === teams.awayTeam ? -homeSpread : null;
+    if (line !== null && line !== 0) return line > 0 ? `+${line.toFixed(1)}` : line.toFixed(1);
+  }
+
+  const absLine = Math.abs(toFiniteNumber(event?.spread_abs) ?? 0);
+  const predictedHomeMargin = toFiniteNumber(event?.predicted_home_margin);
+  if (absLine > 0 && predictedHomeMargin !== null && sideTeam) {
+    const sideMargin = sideTeam === teams.homeTeam ? predictedHomeMargin : -predictedHomeMargin;
+    const line = sideMargin >= absLine ? -absLine : absLine;
+    return line > 0 ? `+${line.toFixed(1)}` : line.toFixed(1);
+  }
+
+  const raw = String(event?.spread_pick || "").match(/([+-]?\d+(?:\.\d+)?)/);
+  if (raw) {
+    const line = Number(raw[1]);
+    if (Number.isFinite(line) && line !== 0) return line > 0 ? `+${line.toFixed(1)}` : line.toFixed(1);
+  }
+  return null;
+}
+
 const ODDS_KEYS = {
   moneyline: [
     "closing_moneyline_odds",
@@ -323,8 +383,7 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
   const eventTier = resolveEventTier(event);
 
-  const hasResult = event.result_available === true;
-  const isLive = !hasResult && String(event.status_state || "").toLowerCase() === "in";
+  const { hasResult, isLive } = resolveResultState(event);
   const hasLiveScore =
     (event.home_score !== undefined && event.home_score !== null) &&
     (event.away_score !== undefined && event.away_score !== null);
@@ -352,10 +411,15 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const totalLineDisplay = totalLine || "Por definir";
   const totalOddsDisplay = totalOdds || "Por definir";
   const spreadPickRaw = String(event.spread_pick || "").trim();
-  const spreadPickFromEvent = expandTeamCodeInText(sportKey, resolveSidePick(spreadPickRaw, teams)) || spreadPickRaw;
-  const spreadPick = !isPendingPick(spreadPickRaw)
+  const spreadSideTeam = resolveSpreadSideTeam(event, teams, fullGamePick);
+  const spreadPickDisplayRaw = String(event.spread_pick_display || "").trim();
+  const spreadPickFromEvent = spreadPickDisplayRaw
+    ? expandTeamCodeInText(sportKey, resolveSidePick(spreadPickDisplayRaw, teams))
+    : (expandTeamCodeInText(sportKey, resolveSidePick(spreadPickRaw, teams)) || spreadPickRaw);
+  const spreadPick = !isPendingPick(spreadPickRaw) || spreadPickDisplayRaw
     ? spreadPickFromEvent
-    : ((spreadLineDisplay !== "Por definir" || hasMlSpreadMarket) ? fullGamePick : "N/A");
+    : ((spreadLineDisplay !== "Por definir" || hasMlSpreadMarket) ? (expandTeamCodeInText(sportKey, spreadSideTeam) || fullGamePick) : "N/A");
+  const signedSpreadLineDisplay = resolveSignedSpreadLine(event, teams, spreadSideTeam) || spreadLineDisplay;
   const spreadHit = toHitValue(event.correct_spread);
   const totalPickRaw = event.total_recommended_pick || event.total_pick;
   const totalDirection = normalizeTotalDirection(totalPickRaw);
@@ -437,6 +501,11 @@ export default function DetailModal({ event, onClose, sportKey }) {
             <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70">
               {event.game_name}
             </span>
+            {hasResult && (
+              <span className="rounded-full border border-emerald-400/35 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100">
+                FINAL
+              </span>
+            )}
             {isLive && hasLiveScore && (
               <span className="rounded-full border border-rose-400/60 bg-rose-500/10 px-4 py-2 text-sm text-rose-100">
                 LIVE · {liveClock}
@@ -590,7 +659,7 @@ export default function DetailModal({ event, onClose, sportKey }) {
             <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(spreadHit)}`}>
               <p className="text-sm text-white/50">Handicap</p>
               <p className="mt-1 text-lg font-semibold">Pick: {handicapPickDisplay}</p>
-              <p className="mt-2 text-sm text-white/65">Linea: {spreadLineDisplay}</p>
+              <p className="mt-2 text-sm text-white/65">Linea: {signedSpreadLineDisplay}</p>
               <p className="mt-1 text-sm text-white/65">Cuota: {spreadOddsDisplay}</p>
               {hasResult && spreadHit !== undefined && spreadHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">

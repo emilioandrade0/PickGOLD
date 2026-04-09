@@ -9,6 +9,7 @@ import uuid
 import hashlib
 
 import pandas as pd
+import numpy as np
 import requests
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -829,6 +830,59 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         if _is_pending_pick(spread_pick) and full_game_pick and _resolve_spread_context(item):
             item["spread_pick"] = full_game_pick
 
+    def _normalize_full_game_schema(item: dict):
+        def _first_valid_pick(values):
+            for value in values:
+                if not _is_pending_pick(value):
+                    return str(value).strip()
+            return ""
+
+        home_team = str(item.get("home_team") or "").strip().upper()
+        away_team = str(item.get("away_team") or "").strip().upper()
+        market = str(item.get("market") or "").strip().upper()
+        generic_pick = str(item.get("pick") or "").strip()
+        generic_pick_u = generic_pick.upper()
+        is_generic_team_pick = bool(generic_pick) and generic_pick_u in {home_team, away_team}
+
+        candidate_picks = [
+            item.get("full_game_pick"),
+            item.get("moneyline_pick"),
+            item.get("pick_team"),
+        ]
+        if is_generic_team_pick or market in {"FULL_GAME", "MONEYLINE", "ML"}:
+            candidate_picks.append(generic_pick)
+        resolved_pick = _first_valid_pick(candidate_picks)
+        if resolved_pick:
+            item["full_game_pick"] = resolved_pick
+
+        if item.get("full_game_confidence") in (None, "", "nan"):
+            for key in ("moneyline_confidence", "confidence"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["full_game_confidence"] = val
+                    break
+
+        if item.get("full_game_recommended_score") in (None, "", "nan"):
+            for key in ("moneyline_recommended_score", "recommended_score"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["full_game_recommended_score"] = val
+                    break
+
+        if item.get("full_game_result_winner") in (None, "", "nan"):
+            for key in ("moneyline_actual", "actual_winner"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["full_game_result_winner"] = val
+                    break
+
+        if _to_bool_or_none(item.get("full_game_hit")) is None:
+            for key in ("moneyline_correct", "correct_full_game_adjusted", "correct_full_game", "correct"):
+                val = _to_bool_or_none(item.get(key))
+                if val is not None:
+                    item["full_game_hit"] = val
+                    break
+
     def _winner_from_score(home_team: str, away_team: str, home_score: int, away_score: int):
         if home_score > away_score:
             return home_team
@@ -999,6 +1053,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
     for event in events:
         item = dict(event)
+        _normalize_full_game_schema(item)
         _synthesize_missing_market_picks(item)
         game_id = str(item.get("game_id", ""))
 

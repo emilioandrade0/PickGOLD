@@ -15,6 +15,9 @@ function getSportTitle(pathname) {
   if (pathname.startsWith("/euroleague")) return "EuroLeague";
   if (pathname.startsWith("/liga-mx")) return "Liga MX";
   if (pathname.startsWith("/laliga")) return "LaLiga";
+  if (pathname.startsWith("/live")) return "En Vivo";
+  if (pathname.startsWith("/resumen-dia")) return "Resumen del dia";
+  if (pathname.startsWith("/estadisticas")) return "Estadisticas";
   return "NBA";
 }
 

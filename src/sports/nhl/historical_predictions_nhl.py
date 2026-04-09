@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from collections import defaultdict
 
 import numpy as np
@@ -10,6 +10,7 @@ from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
 
 import sys
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -26,9 +27,10 @@ NON_FEATURE_COLUMNS = {
     "game_id", "date", "date_dt", "time", "season", "home_team", "away_team",
     "home_score", "away_score", "total_goals", "is_draw", "completed",
     "venue_name", "odds_details", "odds_over_under", "odds_data_quality",
+    "home_p1_goals", "away_p1_goals", "total_p1_goals",
     "home_goalie_name", "away_goalie_name", "home_goalie_id", "away_goalie_id",
     "goalie_data_quality",
-    "TARGET_full_game", "TARGET_over_55", "TARGET_home_over_25", "TARGET_spread_1_5",
+    "TARGET_full_game", "TARGET_over_55", "TARGET_home_over_25", "TARGET_spread_1_5", "TARGET_p1_over_15",
 }
 
 
@@ -125,12 +127,37 @@ def derive_nhl_first_period_pick(prob_over_55: float) -> Dict:
     }
 
 
+def _resolve_nhl_total_line(raw_value) -> float:
+    try:
+        line = float(raw_value)
+        if line > 0:
+            return float(round(line * 2) / 2.0)
+    except Exception:
+        pass
+    return 5.5
+
+
+def _goal_line_label(line: float) -> str:
+    return str(int(line)) if float(line).is_integer() else f"{line:.1f}"
+
+
+def _spread_cover_from_pick(pick_text: str, home_team: str, away_team: str, home_score: int, away_score: int, line: float = 1.5):
+    pick = str(pick_text or "").upper()
+    if not pick:
+        return None
+    if str(home_team).upper() in pick:
+        return int((home_score - away_score) > line)
+    if str(away_team).upper() in pick:
+        return int((away_score - home_score) > line)
+    return None
+
+
 def choose_optimal_binary_threshold(y_true: np.ndarray, probs: np.ndarray, market: str = "full_game") -> float:
     y_true = np.asarray(y_true).astype(int)
     probs = np.asarray(probs).astype(float)
 
     if market == "full_game":
-        search_space = np.arange(0.45, 0.61, 0.01)
+        search_space = np.arange(0.35, 0.66, 0.01)
     else:
         search_space = np.arange(0.35, 0.66, 0.01)
 
@@ -145,6 +172,41 @@ def choose_optimal_binary_threshold(y_true: np.ndarray, probs: np.ndarray, marke
             best_threshold = float(threshold)
 
     return best_threshold
+
+
+def _weighted_prob(probs_mat: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    weights = np.asarray(weights, dtype=float)
+    weights = weights / np.sum(weights)
+    return np.clip(np.dot(probs_mat, weights), 1e-6, 1 - 1e-6)
+
+
+def _search_best_weights(y_true: np.ndarray, probs_mat: np.ndarray, market: str) -> np.ndarray:
+    best_w = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
+    best_acc = -1.0
+    best_ll = 1e9
+    grid = np.arange(0.0, 1.01, 0.1)
+    for w1 in grid:
+        for w2 in grid:
+            for w3 in grid:
+                s = w1 + w2 + w3
+                if s > 1.0:
+                    continue
+                w4 = round(1.0 - s, 10)
+                if w4 < 0:
+                    continue
+                w = np.array([w1, w2, w3, w4], dtype=float)
+                if np.sum(w) <= 0:
+                    continue
+                p = _weighted_prob(probs_mat, w)
+                thr = choose_optimal_binary_threshold(y_true, p, market=market)
+                pred = (p >= thr).astype(int)
+                acc = float((pred == y_true).mean())
+                ll = float(log_loss(y_true, p))
+                if (acc > best_acc) or (acc == best_acc and ll < best_ll):
+                    best_acc = acc
+                    best_ll = ll
+                    best_w = w.copy()
+    return best_w / np.sum(best_w)
 
 
 def fit_calibrated_ensemble(X_train: pd.DataFrame, y_train: pd.Series, market: str = "full_game"):
@@ -173,42 +235,59 @@ def fit_calibrated_ensemble(X_train: pd.DataFrame, y_train: pd.Series, market: s
         model.fit(base_X, base_y)
 
     calibrator = None
+    blend_weights = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
+    use_calibrator = True
     chosen_threshold = 0.50
 
     if calib_X is not None and calib_y is not None and len(np.unique(calib_y)) > 1:
-        calib_raw_probs = (
-            models["xgb"].predict_proba(calib_X)[:, 1]
-            + models["lgbm"].predict_proba(calib_X)[:, 1]
-            + models["lgbm_sec"].predict_proba(calib_X)[:, 1]
-            + models["catboost"].predict_proba(calib_X)[:, 1]
-        ) / 4.0
-
+        probs_mat = np.column_stack(
+            [
+                models["xgb"].predict_proba(calib_X)[:, 1],
+                models["lgbm"].predict_proba(calib_X)[:, 1],
+                models["lgbm_sec"].predict_proba(calib_X)[:, 1],
+                models["catboost"].predict_proba(calib_X)[:, 1],
+            ]
+        )
+        y_cal = np.asarray(calib_y).astype(int)
+        calib_raw_probs = _weighted_prob(probs_mat, blend_weights)
         try:
             calibrator = LogisticRegression(C=1.0, solver="lbfgs")
             calibrator.fit(calib_raw_probs.reshape(-1, 1), calib_y)
             calib_final_probs = calibrator.predict_proba(calib_raw_probs.reshape(-1, 1))[:, 1]
         except Exception:
             calibrator = None
+            use_calibrator = False
             calib_final_probs = calib_raw_probs
-
         chosen_threshold = choose_optimal_binary_threshold(
-            y_true=np.asarray(calib_y).astype(int),
+            y_true=y_cal,
             probs=calib_final_probs,
             market=market,
         )
 
-    return models, calibrator, chosen_threshold
+    return models, calibrator, chosen_threshold, blend_weights, use_calibrator
 
 
-def predict_calibrated_ensemble(models, calibrator, X_test: pd.DataFrame, threshold: float = 0.50):
-    raw_probs = (
-        models["xgb"].predict_proba(X_test)[:, 1]
-        + models["lgbm"].predict_proba(X_test)[:, 1]
-        + models["lgbm_sec"].predict_proba(X_test)[:, 1]
-        + models["catboost"].predict_proba(X_test)[:, 1]
-    ) / 4.0
+def predict_calibrated_ensemble(
+    models,
+    calibrator,
+    X_test: pd.DataFrame,
+    threshold: float = 0.50,
+    blend_weights: Optional[np.ndarray] = None,
+    use_calibrator: bool = True,
+):
+    probs_mat = np.column_stack(
+        [
+            models["xgb"].predict_proba(X_test)[:, 1],
+            models["lgbm"].predict_proba(X_test)[:, 1],
+            models["lgbm_sec"].predict_proba(X_test)[:, 1],
+            models["catboost"].predict_proba(X_test)[:, 1],
+        ]
+    )
+    if blend_weights is None:
+        blend_weights = np.array([0.25, 0.25, 0.25, 0.25], dtype=float)
+    raw_probs = _weighted_prob(probs_mat, blend_weights)
 
-    if calibrator is not None:
+    if use_calibrator and calibrator is not None:
         final_probs = calibrator.predict_proba(raw_probs.reshape(-1, 1))[:, 1]
     else:
         final_probs = raw_probs
@@ -345,7 +424,7 @@ def generate_historical_predictions():
         full_threshold = 0.50
 
         if valid_full.sum() >= 10 and len(np.unique(y_full_train)) > 1:
-            models_full, calib_full, full_threshold = fit_calibrated_ensemble(
+            models_full, calib_full, full_threshold, weights_full, use_cal_full = fit_calibrated_ensemble(
                 X_train.loc[valid_full],
                 y_full_train,
                 market="full_game",
@@ -355,6 +434,8 @@ def generate_historical_predictions():
                 calib_full,
                 X_test,
                 threshold=full_threshold,
+                blend_weights=weights_full,
+                use_calibrator=use_cal_full,
             )
 
         # TOTALS 5.5
@@ -364,7 +445,7 @@ def generate_historical_predictions():
         totals_threshold = 0.50
 
         if valid_totals.sum() >= 10 and len(np.unique(y_totals_train.loc[valid_totals])) > 1:
-            models_totals, calib_totals, totals_threshold = fit_calibrated_ensemble(
+            models_totals, calib_totals, totals_threshold, weights_totals, use_cal_totals = fit_calibrated_ensemble(
                 X_train.loc[valid_totals],
                 y_totals_train.loc[valid_totals].astype(int),
                 market="totals_5_5",
@@ -374,6 +455,48 @@ def generate_historical_predictions():
                 calib_totals,
                 X_test,
                 threshold=totals_threshold,
+                blend_weights=weights_totals,
+                use_calibrator=use_cal_totals,
+            )
+
+        # HANDICAP 1.5
+        y_spread_train = pd.to_numeric(train_df["TARGET_spread_1_5"], errors="coerce").fillna(-1)
+        valid_spread = y_spread_train >= 0
+        pred_spread, conf_spread, prob_spread = None, None, None
+        spread_threshold = 0.50
+        if valid_spread.sum() >= 10 and len(np.unique(y_spread_train.loc[valid_spread])) > 1:
+            models_spread, calib_spread, spread_threshold, weights_spread, use_cal_spread = fit_calibrated_ensemble(
+                X_train.loc[valid_spread],
+                y_spread_train.loc[valid_spread].astype(int),
+                market="spread_1_5",
+            )
+            pred_spread, conf_spread, prob_spread = predict_calibrated_ensemble(
+                models_spread,
+                calib_spread,
+                X_test,
+                threshold=spread_threshold,
+                blend_weights=weights_spread,
+                use_calibrator=use_cal_spread,
+            )
+
+        # Q1 O/U 1.5
+        y_q1_train = pd.to_numeric(train_df["TARGET_p1_over_15"], errors="coerce").fillna(-1)
+        valid_q1 = y_q1_train >= 0
+        pred_q1, conf_q1, prob_q1 = None, None, None
+        q1_threshold = 0.50
+        if valid_q1.sum() >= 10 and len(np.unique(y_q1_train.loc[valid_q1])) > 1:
+            models_q1, calib_q1, q1_threshold, weights_q1, use_cal_q1 = fit_calibrated_ensemble(
+                X_train.loc[valid_q1],
+                y_q1_train.loc[valid_q1].astype(int),
+                market="q1_over_15",
+            )
+            pred_q1, conf_q1, prob_q1 = predict_calibrated_ensemble(
+                models_q1,
+                calib_q1,
+                X_test,
+                threshold=q1_threshold,
+                blend_weights=weights_q1,
+                use_calibrator=use_cal_q1,
             )
 
         # HOME OVER 2.5
@@ -383,7 +506,7 @@ def generate_historical_predictions():
         home_threshold = 0.50
 
         if valid_home.sum() >= 10 and len(np.unique(y_home_train.loc[valid_home])) > 1:
-            models_home, calib_home, home_threshold = fit_calibrated_ensemble(
+            models_home, calib_home, home_threshold, weights_home, use_cal_home = fit_calibrated_ensemble(
                 X_train.loc[valid_home],
                 y_home_train.loc[valid_home].astype(int),
                 market="home_over_2_5",
@@ -393,9 +516,13 @@ def generate_historical_predictions():
                 calib_home,
                 X_test,
                 threshold=home_threshold,
+                blend_weights=weights_home,
+                use_calibrator=use_cal_home,
             )
 
         for idx, test_row in test_df.reset_index(drop=True).iterrows():
+            total_line_live = _resolve_nhl_total_line(test_row.get("odds_over_under"))
+            total_line_txt = _goal_line_label(total_line_live)
             game_dict = {
                 "game_id": str(test_row["game_id"]),
                 "date": test_row["date"],
@@ -404,7 +531,9 @@ def generate_historical_predictions():
                 "away_team": str(test_row["away_team"]),
                 "home_score": None if pd.isna(test_row.get("home_score")) else int(test_row.get("home_score")),
                 "away_score": None if pd.isna(test_row.get("away_score")) else int(test_row.get("away_score")),
-                "odds_over_under": float(test_row.get("odds_over_under", 0) or 0),
+                "odds_over_under": total_line_live,
+                "closing_total_line": total_line_live,
+                "closing_spread_line": 1.5,
                 "closing_moneyline_odds": test_row.get("closing_moneyline_odds"),
                 "home_moneyline_odds": test_row.get("home_moneyline_odds"),
                 "away_moneyline_odds": test_row.get("away_moneyline_odds"),
@@ -442,6 +571,11 @@ def generate_historical_predictions():
                     game_dict["moneyline_threshold_used"] = round(float(full_threshold), 4)
                     game_dict["moneyline_actual"] = str(actual_winner)
                     game_dict["moneyline_correct"] = is_correct
+                    game_dict["full_game_pick"] = str(pick_team)
+                    game_dict["full_game_confidence"] = conf_pct
+                    game_dict["full_game_recommended_score"] = round(confidence * 100, 1)
+                    game_dict["full_game_hit"] = is_correct
+                    game_dict["full_game_result_winner"] = str(actual_winner)
 
                     game_dict["market"] = "FULL_GAME"
                     game_dict["pick"] = str(pick_team)
@@ -456,6 +590,32 @@ def generate_historical_predictions():
                     game_dict["actual_winner"] = str(actual_winner)
                     game_dict["correct"] = is_correct
 
+                    if pred_spread is None:
+                        spread_side = test_row["home_team"] if pred_bin == 1 else test_row["away_team"]
+                        spread_sign = "-1.5" if pred_bin == 1 else "+1.5"
+                        spread_pick = f"{spread_side} {spread_sign}"
+                        game_dict["spread_pick"] = spread_pick
+                        game_dict["spread_market"] = "Puck Line 1.5"
+                        game_dict["spread_line"] = 1.5
+                        game_dict["spread_confidence"] = max(0, conf_pct - 4)
+                        spread_hit = _spread_cover_from_pick(
+                            spread_pick,
+                            str(test_row["home_team"]),
+                            str(test_row["away_team"]),
+                            int(test_row.get("home_score", 0) or 0),
+                            int(test_row.get("away_score", 0) or 0),
+                            1.5,
+                        )
+                        game_dict["correct_spread"] = spread_hit
+                        if spread_hit is not None:
+                            overall_stats["spread_1_5"]["correct"] += int(spread_hit)
+                            overall_stats["spread_1_5"]["total"] += 1
+                            overall_stats["spread_1_5"]["total_conf"] += confidence
+                            if confidence >= 0.55:
+                                premium_stats["spread_1_5"]["correct"] += int(spread_hit)
+                                premium_stats["spread_1_5"]["total"] += 1
+                                premium_stats["spread_1_5"]["total_conf"] += confidence
+
                     overall_stats["full_game"]["correct"] += is_correct
                     overall_stats["full_game"]["total"] += 1
                     overall_stats["full_game"]["total_conf"] += confidence
@@ -468,15 +628,15 @@ def generate_historical_predictions():
             # TOTALS 5.5
             if pred_totals is not None:
                 confidence = float(conf_totals[idx])
-                total_labels = ["Under 5.5", "Over 5.5"]
+                total_labels = [f"Under {total_line_txt}", f"Over {total_line_txt}"]
                 actual = int(test_row["TARGET_over_55"])
                 pred_val = int(pred_totals[idx])
                 total_pick = total_labels[pred_val]
                 is_correct = int(pred_val == actual)
 
                 game_dict["total_pick"] = total_pick
-                game_dict["total_market"] = "Total Goals O/U 5.5"
-                game_dict["total_line"] = 5.5
+                game_dict["total_market"] = f"Total Goals O/U {total_line_txt}"
+                game_dict["total_line"] = total_line_live
                 game_dict["total_confidence"] = int(round(confidence * 100))
                 game_dict["total_recommended_pick"] = total_pick
                 game_dict["total_recommended_score"] = round(confidence * 100, 1)
@@ -485,7 +645,8 @@ def generate_historical_predictions():
                 game_dict["total_actual"] = total_labels[actual]
                 game_dict["total_correct"] = is_correct
                 game_dict["correct_total"] = is_correct
-                game_dict.update(derive_nhl_first_period_pick(float(prob_totals[idx])))
+                if pred_q1 is None:
+                    game_dict.update(derive_nhl_first_period_pick(float(prob_totals[idx])))
 
                 overall_stats["totals_5_5"]["correct"] += is_correct
                 overall_stats["totals_5_5"]["total"] += 1
@@ -521,6 +682,52 @@ def generate_historical_predictions():
                     premium_stats["home_over_2_5"]["total"] += 1
                     premium_stats["home_over_2_5"]["total_conf"] += confidence
 
+            # HANDICAP 1.5 (dedicated)
+            if pred_spread is not None:
+                confidence = float(conf_spread[idx])
+                spread_labels = [f"{test_row['away_team']} +1.5", f"{test_row['home_team']} -1.5"]
+                actual = int(test_row["TARGET_spread_1_5"])
+                pred_val = int(pred_spread[idx])
+                spread_pick = spread_labels[pred_val]
+                is_correct = int(pred_val == actual)
+                game_dict["spread_pick"] = spread_pick
+                game_dict["spread_market"] = "Puck Line 1.5"
+                game_dict["spread_line"] = 1.5
+                game_dict["spread_confidence"] = int(round(confidence * 100))
+                game_dict["spread_threshold_used"] = round(float(spread_threshold), 4)
+                game_dict["correct_spread"] = is_correct
+                overall_stats["spread_1_5"]["correct"] += is_correct
+                overall_stats["spread_1_5"]["total"] += 1
+                overall_stats["spread_1_5"]["total_conf"] += confidence
+                if confidence >= 0.55:
+                    premium_stats["spread_1_5"]["correct"] += is_correct
+                    premium_stats["spread_1_5"]["total"] += 1
+                    premium_stats["spread_1_5"]["total_conf"] += confidence
+
+            # Q1 O/U 1.5 (dedicated)
+            if pred_q1 is not None:
+                confidence = float(conf_q1[idx])
+                q1_labels = ["Under 1.5", "Over 1.5"]
+                actual = int(test_row["TARGET_p1_over_15"])
+                pred_val = int(pred_q1[idx])
+                is_correct = int(pred_val == actual)
+                game_dict["q1_pick"] = q1_labels[pred_val]
+                game_dict["q1_market"] = "1P Goals O/U 1.5"
+                game_dict["q1_line"] = 1.5
+                game_dict["q1_confidence"] = int(round(confidence * 100))
+                game_dict["q1_action"] = "JUGAR" if game_dict["q1_confidence"] >= 56 else "PASS"
+                game_dict["q1_model_prob_yes"] = round(float(prob_q1[idx]), 4)
+                game_dict["q1_calibrated_prob_yes"] = round(float(confidence), 4)
+                game_dict["q1_correct"] = is_correct
+                game_dict["q1_hit"] = is_correct
+                overall_stats["q1_over_15"]["correct"] += is_correct
+                overall_stats["q1_over_15"]["total"] += 1
+                overall_stats["q1_over_15"]["total_conf"] += confidence
+                if confidence >= 0.55:
+                    premium_stats["q1_over_15"]["correct"] += is_correct
+                    premium_stats["q1_over_15"]["total"] += 1
+                    premium_stats["q1_over_15"]["total_conf"] += confidence
+
             predictions_by_date[test_row["date"]].append(game_dict)
 
     print("\n[SAVE] Saving predictions by date...")
@@ -530,7 +737,7 @@ def generate_historical_predictions():
             json.dump(predictions_by_date[date_str], f, indent=2, ensure_ascii=False)
 
     print("\n[STATS] OVERALL ACCURACY (Todos los picks):")
-    for market in ["full_game", "totals_5_5", "home_over_2_5"]:
+    for market in ["full_game", "spread_1_5", "totals_5_5", "q1_over_15", "home_over_2_5"]:
         stats = overall_stats[market]
         if stats["total"] > 0:
             accuracy = stats["correct"] / stats["total"]
@@ -540,7 +747,7 @@ def generate_historical_predictions():
             print(f"      Avg Confidence: {avg_conf:.1%}")
 
     print("\n[STATS] PREMIUM PICKS ACCURACY (Confianza >= 55%):")
-    for market in ["full_game", "totals_5_5", "home_over_2_5"]:
+    for market in ["full_game", "spread_1_5", "totals_5_5", "q1_over_15", "home_over_2_5"]:
         stats = premium_stats[market]
         if stats["total"] > 0:
             accuracy = stats["correct"] / stats["total"]

@@ -33,9 +33,23 @@ TARGET_CONFIG = {
         "num_classes": 2,
         "threshold": 0.50,
     },
+    "handicap_1_5": {
+        "target_col": "TARGET_spread_1_5",
+        "description": "Home -1.5 covers (1) vs Away +1.5 covers (0)",
+        "problem_type": "binary",
+        "num_classes": 2,
+        "threshold": 0.50,
+    },
     "spread_2_5": {
         "target_col": "TARGET_over_55",
         "description": "Over/Under 5.5 goals",
+        "problem_type": "binary",
+        "num_classes": 2,
+        "threshold": 0.50,
+    },
+    "q1_over_15": {
+        "target_col": "TARGET_p1_over_15",
+        "description": "1P Goals Over/Under 1.5",
         "problem_type": "binary",
         "num_classes": 2,
         "threshold": 0.50,
@@ -52,8 +66,10 @@ TARGET_CONFIG = {
 NON_FEATURE_COLUMNS = {
     "game_id", "date", "date_dt", "time", "season", "home_team", "away_team",
     "home_score", "away_score", "is_draw", "total_goals",
+    "home_p1_goals", "away_p1_goals", "total_p1_goals",
     "completed", "venue_name", "odds_details", "odds_over_under",
     "TARGET_full_game", "TARGET_over_55", "TARGET_home_over_25",
+    "TARGET_spread_1_5", "TARGET_p1_over_15",
 }
 
 

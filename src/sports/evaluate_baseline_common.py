@@ -209,6 +209,23 @@ def _parse_team_result_value(value):
     return txt
 
 
+def _evaluate_total_pick_text(pick_text, total_value, fallback_line):
+    p = str(pick_text or "").strip().upper()
+    if not p:
+        return None
+    try:
+        line = float(fallback_line)
+    except Exception:
+        line = None
+    if line is None:
+        return None
+    if "OVER" in p:
+        return total_value > line
+    if "UNDER" in p:
+        return total_value < line
+    return None
+
+
 def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
     print(f"Calculando accuracy base para {label}...")
     if pred_dir is None or not pred_dir.exists():
@@ -426,6 +443,118 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
     return True
 
 
+def _evaluate_nhl_markets(base_dir: Path, label: str, raw_path: Path, pred_dir: Path):
+    print(f"Calculando accuracy base para {label}...")
+    if pred_dir is None or not pred_dir.exists():
+        print(f"ERROR: No encontre carpeta de predicciones para {label}.")
+        return True
+    if raw_path is None or not raw_path.exists():
+        print(f"ERROR: No encontre RAW para {label}.")
+        return True
+
+    json_files = sorted(pred_dir.glob("*.json"))
+    if not json_files:
+        print(f"ERROR: No hay JSONs en {pred_dir}.")
+        return True
+
+    raw_df = pd.read_csv(raw_path, dtype={"game_id": str})
+    p1_map = {}
+    if {"game_id", "home_p1_goals", "away_p1_goals"}.issubset(raw_df.columns):
+        for _, rr in raw_df.iterrows():
+            gid = str(rr.get("game_id") or "").strip()
+            if not gid:
+                continue
+            hp1 = rr.get("home_p1_goals")
+            ap1 = rr.get("away_p1_goals")
+            if pd.notna(hp1) and pd.notna(ap1):
+                p1_map[gid] = int(hp1) + int(ap1)
+
+    counters = {
+        "ml": [0, 0],
+        "spread": [0, 0],
+        "total": [0, 0],
+        "q1": [0, 0],
+        "home_over": [0, 0],
+    }
+    tiers = {}
+
+    for jf in json_files:
+        rows = _safe_rows_from_json(jf)
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+
+            ml_hit = _to_bool(r.get("moneyline_correct") if "moneyline_correct" in r else r.get("correct"))
+            if ml_hit is not None:
+                counters["ml"][1] += 1
+                counters["ml"][0] += int(ml_hit)
+                tier = str(r.get("full_game_tier", r.get("tier", "PASS"))).upper()
+                if tier not in tiers:
+                    tiers[tier] = [0, 0]
+                tiers[tier][1] += 1
+                tiers[tier][0] += int(ml_hit)
+
+            spread_hit = _to_bool(r.get("correct_spread"))
+            if spread_hit is not None:
+                counters["spread"][1] += 1
+                counters["spread"][0] += int(spread_hit)
+
+            total_hit = _to_bool(r.get("correct_total") if "correct_total" in r else r.get("total_correct"))
+            if total_hit is not None:
+                counters["total"][1] += 1
+                counters["total"][0] += int(total_hit)
+
+            home_hit = _to_bool(r.get("home_over_correct"))
+            if home_hit is not None:
+                counters["home_over"][1] += 1
+                counters["home_over"][0] += int(home_hit)
+
+            q1_hit = _to_bool(r.get("q1_correct") if "q1_correct" in r else r.get("q1_hit"))
+            if q1_hit is None:
+                gid = str(r.get("game_id") or "").strip()
+                q1_total = p1_map.get(gid)
+                q1_pick = str(r.get("q1_pick") or "").strip()
+                q1_line = r.get("q1_line", 1.5)
+                if q1_total is not None:
+                    q1_hit = _to_bool(_evaluate_total_pick_text(q1_pick, q1_total, q1_line))
+            if q1_hit is not None:
+                counters["q1"][1] += 1
+                counters["q1"][0] += int(q1_hit)
+
+    if counters["ml"][1] == 0:
+        print("No hay cruces evaluables entre picks y resultados.")
+        return True
+
+    def _pct(h, t):
+        return (100.0 * h / t) if t > 0 else None
+
+    print("=" * 66)
+    print(f"REPORTE ACCURACY BASE - {label} (MUESTRA ML: {counters['ml'][1]} JUEGOS)")
+    print("=" * 66)
+    for key, title in [
+        ("ml", "MONEYLINE"),
+        ("spread", "HANDICAP -1.5"),
+        ("total", "OVER/UNDER GOLES"),
+        ("q1", "PRIMER PERIODO O/U 1.5"),
+        ("home_over", "GOLES LOCAL O/U 2.5"),
+    ]:
+        h, t = counters[key]
+        p = _pct(h, t)
+        if p is None:
+            print(f"{title.ljust(24)}: N/A")
+        else:
+            print(f"{title.ljust(24)}: {p:.2f}% ({h}/{t})")
+
+    print("-" * 66)
+    print("ACCURACY POR TIER (MONEYLINE)")
+    for tier_name in sorted(tiers.keys()):
+        h, t = tiers[tier_name]
+        tier_acc = (100.0 * h / t) if t > 0 else 0.0
+        print(f"   {tier_name.ljust(8)} : {tier_acc:.2f}% ({h}/{t})")
+    print("=" * 66)
+    return True
+
+
 def _evaluate_mlb_from_walkforward(base_dir: Path):
     summary_path = base_dir / "src" / "data" / "mlb" / "walkforward" / "walkforward_summary_mlb.json"
     if not summary_path.exists():
@@ -573,6 +702,11 @@ def evaluate_for_sport(sport_key: str):
     if sport_key == "ligamx":
         _, pred_dir = _resolve_paths(base_dir, sport_key)
         _evaluate_ligamx_markets(base_dir=base_dir, label=label, pred_dir=pred_dir)
+        return
+
+    if sport_key == "nhl":
+        raw_path, pred_dir = _resolve_paths(base_dir, sport_key)
+        _evaluate_nhl_markets(base_dir=base_dir, label=label, raw_path=raw_path, pred_dir=pred_dir)
         return
 
     raw_path, pred_dir = _resolve_paths(base_dir, sport_key)

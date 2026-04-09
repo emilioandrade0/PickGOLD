@@ -55,6 +55,66 @@ function resolveLineValue(event, keys) {
   return null;
 }
 
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolveResultState(event) {
+  const state = String(event?.status_state || "").trim().toLowerCase();
+  const hasResult =
+    event?.result_available === true ||
+    ["post", "final", "completed"].includes(state) ||
+    Boolean(String(event?.final_score_text || "").trim());
+  const isLive = !hasResult && state === "in";
+  return { hasResult, isLive, state };
+}
+
+function resolveSpreadSideTeam(event, teams, fullGamePick) {
+  const explicit = String(event?.spread_side_team || "").trim();
+  if (explicit) return explicit;
+
+  const raw = String(event?.spread_pick || "").trim();
+  const upper = raw.toUpperCase();
+  if (teams.homeTeam && upper.includes(String(teams.homeTeam).toUpperCase())) return teams.homeTeam;
+  if (teams.awayTeam && upper.includes(String(teams.awayTeam).toUpperCase())) return teams.awayTeam;
+  if (upper.includes("HOME") || upper.includes("LOCAL")) return teams.homeTeam;
+  if (upper.includes("AWAY") || upper.includes("VISITANTE") || upper.includes("VISITOR")) return teams.awayTeam;
+
+  return fullGamePick || null;
+}
+
+function resolveSignedSpreadLine(event, teams, sideTeam) {
+  const display = String(event?.spread_line_display || "").trim();
+  if (display) return display;
+
+  const normalized = toFiniteNumber(event?.spread_line_signed);
+  if (normalized !== null && normalized !== 0) {
+    return normalized > 0 ? `+${normalized.toFixed(1)}` : normalized.toFixed(1);
+  }
+
+  const homeSpread = toFiniteNumber(event?.home_spread);
+  if (homeSpread !== null && homeSpread !== 0 && sideTeam) {
+    const line = sideTeam === teams.homeTeam ? homeSpread : sideTeam === teams.awayTeam ? -homeSpread : null;
+    if (line !== null && line !== 0) return line > 0 ? `+${line.toFixed(1)}` : line.toFixed(1);
+  }
+
+  const absLine = Math.abs(toFiniteNumber(event?.spread_abs) ?? 0);
+  const predictedHomeMargin = toFiniteNumber(event?.predicted_home_margin);
+  if (absLine > 0 && predictedHomeMargin !== null && sideTeam) {
+    const sideMargin = sideTeam === teams.homeTeam ? predictedHomeMargin : -predictedHomeMargin;
+    const line = sideMargin >= absLine ? -absLine : absLine;
+    return line > 0 ? `+${line.toFixed(1)}` : line.toFixed(1);
+  }
+
+  const raw = String(event?.spread_pick || "").match(/([+-]?\d+(?:\.\d+)?)/);
+  if (raw) {
+    const line = Number(raw[1]);
+    if (Number.isFinite(line) && line !== 0) return line > 0 ? `+${line.toFixed(1)}` : line.toFixed(1);
+  }
+  return null;
+}
+
 const ODDS_KEYS = {
   moneyline: [
     "closing_moneyline_odds",
@@ -279,21 +339,14 @@ function TeamRow({ sportKey, abbr }) {
 export default function EventCard({ event, onOpen, sportKey }) {
   const teams = resolveEventTeams(event);
   const eventTier = resolveEventTier(event);
-  const hasResult = event.result_available === true;
-  const isLive = !hasResult && String(event.status_state || "").toLowerCase() === "in";
+  const { hasResult, isLive } = resolveResultState(event);
   const hasLiveScore =
     (event.home_score !== undefined && event.home_score !== null) &&
     (event.away_score !== undefined && event.away_score !== null);
   const gameHit = event.full_game_hit;
-  const secondaryMarket = resolveSecondaryMarket(event, sportKey, teams);
   const firstHalfCard = resolveFirstHalfCard(event, sportKey, teams);
-  const secondaryPick = secondaryMarket?.pick;
-  const secondaryAction = secondaryMarket?.action;
   const rawFullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
   const fullGamePick = rawFullGamePick || (sportKey === "ncaa_baseball" ? "Sin linea disponible" : "Pendiente");
-  const secondaryHit = secondaryMarket?.hit ?? null;
-  const secondaryConfidence = secondaryMarket?.confidence;
-  const secondaryLabel = secondaryMarket?.label || "Pick secundario";
   const mainOdds = resolveOddsValue(event, ODDS_KEYS.moneyline);
   const spreadOdds = resolveOddsValue(event, ODDS_KEYS.spread);
   const totalOdds = resolveOddsValue(event, ODDS_KEYS.total);
@@ -305,13 +358,17 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const spreadOddsDisplay = spreadOdds || (hasMlSpreadMarket ? mainOdds : "Por definir");
   const totalLineDisplay = totalLine || "Por definir";
   const totalOddsDisplay = totalOdds || "Por definir";
-  const secondaryOdds = resolveOddsForSecondary(event, secondaryLabel);
   const cornersOdds = resolveOddsValue(event, ODDS_KEYS.corners);
   const spreadPickRaw = String(event.spread_pick || "").trim();
-  const spreadPickFromEvent = expandTeamCodeInText(sportKey, resolveSidePick(spreadPickRaw, teams)) || spreadPickRaw;
-  const spreadPick = !isPendingPick(spreadPickRaw)
+  const spreadSideTeam = resolveSpreadSideTeam(event, teams, fullGamePick);
+  const spreadPickDisplayRaw = String(event.spread_pick_display || "").trim();
+  const spreadPickFromEvent = spreadPickDisplayRaw
+    ? expandTeamCodeInText(sportKey, resolveSidePick(spreadPickDisplayRaw, teams))
+    : (expandTeamCodeInText(sportKey, resolveSidePick(spreadPickRaw, teams)) || spreadPickRaw);
+  const spreadPick = !isPendingPick(spreadPickRaw) || spreadPickDisplayRaw
     ? spreadPickFromEvent
-    : ((spreadLineDisplay !== "Por definir" || hasMlSpreadMarket) ? fullGamePick : null);
+    : ((spreadLineDisplay !== "Por definir" || hasMlSpreadMarket) ? (expandTeamCodeInText(sportKey, spreadSideTeam) || fullGamePick) : null);
+  const signedSpreadLineDisplay = resolveSignedSpreadLine(event, teams, spreadSideTeam) || spreadLineDisplay;
   const spreadHit = toHitValue(event.correct_spread);
   const totalPickRaw = event.total_recommended_pick || event.total_pick;
   const totalDirection = normalizeTotalDirection(totalPickRaw);
@@ -319,7 +376,40 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const totalHit = resolveTotalHit(event, totalDirection, totalLineValue);
   const totalPickDisplay = buildTotalPickDisplay(totalPickRaw, totalDirection, totalLineDisplay);
   const spreadPredictionLabel = spreadPick || fullGamePick || "N/A";
-  const q1BetActionLabel = normalizeBetAction(secondaryAction);
+
+  const q1PickRaw = String(event.q1_pick || "").trim();
+  const q1Pick = !isPendingPick(q1PickRaw)
+    ? (expandTeamCodeInText(sportKey, resolveSidePick(q1PickRaw, teams)) || q1PickRaw)
+    : null;
+  const q1Hit = toHitValue(event.q1_hit);
+  const q1Confidence = event.q1_confidence;
+  const q1Action = normalizeBetAction(event.q1_action);
+  const q1Odds = resolveOddsValue(event, ODDS_KEYS.q1);
+
+  const homeOverPickRaw = String(event.home_over_pick || "").trim();
+  const homeOverPick = !isPendingPick(homeOverPickRaw)
+    ? (expandTeamCodeInText(sportKey, resolveSidePick(homeOverPickRaw, teams)) || homeOverPickRaw)
+    : null;
+  const homeOverHit = toHitValue(event.correct_home_over ?? event.home_over_correct);
+  const homeOverConfidence = event.home_over_confidence;
+  const homeOverOdds = resolveOddsValue(event, ["closing_home_over_odds", "home_over_odds"]);
+
+  const bttsPickRaw = String(event.btts_recommended_pick || event.btts_pick || "").trim();
+  const bttsPick = !isPendingPick(bttsPickRaw)
+    ? (expandTeamCodeInText(sportKey, resolveSidePick(bttsPickRaw, teams)) || bttsPickRaw)
+    : null;
+  const bttsHit = toHitValue(event.correct_btts_adjusted ?? event.correct_btts ?? event.correct_btts_base);
+  const bttsConfidence = event.btts_confidence;
+  const bttsOdds = resolveOddsValue(event, ODDS_KEYS.btts);
+
+  const f5PickRaw = String(event.assists_pick || event.f5_pick || "").trim();
+  const f5Pick = !isPendingPick(f5PickRaw)
+    ? (expandTeamCodeInText(sportKey, resolveSidePick(f5PickRaw, teams)) || f5PickRaw)
+    : null;
+  const f5Hit = toHitValue(event.correct_f5 ?? event.correct_home_win_f5);
+  const f5Confidence = event.extra_f5_confidence;
+  const f5Odds = resolveOddsValue(event, ODDS_KEYS.f5);
+
   const cornersPick = event.corners_pick;
   const cornersConfidence = event.corners_confidence;
   const cornersAction = event.corners_action;
@@ -330,12 +420,6 @@ export default function EventCard({ event, onOpen, sportKey }) {
       : gameHit === false
         ? "border-rose-400/70"
         : "border-white/15";
-  const secondaryResultBorderClass =
-    secondaryHit === true
-      ? "border-emerald-400/70"
-      : secondaryHit === false
-        ? "border-rose-400/70"
-        : "border-white/10";
   const cornersResultBorderClass =
     cornersHit === true
       ? "border-emerald-400/70"
@@ -360,6 +444,11 @@ export default function EventCard({ event, onOpen, sportKey }) {
             <span className="inline-flex items-center gap-2 rounded-full border border-rose-400/50 bg-rose-500/12 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-rose-200">
               <span className="h-2 w-2 animate-pulse rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.9)]" />
               Live
+            </span>
+          )}
+          {!isLive && hasResult && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100">
+              Final
             </span>
           )}
         </div>
@@ -419,7 +508,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
               <div className={`rounded-xl border bg-white/5 px-3 py-2 text-white/80 ${spreadResultBorderClass}`}>
                 <p className="text-white/60">Handicap</p>
                 <p className="mt-1">Pick: {spreadPredictionLabel}</p>
-                <p className="mt-1">Linea: {spreadLineDisplay}</p>
+                <p className="mt-1">Linea: {signedSpreadLineDisplay}</p>
                 <p className="mt-1">Cuota: {spreadOddsDisplay}</p>
                 {hasResult && spreadHit !== undefined && spreadHit !== null && (
                   <p className="mt-1 font-semibold text-white/90">
@@ -440,19 +529,66 @@ export default function EventCard({ event, onOpen, sportKey }) {
               </div>
             </div>
 
-            {secondaryPick && (
-              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${secondaryResultBorderClass}`}>
-                <p className="text-xs text-white/60">{secondaryLabel}</p>
-                <p className="mt-1 text-sm font-semibold text-white">{secondaryPick}</p>
-                {secondaryConfidence !== undefined && secondaryConfidence !== null && (
-                  <p className="mt-1 text-xs text-white/70">Confianza: {secondaryConfidence}%</p>
+            {q1Pick && (
+              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(q1Hit)}`}>
+                <p className="text-xs text-white/60">Primer Cuarto</p>
+                <p className="mt-1 text-sm font-semibold text-white">{q1Pick}</p>
+                {q1Confidence !== undefined && q1Confidence !== null && (
+                  <p className="mt-1 text-xs text-white/70">Confianza: {q1Confidence}%</p>
                 )}
-                <p className="mt-1 text-xs text-white/70">
-                  {secondaryLabel === "Primer Cuarto" ? `Cuota: ${q1BetActionLabel}` : `Cuota: ${secondaryOdds || "N/A"}`}
-                </p>
-                {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
+                <p className="mt-1 text-xs text-white/70">Accion: {q1Action}</p>
+                <p className="mt-1 text-xs text-white/70">Cuota: {q1Odds || "N/A"}</p>
+                {hasResult && q1Hit !== undefined && q1Hit !== null && (
                   <p className="mt-1 text-xs font-semibold text-white/85">
-                    Resultado: {secondaryHit === true ? "ACIERTO" : "FALLO"}
+                    Resultado: {q1Hit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {homeOverPick && (
+              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(homeOverHit)}`}>
+                <p className="text-xs text-white/60">Goles Local O/U 2.5</p>
+                <p className="mt-1 text-sm font-semibold text-white">{homeOverPick}</p>
+                {homeOverConfidence !== undefined && homeOverConfidence !== null && (
+                  <p className="mt-1 text-xs text-white/70">Confianza: {homeOverConfidence}%</p>
+                )}
+                <p className="mt-1 text-xs text-white/70">Cuota: {homeOverOdds || "N/A"}</p>
+                {hasResult && homeOverHit !== undefined && homeOverHit !== null && (
+                  <p className="mt-1 text-xs font-semibold text-white/85">
+                    Resultado: {homeOverHit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {bttsPick && (
+              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(bttsHit)}`}>
+                <p className="text-xs text-white/60">BTTS</p>
+                <p className="mt-1 text-sm font-semibold text-white">{bttsPick}</p>
+                {bttsConfidence !== undefined && bttsConfidence !== null && (
+                  <p className="mt-1 text-xs text-white/70">Confianza: {bttsConfidence}%</p>
+                )}
+                <p className="mt-1 text-xs text-white/70">Cuota: {bttsOdds || "N/A"}</p>
+                {hasResult && bttsHit !== undefined && bttsHit !== null && (
+                  <p className="mt-1 text-xs font-semibold text-white/85">
+                    Resultado: {bttsHit === true ? "ACIERTO" : "FALLO"}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {f5Pick && (
+              <div className={`rounded-xl border bg-black/15 px-3 py-2 ${marketBorderClass(f5Hit)}`}>
+                <p className="text-xs text-white/60">F5 / Props</p>
+                <p className="mt-1 text-sm font-semibold text-white">{f5Pick}</p>
+                {f5Confidence !== undefined && f5Confidence !== null && (
+                  <p className="mt-1 text-xs text-white/70">Confianza: {f5Confidence}%</p>
+                )}
+                <p className="mt-1 text-xs text-white/70">Cuota: {f5Odds || "N/A"}</p>
+                {hasResult && f5Hit !== undefined && f5Hit !== null && (
+                  <p className="mt-1 text-xs font-semibold text-white/85">
+                    Resultado: {f5Hit === true ? "ACIERTO" : "FALLO"}
                   </p>
                 )}
               </div>

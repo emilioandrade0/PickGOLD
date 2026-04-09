@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import EventCard from "../components/EventCard.jsx";
 import DetailModal from "../components/DetailModal.jsx";
+import { resolveEventTier } from "../utils/picks.js";
 import {
   fetchAvailableDates,
   fetchPredictionsByDate,
@@ -349,7 +350,10 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     { label: "Cuota media", value: averageOdds ? averageOdds.toFixed(2) : "-", accent: "text-fuchsia-200" },
   ];
   const upcomingCount = events.filter((event) => event.result_available !== true).length;
-  const premiumCount = events.filter((event) => String(event.recommended_tier || "").toLowerCase().includes("elite") || String(event.recommended_tier || "").toLowerCase().includes("premium")).length;
+  const premiumCount = events.filter((event) => {
+    const tier = resolveEventTier(event);
+    return tier === "ELITE" || tier === "PREMIUM";
+  }).length;
   const showNcaaSearch = sportKey === "ncaa_baseball";
   const normalizedEventSearch = normalizeSearchText(eventSearch);
   const filteredEvents = showNcaaSearch && normalizedEventSearch

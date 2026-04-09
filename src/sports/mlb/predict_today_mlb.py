@@ -685,6 +685,14 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
         total_line = resolve_total_market_line(sched_row, line_row)
         home_spread_line = resolve_home_spread_line(sched_row, line_row, row.get("home_is_favorite", 0))
 
+        home_ml_odds = None if sched_row is None else sched_row.get("home_moneyline_odds")
+        away_ml_odds = None if sched_row is None else sched_row.get("away_moneyline_odds")
+        closing_ml_odds = None if sched_row is None else sched_row.get("closing_moneyline_odds")
+        closing_spread_odds = None if sched_row is None else sched_row.get("closing_spread_odds")
+        closing_total_odds = None if sched_row is None else sched_row.get("closing_total_odds")
+        odds_details = "No Line" if sched_row is None else str(sched_row.get("odds_details", "No Line") or "No Line")
+        odds_data_quality = "none" if sched_row is None else str(sched_row.get("odds_data_quality", "none") or "none")
+
         if total_line > 0:
             total_pick = "OVER" if predicted_total_runs >= total_line else "UNDER"
             total_confidence = confidence_from_edge(abs(predicted_total_runs - total_line))
@@ -742,6 +750,21 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
                 "predicted_total_runs": round(predicted_total_runs, 2),
                 "odds_over_under": total_line,
                 "closing_total_line": total_line,
+                "odds_details": odds_details,
+                "odds_data_quality": odds_data_quality,
+                "home_moneyline_odds": None if pd.isna(home_ml_odds) else float(home_ml_odds),
+                "away_moneyline_odds": None if pd.isna(away_ml_odds) else float(away_ml_odds),
+                "closing_moneyline_odds": None if pd.isna(closing_ml_odds) else float(closing_ml_odds),
+                "closing_spread_odds": None if pd.isna(closing_spread_odds) else float(closing_spread_odds),
+                "closing_total_odds": None if pd.isna(closing_total_odds) else float(closing_total_odds),
+                "moneyline_odds": (
+                    None if pd.isna(home_ml_odds if full_game_pick == home_team else away_ml_odds)
+                    else float(home_ml_odds if full_game_pick == home_team else away_ml_odds)
+                ),
+                "pick_ml_odds": (
+                    None if pd.isna(home_ml_odds if full_game_pick == home_team else away_ml_odds)
+                    else float(home_ml_odds if full_game_pick == home_team else away_ml_odds)
+                ),
 
                 "spread_pick": spread_pick,
                 "spread_confidence": spread_confidence,

@@ -77,12 +77,12 @@ def calculate_elo_ratings(df: pd.DataFrame, k: float = 25, home_advantage: float
 def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     print("⚙️ Calculating team rolling features (with .shift(1))...")
 
-    home_df = df[["date", "game_id", "home_team", "home_score", "away_score"]].copy()
-    home_df.columns = ["date", "game_id", "team", "goals_scored", "goals_allowed"]
+    home_df = df[["date", "game_id", "home_team", "home_score", "away_score", "home_p1_goals", "away_p1_goals"]].copy()
+    home_df.columns = ["date", "game_id", "team", "goals_scored", "goals_allowed", "goals_scored_p1", "goals_allowed_p1"]
     home_df["is_home"] = 1
 
-    away_df = df[["date", "game_id", "away_team", "away_score", "home_score"]].copy()
-    away_df.columns = ["date", "game_id", "team", "goals_scored", "goals_allowed"]
+    away_df = df[["date", "game_id", "away_team", "away_score", "home_score", "away_p1_goals", "home_p1_goals"]].copy()
+    away_df.columns = ["date", "game_id", "team", "goals_scored", "goals_allowed", "goals_scored_p1", "goals_allowed_p1"]
     away_df["is_home"] = 0
 
     team_df = pd.concat([home_df, away_df], ignore_index=True)
@@ -99,6 +99,18 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         lambda x: x.shift(1).rolling(10, min_periods=1).mean()
     )
     team_df["goals_allowed_l10"] = team_df.groupby("team")["goals_allowed"].transform(
+        lambda x: x.shift(1).rolling(10, min_periods=1).mean()
+    )
+    team_df["goals_scored_p1_l5"] = team_df.groupby("team")["goals_scored_p1"].transform(
+        lambda x: x.shift(1).rolling(5, min_periods=1).mean()
+    )
+    team_df["goals_allowed_p1_l5"] = team_df.groupby("team")["goals_allowed_p1"].transform(
+        lambda x: x.shift(1).rolling(5, min_periods=1).mean()
+    )
+    team_df["goals_scored_p1_l10"] = team_df.groupby("team")["goals_scored_p1"].transform(
+        lambda x: x.shift(1).rolling(10, min_periods=1).mean()
+    )
+    team_df["goals_allowed_p1_l10"] = team_df.groupby("team")["goals_allowed_p1"].transform(
         lambda x: x.shift(1).rolling(10, min_periods=1).mean()
     )
 
@@ -191,6 +203,8 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         "goals_scored_l10", "goals_allowed_l10",
         "win_rate_l5", "win_rate_l10",
         "goal_diff_l5", "goal_diff_l10",
+        "goals_scored_p1_l5", "goals_allowed_p1_l5",
+        "goals_scored_p1_l10", "goals_allowed_p1_l10",
         "goal_diff_std_l5", "goals_scored_std_l5", "goals_allowed_std_l5",
         "rest_days", "is_b2b", "games_last_3", "games_last_5",
         "goals_scored_home_l5", "goals_allowed_home_l5", "win_rate_home_l5",
@@ -201,6 +215,8 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         "home_goals_scored_l10", "home_goals_allowed_l10",
         "home_win_rate_l5", "home_win_rate_l10",
         "home_goal_diff_l5", "home_goal_diff_l10",
+        "home_goals_scored_p1_l5", "home_goals_allowed_p1_l5",
+        "home_goals_scored_p1_l10", "home_goals_allowed_p1_l10",
         "home_goal_diff_std_l5", "home_goals_scored_std_l5", "home_goals_allowed_std_l5",
         "home_rest_days", "home_is_b2b", "home_games_last_3", "home_games_last_5",
         "home_goals_scored_home_l5", "home_goals_allowed_home_l5", "home_win_rate_home_l5",
@@ -212,6 +228,8 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         "goals_scored_l10", "goals_allowed_l10",
         "win_rate_l5", "win_rate_l10",
         "goal_diff_l5", "goal_diff_l10",
+        "goals_scored_p1_l5", "goals_allowed_p1_l5",
+        "goals_scored_p1_l10", "goals_allowed_p1_l10",
         "goal_diff_std_l5", "goals_scored_std_l5", "goals_allowed_std_l5",
         "rest_days", "is_b2b", "games_last_3", "games_last_5",
         "goals_scored_away_l5", "goals_allowed_away_l5", "win_rate_away_l5",
@@ -222,6 +240,8 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         "away_goals_scored_l10", "away_goals_allowed_l10",
         "away_win_rate_l5", "away_win_rate_l10",
         "away_goal_diff_l5", "away_goal_diff_l10",
+        "away_goals_scored_p1_l5", "away_goals_allowed_p1_l5",
+        "away_goals_scored_p1_l10", "away_goals_allowed_p1_l10",
         "away_goal_diff_std_l5", "away_goals_scored_std_l5", "away_goals_allowed_std_l5",
         "away_rest_days", "away_is_b2b", "away_games_last_3", "away_games_last_5",
         "away_goals_scored_away_l5", "away_goals_allowed_away_l5", "away_win_rate_away_l5",
@@ -418,6 +438,9 @@ def create_targets(df: pd.DataFrame) -> pd.DataFrame:
 
     df["TARGET_over_55"] = (df["home_score"] + df["away_score"] > 5.5).astype(int)
     df["TARGET_home_over_25"] = (df["home_score"] > 2.5).astype(int)
+    df["TARGET_spread_1_5"] = ((df["home_score"] - df["away_score"]) > 1.5).astype(int)
+    total_p1 = pd.to_numeric(df.get("total_p1_goals"), errors="coerce")
+    df["TARGET_p1_over_15"] = np.where(total_p1.notna(), (total_p1 > 1.5).astype(int), np.nan)
 
     return df
 
@@ -573,6 +596,60 @@ def add_full_game_signal_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_moneyline_odds_features(df: pd.DataFrame) -> pd.DataFrame:
+    print("💸 Creating moneyline odds features...")
+
+    def _to_num(col):
+        return pd.to_numeric(df.get(col), errors="coerce")
+
+    def _american_to_implied_prob(series: pd.Series) -> pd.Series:
+        s = pd.to_numeric(series, errors="coerce")
+        out = pd.Series(np.nan, index=s.index, dtype="float64")
+        pos = s > 0
+        neg = s < 0
+        out.loc[pos] = 100.0 / (s.loc[pos] + 100.0)
+        out.loc[neg] = (-s.loc[neg]) / ((-s.loc[neg]) + 100.0)
+        return out.clip(lower=0.01, upper=0.99)
+
+    home_ml = _to_num("home_moneyline_odds")
+    away_ml = _to_num("away_moneyline_odds")
+    closing_ml = _to_num("closing_moneyline_odds")
+
+    df["home_moneyline_odds"] = home_ml
+    df["away_moneyline_odds"] = away_ml
+    df["closing_moneyline_odds"] = closing_ml
+
+    home_prob = _american_to_implied_prob(home_ml)
+    away_prob = _american_to_implied_prob(away_ml)
+
+    margin = (home_prob + away_prob) - 1.0
+    df["ml_implied_home_prob"] = home_prob
+    df["ml_implied_away_prob"] = away_prob
+    df["ml_implied_margin"] = margin.fillna(0.0)
+    df["ml_implied_home_prob_no_vig"] = (home_prob / (home_prob + away_prob)).replace([np.inf, -np.inf], np.nan)
+    df["ml_implied_away_prob_no_vig"] = (away_prob / (home_prob + away_prob)).replace([np.inf, -np.inf], np.nan)
+    df["ml_prob_gap_no_vig"] = (
+        df["ml_implied_home_prob_no_vig"] - df["ml_implied_away_prob_no_vig"]
+    ).fillna(0.0)
+
+    # Positive when market price favors home.
+    abs_home = home_ml.abs()
+    abs_away = away_ml.abs()
+    df["ml_abs_price_gap"] = (abs_away - abs_home).fillna(0.0)
+    df["ml_home_is_favorite_market"] = ((home_ml < away_ml) & home_ml.notna() & away_ml.notna()).astype(int)
+    df["ml_odds_available"] = (
+        home_ml.notna() & away_ml.notna() & (home_ml != 0) & (away_ml != 0)
+    ).astype(int)
+
+    # Blend model form signal with market signal to stabilize coinflip games.
+    if "fg_signal_total" in df.columns:
+        df["fg_x_market_prob_gap"] = df["fg_signal_total"] * df["ml_prob_gap_no_vig"]
+    else:
+        df["fg_x_market_prob_gap"] = 0.0
+
+    return df
+
+
 def create_targets(df: pd.DataFrame) -> pd.DataFrame:
     print("🎯 Creating target variables...")
 
@@ -584,6 +661,9 @@ def create_targets(df: pd.DataFrame) -> pd.DataFrame:
 
     df["TARGET_over_55"] = (df["home_score"] + df["away_score"] > 5.5).astype(int)
     df["TARGET_home_over_25"] = (df["home_score"] > 2.5).astype(int)
+    df["TARGET_spread_1_5"] = ((df["home_score"] - df["away_score"]) > 1.5).astype(int)
+    total_p1 = pd.to_numeric(df.get("total_p1_goals"), errors="coerce")
+    df["TARGET_p1_over_15"] = np.where(total_p1.notna(), (total_p1 > 1.5).astype(int), np.nan)
 
     return df
 
@@ -613,6 +693,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df = calculate_h2h_incremental(df)
     df = add_matchup_diff_features(df)
     df = add_full_game_signal_features(df)
+    df = add_moneyline_odds_features(df)
 
     numeric_fill_zero = [
         c for c in df.columns
@@ -620,7 +701,6 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         or c.startswith("away_")
         or c.startswith("fg_")
         or c.endswith("_diff")
-        or c.startswith("TARGET_")
     ]
     numeric_fill_zero += [
         "h2h_home_win_rate",
@@ -629,6 +709,17 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         "elo_diff",
         "both_goalies_found",
         "both_goalies_confirmed",
+        "closing_moneyline_odds",
+        "ml_implied_home_prob",
+        "ml_implied_away_prob",
+        "ml_implied_margin",
+        "ml_implied_home_prob_no_vig",
+        "ml_implied_away_prob_no_vig",
+        "ml_prob_gap_no_vig",
+        "ml_abs_price_gap",
+        "ml_home_is_favorite_market",
+        "ml_odds_available",
+        "fg_x_market_prob_gap",
     ]
     numeric_fill_zero = [c for c in set(numeric_fill_zero) if c in df.columns]
     df[numeric_fill_zero] = df[numeric_fill_zero].apply(pd.to_numeric, errors="coerce").fillna(0)
@@ -654,10 +745,12 @@ def process_nhl_data():
     non_features = {
         "game_id", "date", "date_dt", "time", "season", "home_team", "away_team",
         "home_score", "away_score", "total_goals", "is_draw", "completed",
+        "home_p1_goals", "away_p1_goals", "total_p1_goals",
         "venue_name", "odds_details", "odds_over_under", "odds_data_quality",
         "home_goalie_name", "away_goalie_name", "home_goalie_id", "away_goalie_id",
         "goalie_data_quality",
         "TARGET_full_game", "TARGET_over_55", "TARGET_home_over_25",
+        "TARGET_spread_1_5", "TARGET_p1_over_15",
     }
 
     feature_cols = [c for c in df.columns if c not in non_features]

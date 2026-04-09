@@ -15,6 +15,9 @@ import LaLigaPage from "./pages/LaLigaPage.jsx";
 import InsightsPage from "./pages/InsightsPage.jsx";
 import WeekdayScoringPage from "./pages/WeekdayScoringPage.jsx";
 import BestPicksPage from "./pages/BestPicksPage.jsx";
+import LiveBoardPage from "./pages/LiveBoardPage.jsx";
+import DailySummaryPage from "./pages/DailySummaryPage.jsx";
+import TeamFormStatsPage from "./pages/TeamFormStatsPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import AdminUserApproval from "./pages/AdminUserApproval.jsx";
 import TermsPage from "./pages/TermsPage.jsx";
@@ -146,6 +149,9 @@ export default function App() {
         <Route path="/insights" element={<InsightsPage />} />
         <Route path="/weekday-scoring" element={<WeekdayScoringPage />} />
         <Route path="/best-picks" element={<BestPicksPage />} />
+        <Route path="/live" element={<LiveBoardPage />} />
+        <Route path="/resumen-dia" element={<DailySummaryPage />} />
+        <Route path="/estadisticas" element={<TeamFormStatsPage />} />
         {session?.role === "admin" && (
           <Route path="/admin/approve-users" element={<AdminUserApproval />} />
         )}

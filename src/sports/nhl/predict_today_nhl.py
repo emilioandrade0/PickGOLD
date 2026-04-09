@@ -47,8 +47,10 @@ LIVE_FIXED_THRESHOLDS = {
 NON_FEATURE_COLUMNS = {
     "game_id", "date", "date_dt", "time", "season", "home_team", "away_team",
     "home_score", "away_score", "total_goals", "is_draw", "completed",
+    "home_p1_goals", "away_p1_goals", "total_p1_goals",
     "venue_name", "odds_details", "odds_over_under",
     "TARGET_full_game", "TARGET_over_55", "TARGET_home_over_25",
+    "TARGET_spread_1_5", "TARGET_p1_over_15",
 }
 
 
@@ -225,6 +227,20 @@ def derive_nhl_first_period_pick(prob_over_55: float) -> Dict:
     }
 
 
+def _resolve_nhl_total_line(raw_value) -> float:
+    try:
+        line = float(raw_value)
+        if line > 0:
+            return float(round(line * 2) / 2.0)
+    except Exception:
+        pass
+    return 5.5
+
+
+def _goal_line_label(line: float) -> str:
+    return str(int(line)) if float(line).is_integer() else f"{line:.1f}"
+
+
 def predict_today_nhl():
     """Generate REAL predictions for upcoming NHL games."""
     print("[NHL] Live Predictions")
@@ -257,7 +273,7 @@ def predict_today_nhl():
     upcoming_df["date"] = pd.to_datetime(upcoming_df["date"], errors="coerce").astype(str)
 
     markets_available = {}
-    for market in ["full_game", "spread_2_5", "home_over_2_5"]:
+    for market in ["full_game", "handicap_1_5", "spread_2_5", "q1_over_15", "home_over_2_5"]:
         try:
             markets_available[market] = load_model_assets(market)
         except Exception as e:
@@ -279,6 +295,8 @@ def predict_today_nhl():
             home_team = row.get("home_team")
             away_team = row.get("away_team")
             time_str = row.get("time", "19:00")
+            total_line_live = _resolve_nhl_total_line(row.get("odds_over_under"))
+            total_line_txt = _goal_line_label(total_line_live)
 
             features = build_pregame_features(
                 history_df,
@@ -295,6 +313,15 @@ def predict_today_nhl():
                 "time": time_str,
                 "home_team": home_team,
                 "away_team": away_team,
+                "odds_over_under": total_line_live,
+                "closing_total_line": total_line_live,
+                "closing_spread_line": 1.5,
+                "closing_moneyline_odds": row.get("closing_moneyline_odds"),
+                "home_moneyline_odds": row.get("home_moneyline_odds"),
+                "away_moneyline_odds": row.get("away_moneyline_odds"),
+                "closing_spread_odds": row.get("closing_spread_odds"),
+                "closing_total_odds": row.get("closing_total_odds"),
+                "odds_data_quality": str(row.get("odds_data_quality", "fallback") or "fallback"),
             }
 
             nhl_patterns = generate_nhl_patterns(features)
@@ -330,6 +357,14 @@ def predict_today_nhl():
                     game_dict["full_game_model_prob_pick"] = round(model_prob_pick, 4)
                     game_dict["full_game_calibrated_prob_pick"] = round(calibrated_prob_pick, 4)
                     game_dict["full_game_recommended_score"] = round(score, 1)
+                    if "handicap_1_5" not in markets_available:
+                        spread_side = home_team if int(pred) == 1 else away_team
+                        spread_sign = "-1.5" if int(pred) == 1 else "+1.5"
+                        game_dict["spread_pick"] = f"{spread_side} {spread_sign}"
+                        game_dict["spread_market"] = "Puck Line 1.5"
+                        game_dict["spread_line"] = 1.5
+                        game_dict["spread_confidence"] = max(0, int(calibrated_prob_pick * 100) - 4)
+                        game_dict["spread_recommended_score"] = round(max(0.0, score - 2.0), 1)
 
                     confidences_list.append(game_dict["full_game_confidence"])
                 except Exception as e:
@@ -337,6 +372,37 @@ def predict_today_nhl():
                     game_dict["full_game_pick"] = "N/A"
                     game_dict["full_game_confidence"] = 0
                     game_dict["full_game_recommended_score"] = 0.0
+
+            if "handicap_1_5" in markets_available:
+                try:
+                    pred, conf, _ = predict_market(
+                        markets_available["handicap_1_5"],
+                        features,
+                        market="handicap_1_5",
+                    )
+                    spread_labels = [f"{away_team} +1.5", f"{home_team} -1.5"]
+                    spread_pick = spread_labels[int(pred)]
+                    model_prob_pick = float(conf)
+                    calibrated_prob_pick = calibrate_probability(
+                        model_prob_pick,
+                        "nhl",
+                        "spread_1_5",
+                        calibration_cfg,
+                    )
+                    score = fuse_with_pattern_score(
+                        recommendation_score(calibrated_prob_pick),
+                        pattern_edge,
+                    )
+                    game_dict["spread_pick"] = spread_pick
+                    game_dict["spread_market"] = "Puck Line 1.5"
+                    game_dict["spread_line"] = 1.5
+                    game_dict["spread_confidence"] = int(calibrated_prob_pick * 100)
+                    game_dict["spread_model_prob_pick"] = round(model_prob_pick, 4)
+                    game_dict["spread_calibrated_prob_pick"] = round(calibrated_prob_pick, 4)
+                    game_dict["spread_recommended_score"] = round(score, 1)
+                    confidences_list.append(game_dict["spread_confidence"])
+                except Exception as e:
+                    print(f"   [WARN] handicap error for {game_id}: {e}")
 
             # TOTAL predictions (NHL usa totals, no spread real)
             if "spread_2_5" in markets_available:
@@ -346,7 +412,7 @@ def predict_today_nhl():
                         features,
                         market="spread_2_5",
                     )
-                    total_labels = ["Under 5.5", "Over 5.5"]
+                    total_labels = [f"Under {total_line_txt}", f"Over {total_line_txt}"]
                     total_pick = total_labels[int(pred)]
 
                     model_prob_pick = float(conf)
@@ -362,44 +428,57 @@ def predict_today_nhl():
                     )
 
                     game_dict["total_pick"] = total_pick
-                    game_dict["total_market"] = "Total Goals O/U 5.5"
-                    game_dict["total_line"] = 5.5
+                    game_dict["total_market"] = f"Total Goals O/U {total_line_txt}"
+                    game_dict["total_line"] = total_line_live
                     game_dict["total_confidence"] = int(calibrated_prob_pick * 100)
                     game_dict["total_model_prob_pick"] = round(model_prob_pick, 4)
                     game_dict["total_calibrated_prob_pick"] = round(calibrated_prob_pick, 4)
                     game_dict["total_recommended_pick"] = total_pick
                     game_dict["total_recommended_score"] = round(score, 1)
 
-                    # No contaminar spread_* con totals en NHL
-                    game_dict["spread_pick"] = None
-                    game_dict["spread_market"] = None
-                    game_dict["spread_line"] = None
-                    game_dict["spread_confidence"] = None
-                    game_dict["spread_model_prob_pick"] = None
-                    game_dict["spread_calibrated_prob_pick"] = None
-                    game_dict["spread_recommended_score"] = None
 
                     over_55_prob = float(probs[1]) if hasattr(probs, "__len__") and len(probs) > 1 else float(conf)
-                    game_dict.update(derive_nhl_first_period_pick(over_55_prob))
+                    if "q1_over_15" not in markets_available:
+                        game_dict.update(derive_nhl_first_period_pick(over_55_prob))
 
                     confidences_list.append(game_dict["total_confidence"])
                 except Exception as e:
                     print(f"   [WARN] total error for {game_id}: {e}")
 
                     game_dict["total_pick"] = "N/A"
-                    game_dict["total_market"] = "Total Goals O/U 5.5"
-                    game_dict["total_line"] = 5.5
+                    game_dict["total_market"] = f"Total Goals O/U {total_line_txt}"
+                    game_dict["total_line"] = total_line_live
                     game_dict["total_confidence"] = 0
                     game_dict["total_recommended_pick"] = "N/A"
                     game_dict["total_recommended_score"] = 0.0
 
-                    game_dict["spread_pick"] = None
-                    game_dict["spread_market"] = None
-                    game_dict["spread_line"] = None
-                    game_dict["spread_confidence"] = None
-                    game_dict["spread_model_prob_pick"] = None
-                    game_dict["spread_calibrated_prob_pick"] = None
-                    game_dict["spread_recommended_score"] = None
+            if "q1_over_15" in markets_available:
+                try:
+                    pred, conf, probs = predict_market(
+                        markets_available["q1_over_15"],
+                        features,
+                        market="q1_over_15",
+                    )
+                    q1_labels = ["Under 1.5", "Over 1.5"]
+                    q1_pick = q1_labels[int(pred)]
+                    model_prob_pick = float(conf)
+                    calibrated_prob_pick = calibrate_probability(
+                        model_prob_pick,
+                        "nhl",
+                        "q1_over_15",
+                        calibration_cfg,
+                    )
+                    game_dict["q1_pick"] = q1_pick
+                    game_dict["q1_market"] = "1P Goals O/U 1.5"
+                    game_dict["q1_line"] = 1.5
+                    game_dict["q1_confidence"] = int(calibrated_prob_pick * 100)
+                    game_dict["q1_action"] = "JUGAR" if game_dict["q1_confidence"] >= 56 else "PASS"
+                    game_dict["q1_model_prob_yes"] = round(float(probs[1]) if hasattr(probs, "__len__") else float(conf), 4)
+                    game_dict["q1_calibrated_prob_yes"] = round(calibrated_prob_pick, 4)
+                    confidences_list.append(game_dict["q1_confidence"])
+                except Exception as e:
+                    print(f"   [WARN] q1 error for {game_id}: {e}")
+
 
             if "home_over_2_5" in markets_available:
                 try:
@@ -440,6 +519,7 @@ def predict_today_nhl():
 
             score_candidates = [
                 float(game_dict.get("full_game_recommended_score", 0.0) or 0.0),
+                float(game_dict.get("spread_recommended_score", 0.0) or 0.0),
                 float(game_dict.get("total_recommended_score", 0.0) or 0.0),
                 float(game_dict.get("home_over_recommended_score", 0.0) or 0.0),
             ]
