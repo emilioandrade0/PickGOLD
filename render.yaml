@@ -1,3 +1,9 @@
+databases:
+  - name: pickgold-auth-db
+    databaseName: pickgold_auth
+    user: pickgold_auth_user
+    plan: free
+
 services:
   - type: web
     name: pickgold-api
@@ -18,3 +24,7 @@ services:
         sync: false
       - key: THEODDSAPI_KEY
         sync: false
+      - key: AUTH_DATABASE_URL
+        fromDatabase:
+          name: pickgold-auth-db
+          property: connectionString

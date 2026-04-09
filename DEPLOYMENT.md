@@ -4,8 +4,10 @@
 
 This repository includes `render.yaml` for one-click deployment.
 
-1. In Render, create a new Web Service from this GitHub repository.
-2. Render should detect `render.yaml` automatically.
+1. In Render, create a new Blueprint from this GitHub repository.
+2. Render should detect `render.yaml` automatically and provision:
+	- the `pickgold-api` web service
+	- the `pickgold-auth-db` Postgres database
 3. Set the following environment variables in Render:
 	- `THEODDSAPI_KEY` (required)
 	- `FRONTEND_ORIGIN` (required in production, example: `https://pickgold.vercel.app`)
@@ -15,7 +17,12 @@ This repository includes `render.yaml` for one-click deployment.
 	- `PAYPAL_ENV` (optional, `sandbox` o `live`)
 	- `FLASHSCORE_ENABLED` (optional, default `1`)
 	- `THEODDSAPI_DAYS_AHEAD` (optional, default `2`)
-4. Deploy and verify:
+	- `ADMIN_EMAIL` (required, admin principal)
+	- `ADMIN_PASSWORD` (required, password del admin principal)
+4. Auth en produccion:
+	- `AUTH_DATABASE_URL` queda conectado automaticamente desde `render.yaml`
+	- si despliegas sin Blueprint, crea primero una base Postgres en Render y luego apunta `AUTH_DATABASE_URL` al `connectionString` de esa base
+5. Deploy and verify:
 	- `https://YOUR-RENDER-SERVICE.onrender.com/health`
 	- Expected response: `{"status":"ok","service":"nba-gold-api"}`
 

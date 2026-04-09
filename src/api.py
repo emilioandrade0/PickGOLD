@@ -34,7 +34,6 @@ try:
         find_user_by_email,
         find_user_by_id,
         delete_user_account,
-        delete_user_account,
         get_session,
         hash_password,
         init_auth_db,
@@ -885,6 +884,52 @@ def approve_user(payload: dict = Body(...), authorization: Optional[str] = Heade
         "ok": True,
         "user": updated_user,
     }
+
+
+@app.post("/api/admin/reset-user-password")
+def admin_reset_user_password(payload: dict = Body(...), authorization: Optional[str] = Header(default=None)):
+    admin_session = _require_admin_session(authorization)
+    user_id = str(payload.get("user_id", "")).strip()
+    new_password = str(payload.get("new_password", "")).strip()
+
+    if not user_id or not new_password:
+        return {"ok": False, "error": "Usuario y nueva contrasena son requeridos."}
+    if len(new_password) < 6:
+        return {"ok": False, "error": "La nueva contrasena debe tener al menos 6 caracteres."}
+
+    user = find_user_by_id(user_id)
+    if not user:
+        return {"ok": False, "error": "Usuario no encontrado."}
+    if (user.get("role") if isinstance(user, dict) else user["role"]) == "admin":
+        return {"ok": False, "error": "No se puede resetear la contrasena del admin principal desde este panel."}
+
+    updated_user = reset_user_password(user_id, new_password)
+    return {
+        "ok": True,
+        "user": updated_user,
+        "message": f"Contrasena reiniciada por {(admin_session.get('user') or {}).get('email', ADMIN_EMAIL)}.",
+    }
+
+
+@app.post("/api/admin/delete-user")
+def admin_delete_user(payload: dict = Body(...), authorization: Optional[str] = Header(default=None)):
+    admin_session = _require_admin_session(authorization)
+    user_id = str(payload.get("user_id", "")).strip()
+    if not user_id:
+        return {"ok": False, "error": "Usuario requerido."}
+
+    target_user = find_user_by_id(user_id)
+    if not target_user:
+        return {"ok": False, "error": "Usuario no encontrado."}
+
+    admin_user = admin_session.get("user") or {}
+    if user_id == str(admin_user.get("id") or ""):
+        return {"ok": False, "error": "No puedes eliminar tu propia cuenta desde este panel."}
+    if (target_user.get("role") if isinstance(target_user, dict) else target_user["role"]) == "admin":
+        return {"ok": False, "error": "No se puede eliminar el admin principal."}
+
+    delete_user_account(user_id)
+    return {"ok": True, "message": "Usuario eliminado correctamente."}
 
 
 def ensure_sport_exists(sport: str):
