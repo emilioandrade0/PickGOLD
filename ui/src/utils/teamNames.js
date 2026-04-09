@@ -20,6 +20,16 @@ const TEAM_NAMES = {
     SEA: "Seattle Mariners", STL: "St. Louis Cardinals", TBR: "Tampa Bay Rays", TB: "Tampa Bay Rays",
     TEX: "Texas Rangers", TOR: "Toronto Blue Jays", WSN: "Washington Nationals", WAS: "Washington Nationals",
   },
+  triple_a: {
+    ABQ: "Albuquerque Isotopes", BUF: "Buffalo Bisons", CLT: "Charlotte Knights", COL: "Columbus Clippers",
+    DUR: "Durham Bulls", ELP: "El Paso Chihuahuas", GWN: "Gwinnett Stripers", IND: "Indianapolis Indians",
+    IOW: "Iowa Cubs", JAX: "Jacksonville Jumbo Shrimp", LV: "Las Vegas Aviators", LHV: "Lehigh Valley IronPigs",
+    LOU: "Louisville Bats", MEM: "Memphis Redbirds", NAS: "Nashville Sounds", NOR: "Norfolk Tides",
+    OKC: "Oklahoma City Comets", OMA: "Omaha Storm Chasers", RNO: "Reno Aces", ROC: "Rochester Red Wings",
+    RR: "Round Rock Express", SAC: "Sacramento River Cats", SL: "Salt Lake Bees", SWB: "Scranton/Wilkes-Barre RailRiders",
+    STP: "St. Paul Saints", SUG: "Sugar Land Space Cowboys", SYR: "Syracuse Mets", TAC: "Tacoma Rainiers",
+    TOL: "Toledo Mud Hens", WOR: "Worcester Red Sox",
+  },
   ncaa_baseball: {
     ABILCH: "Abilene Christian", AIRFOR: "Air Force", AKRON: "Akron", ALA: "Alabama",
     ALAM: "Alabama A&M", ALAST: "Alabama St.", ALBANY: "UAlbany", ALCORN: "Alcorn",

@@ -6,6 +6,7 @@ function getSportTitle(pathname) {
   if (pathname.startsWith("/best-picks")) return "Best Picks";
   if (pathname.startsWith("/weekday-scoring")) return "Weekday Scoring";
   if (pathname.startsWith("/insights")) return "Insights";
+  if (pathname.startsWith("/triple-a")) return "Triple-A";
   if (pathname.startsWith("/tennis")) return "Tennis";
   if (pathname.startsWith("/kbo")) return "KBO";
   if (pathname.startsWith("/mlb")) return "MLB";

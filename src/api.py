@@ -83,6 +83,8 @@ EUROLEAGUE_RAW_HISTORY = BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_
 NCAA_BASEBALL_RAW_HISTORY = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_advanced_history.csv"
 NCAA_BASEBALL_RAW_UPCOMING = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_upcoming_schedule.csv"
 TENNIS_RAW_HISTORY = BASE_DIR / "data" / "tennis" / "raw" / "tennis_advanced_history.csv"
+TRIPLE_A_RAW_HISTORY = BASE_DIR / "data" / "triple_a" / "raw" / "triple_a_advanced_history.csv"
+TRIPLE_A_RAW_UPCOMING = BASE_DIR / "data" / "triple_a" / "raw" / "triple_a_upcoming_schedule.csv"
 SPORT_RAW_FILES = {
     "nba": {
         "raw_history": NBA_RAW_HISTORY,
@@ -119,6 +121,10 @@ SPORT_RAW_FILES = {
     "tennis": {
         "raw_history": TENNIS_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "tennis" / "raw" / "tennis_upcoming_schedule.csv",
+    },
+    "triple_a": {
+        "raw_history": TRIPLE_A_RAW_HISTORY,
+        "upcoming_schedule": TRIPLE_A_RAW_UPCOMING,
     },
 }
 BEST_PICKS_SNAPSHOTS_DIR = BASE_DIR / "data" / "insights" / "best_picks"
@@ -179,6 +185,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "tennis" / "predictions",
         "historical_dir": BASE_DIR / "data" / "tennis" / "historical_predictions",
         "label": "Tennis",
+    },
+    "triple_a": {
+        "predictions_dir": BASE_DIR / "data" / "triple_a" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "triple_a" / "historical_predictions",
+        "label": "Triple-A",
     },
 }
 
@@ -255,10 +266,10 @@ SPORT_UPDATE_PIPELINES = {
         "label": "Liga MX",
         "steps": [
             {"key": "ingest", "label": "Ingesta Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "data_ingest_liga_mx.py"},
-            {"key": "adjustments", "label": "Event adjustments Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "event_adjustments_liga_mx.py"},
             {"key": "features", "label": "Features Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "feature_engineering_liga_mx_v3.py"},
             {"key": "train", "label": "Entrenamiento Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "train_models_liga_mx.py"},
             {"key": "historical", "label": "Hist?ricas Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "historical_predictions_liga_mx.py"},
+            {"key": "evaluate", "label": "Accuracy baseline Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "evaluate_baseline.py"},
             {"key": "today", "label": "Predicciones de hoy Liga MX", "script": BASE_DIR / "sports" / "ligamx" / "predict_today_liga_mx.py"},
         ],
         "env": {},
@@ -305,6 +316,17 @@ SPORT_UPDATE_PIPELINES = {
             {"key": "train", "label": "Entrenamiento Tennis", "script": BASE_DIR / "sports" / "tennis" / "train_models_tennis.py"},
             {"key": "historical", "label": "Historicas Tennis", "script": BASE_DIR / "sports" / "tennis" / "historical_predictions_tennis.py"},
             {"key": "today", "label": "Predicciones de hoy Tennis", "script": BASE_DIR / "sports" / "tennis" / "predict_today_tennis.py"},
+        ],
+        "env": {},
+    },
+    "triple_a": {
+        "label": "Triple-A",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta Triple-A", "script": BASE_DIR / "sports" / "triple_a" / "data_ingest_triple_a.py"},
+            {"key": "features", "label": "Features Triple-A", "script": BASE_DIR / "sports" / "triple_a" / "feature_engineering_triple_a.py"},
+            {"key": "train", "label": "Entrenamiento Triple-A", "script": BASE_DIR / "sports" / "triple_a" / "train_models_triple_a.py"},
+            {"key": "historical", "label": "Historicas Triple-A", "script": BASE_DIR / "sports" / "triple_a" / "historical_predictions_triple_a.py"},
+            {"key": "today", "label": "Predicciones de hoy Triple-A", "script": BASE_DIR / "sports" / "triple_a" / "predict_today_triple_a.py"},
         ],
         "env": {},
     },
@@ -1285,6 +1307,12 @@ def build_results_lookup_for_sport(sport: str):
             "game_id", "date", "home_team", "away_team",
             "home_runs_total", "away_runs_total", "home_r1", "away_r1", "home_runs_f5", "away_runs_f5",
         ]
+    elif sport == "triple_a":
+        file_path = TRIPLE_A_RAW_HISTORY
+        use_cols = [
+            "game_id", "date", "home_team", "away_team",
+            "home_runs_total", "away_runs_total", "home_r1", "away_r1", "home_runs_f5", "away_runs_f5",
+        ]
     elif sport == "nhl":
         file_path = NHL_RAW_HISTORY
         use_cols = [
@@ -1366,7 +1394,7 @@ def build_results_lookup_for_sport(sport: str):
                 away_q4_score = int(row["away_q4"]) if "away_q4" in row and not pd.isna(row["away_q4"]) else None
                 home_f5_score = None
                 away_f5_score = None
-            elif sport in {"mlb", "kbo", "ncaa_baseball"}:
+            elif sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"}:
                 home_score = int(row["home_runs_total"])
                 away_score = int(row["away_runs_total"])
                 home_q1_score = int(row["home_r1"])
@@ -1690,6 +1718,51 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 continue
         return out
 
+    def _fetch_live_lookup_triple_a(target_date: str):
+        try:
+            params = {
+                "sportId": 11,
+                "startDate": target_date,
+                "endDate": target_date,
+                "hydrate": "linescore,team,statusFlags",
+            }
+            payload = requests.get(
+                "https://statsapi.mlb.com/api/v1/schedule",
+                params=params,
+                timeout=20,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; PickGOLD/1.0)",
+                    "Accept": "application/json",
+                },
+            ).json() or {}
+        except Exception:
+            return {}
+
+        out = {}
+        for block in payload.get("dates") or []:
+            for game in block.get("games") or []:
+                try:
+                    game_id = str(game.get("gamePk") or "").strip()
+                    if not game_id:
+                        continue
+                    status = game.get("status") or {}
+                    abstract = str(status.get("abstractGameState") or "").strip().lower()
+                    detailed = str(status.get("detailedState") or "").strip() or ("Final" if abstract == "final" else "Scheduled")
+                    home = ((game.get("teams") or {}).get("home") or {})
+                    away = ((game.get("teams") or {}).get("away") or {})
+                    state = "post" if abstract == "final" else ("in" if abstract == "live" else "pre")
+                    out[game_id] = {
+                        "status_state": state,
+                        "status_description": detailed,
+                        "status_detail": detailed,
+                        "status_completed": 1 if state == "post" else 0,
+                        "home_score": int(float(home.get("score") or 0)),
+                        "away_score": int(float(away.get("score") or 0)),
+                    }
+                except Exception:
+                    continue
+        return out
+
     def _fetch_live_lookup(target_sport: str, items: list[dict], target_date: str):
         try:
             target_dt = datetime.strptime(str(target_date), "%Y-%m-%d").date()
@@ -1704,6 +1777,8 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             return _fetch_live_lookup_euroleague(items, target_date)
         if target_sport == "ncaa_baseball":
             return _fetch_live_lookup_ncaa(target_date)
+        if target_sport == "triple_a":
+            return _fetch_live_lookup_triple_a(target_date)
         return {}
 
     target_date = _target_date_from_events(events)
@@ -1920,7 +1995,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
         existing_q1 = _to_bool_or_none(item.get("q1_hit"))
         if existing_q1 is None:
-            if sport in {"mlb", "kbo", "ncaa_baseball"} and home_q1_score is not None and away_q1_score is not None:
+            if sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"} and home_q1_score is not None and away_q1_score is not None:
                 item["q1_hit"] = evaluate_mlb_q1_pick(
                     pick=str(item.get("q1_pick", "")),
                     home_r1=int(home_q1_score),
@@ -2212,7 +2287,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"}:
+    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "triple_a"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -2392,7 +2467,7 @@ def build_sport_insights_summary(sport: str):
 
 
 def build_tier_performance_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "triple_a"]
     tracked_tiers = ["ELITE", "PREMIUM", "STRONG"]
     rows = []
 
@@ -2749,7 +2824,7 @@ def _log_loss(probs: list[float], outcomes: list[int]):
 
 
 def build_probability_calibration_profiles():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "triple_a"]
     markets = ["full_game", "q1_yrfi", "spread", "total", "btts", "f5", "home_over", "corners"]
 
     grouped = {}
@@ -2955,6 +3030,7 @@ def _best_picks_sports():
         "euroleague",
         "ncaa_baseball",
         "tennis",
+        "triple_a",
     ]
 
 
@@ -3647,7 +3723,7 @@ def admin_sport_updates(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
     sports = [
         _build_admin_sport_pipeline_snapshot(sport)
-        for sport in ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
+        for sport in ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "triple_a"]
     ]
     return {"ok": True, "sports": sports}
 
@@ -3754,7 +3830,7 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
 
 @app.get("/api/insights/summary")
 def get_insights_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "triple_a"]
     summaries = [build_sport_insights_summary(s) for s in sports]
 
     return {
@@ -3798,6 +3874,14 @@ def get_weekday_scoring_insights():
             home_col="home_runs_total",
             away_col="away_runs_total",
             metric_label="Carreras Totales",
+        ),
+        SportScoringConfig(
+            key="triple_a",
+            label="Triple-A",
+            raw_file=TRIPLE_A_RAW_HISTORY,
+            home_col="home_runs_total",
+            away_col="away_runs_total",
+            metric_label="Runs Totales",
         ),
         SportScoringConfig(
             key="nhl",

@@ -17,6 +17,7 @@ SPORT_LABELS = {
     "euroleague": "EuroLeague",
     "ncaa_baseball": "NCAA Baseball",
     "tennis": "Tennis",
+    "triple_a": "Triple-A",
 }
 
 # Temporary toggle: NCAA Baseball excluded from Best Picks output.
@@ -72,7 +73,7 @@ MARKET_DEFINITIONS = [
     {
         "market": "f5",
         "display": "F5",
-        "sports": ["mlb", "kbo", "ncaa_baseball"],
+        "sports": ["mlb", "kbo", "ncaa_baseball", "triple_a"],
         "pick_keys": ["f5_pick", "assists_pick"],
         "tier_keys": ["extra_f5_tier"],
         "score_keys": ["extra_f5_recommended_score", "extra_f5_confidence"],

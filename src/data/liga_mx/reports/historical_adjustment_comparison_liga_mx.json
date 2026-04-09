@@ -1,30 +1,37 @@
 {
   "use_event_adjustments": true,
-  "games_evaluated": 445,
+  "games_evaluated": 1812,
   "metrics": {
     "full_game": {
-      "base_accuracy": 0.9078651685393259,
-      "adjusted_accuracy": 0.9078651685393259,
-      "base_log_loss": 0.3396527582638231,
-      "adjusted_log_loss": 0.3544269653946473
+      "base_accuracy": 0.7323399558498896,
+      "adjusted_accuracy": 0.7306843267108167,
+      "base_log_loss": 0.7819964598414779,
+      "adjusted_log_loss": 0.7769034800357729
     },
     "over_25": {
-      "base_accuracy": 0.9078651685393259,
-      "adjusted_accuracy": 0.9078651685393259,
-      "base_log_loss": 0.22868866316164424,
-      "adjusted_log_loss": 0.24797359689122203
+      "base_accuracy": 0.91280353200883,
+      "adjusted_accuracy": 0.9089403973509934,
+      "base_log_loss": 0.2571967112478123,
+      "adjusted_log_loss": 0.2610484098224891
     },
     "btts": {
-      "base_accuracy": 0.9280898876404494,
-      "adjusted_accuracy": 0.9258426966292135,
-      "base_log_loss": 0.21973573671238003,
-      "adjusted_log_loss": 0.23356920168722076
+      "base_accuracy": 0.9006622516556292,
+      "adjusted_accuracy": 0.8769315673289183,
+      "base_log_loss": 0.31966942459847386,
+      "adjusted_log_loss": 0.32283310213397354
     },
     "corners_over_95": {
-      "base_accuracy": 0.9258426966292135,
-      "adjusted_accuracy": 0.9258426966292135,
-      "base_log_loss": 0.21345936408064642,
-      "adjusted_log_loss": 0.21345936408064642
+      "base_accuracy": 0.9111479028697572,
+      "adjusted_accuracy": 0.9111479028697572,
+      "base_log_loss": 0.25518649817561606,
+      "adjusted_log_loss": 0.25518649817561606
+    },
+    "ht_result": {
+      "base_accuracy": 0.6727373068432672,
+      "adjusted_accuracy": 0.6727373068432672,
+      "base_log_loss": 0.8403724719688289,
+      "adjusted_log_loss": 0.8403724719688289,
+      "rows": 1812
     }
   }
 }

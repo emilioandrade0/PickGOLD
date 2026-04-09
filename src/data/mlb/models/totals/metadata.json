@@ -2,8 +2,8 @@
   "market_key": "totals",
   "target_col": "TARGET_total_runs",
   "task_type": "regression",
-  "train_rows": 5138,
-  "valid_rows": 1285,
+  "train_rows": 5177,
+  "valid_rows": 1295,
   "feature_count": 37,
   "ensemble_weights": {
     "xgboost": 0.5,
@@ -11,121 +11,121 @@
   },
   "metrics": {
     "xgboost_valid": {
-      "mae": 3.9323086931547766,
-      "rmse": 5.007820848678766,
-      "r2": -0.022303768313420624
+      "mae": 3.92497443600511,
+      "rmse": 4.995277993485348,
+      "r2": -0.025328788627489773
     },
     "lightgbm_valid": {
-      "mae": 3.9606871104403676,
-      "rmse": 5.050774013822241,
-      "r2": -0.03991601994395588
+      "mae": 3.954467664055182,
+      "rmse": 5.05066987873416,
+      "r2": -0.04819429869205538
     },
     "ensemble_valid": {
-      "mae": 3.936281291907372,
-      "rmse": 5.013705517151968,
-      "r2": -0.024707789374591282
+      "mae": 3.927923605810226,
+      "rmse": 5.0084669366158,
+      "r2": -0.030750250805351875
     }
   },
   "top_features": [
     {
       "feature": "home_runs_scored_std_L10",
-      "importance": 289.01890755817294
-    },
-    {
-      "feature": "away_runs_allowed_std_L10",
-      "importance": 265.5178160574287
-    },
-    {
-      "feature": "away_runs_scored_std_L10",
-      "importance": 264.5181491654366
+      "importance": 282.0197681132704
     },
     {
       "feature": "home_runs_allowed_std_L10",
-      "importance": 259.0205943621695
+      "importance": 270.02068311162293
     },
     {
       "feature": "away_pitcher_ip_L5",
-      "importance": 245.5196440089494
+      "importance": 252.51987324468791
+    },
+    {
+      "feature": "away_runs_scored_std_L10",
+      "importance": 241.51869857870042
+    },
+    {
+      "feature": "away_runs_allowed_std_L10",
+      "importance": 239.01846457272768
     },
     {
       "feature": "home_pitcher_ip_L5",
-      "importance": 231.51950073055923
+      "importance": 229.52100123651326
     },
     {
       "feature": "away_pitcher_hr9_L5",
-      "importance": 204.5184862073511
+      "importance": 204.01899460330606
     },
     {
       "feature": "away_pitcher_whip_L5",
-      "importance": 198.517247967422
-    },
-    {
-      "feature": "home_pitcher_hr9_L5",
-      "importance": 196.01733481697738
-    },
-    {
-      "feature": "home_pitcher_whip_L5",
-      "importance": 188.5169042404741
-    },
-    {
-      "feature": "home_hits_L5",
-      "importance": 179.51750900782645
+      "importance": 203.5202389769256
     },
     {
       "feature": "away_offense_vs_home_pitcher",
-      "importance": 178.01871911622584
+      "importance": 200.01894873194396
+    },
+    {
+      "feature": "home_pitcher_hr9_L5",
+      "importance": 197.51899728551507
     },
     {
       "feature": "home_offense_vs_away_pitcher",
-      "importance": 178.0174286160618
+      "importance": 189.51728359609842
     },
     {
-      "feature": "diff_runs_scored_L5",
-      "importance": 170.51736456155777
-    },
-    {
-      "feature": "diff_runs_allowed_L5",
-      "importance": 169.51928182318807
-    },
-    {
-      "feature": "away_hits_allowed_L5",
-      "importance": 165.0177470818162
+      "feature": "home_pitcher_whip_L5",
+      "importance": 186.51770907267928
     },
     {
       "feature": "away_pitcher_era_L5",
-      "importance": 164.01745798811316
+      "importance": 184.0178922638297
     },
     {
-      "feature": "home_hits_allowed_L5",
-      "importance": 160.51792804710567
+      "feature": "away_hits_allowed_L5",
+      "importance": 183.51874316856265
     },
     {
-      "feature": "away_hits_L5",
-      "importance": 153.5175817348063
+      "feature": "diff_runs_allowed_L5",
+      "importance": 177.02151502482593
     },
     {
-      "feature": "home_runs_scored_L5",
-      "importance": 152.01572283543646
-    },
-    {
-      "feature": "away_runs_allowed_L5",
-      "importance": 150.01688510738313
+      "feature": "home_hits_L5",
+      "importance": 176.51872935518622
     },
     {
       "feature": "home_pitcher_era_L5",
-      "importance": 147.01580954156816
+      "importance": 158.01705193519592
     },
     {
-      "feature": "away_bullpen_runs_allowed_L5",
-      "importance": 137.01939563453197
+      "feature": "away_runs_allowed_L5",
+      "importance": 156.01603432744741
     },
     {
-      "feature": "home_bullpen_runs_allowed_L5",
-      "importance": 124.01715576648712
+      "feature": "diff_runs_scored_L5",
+      "importance": 151.51780507341027
+    },
+    {
+      "feature": "away_hits_L5",
+      "importance": 149.51809905469418
+    },
+    {
+      "feature": "home_hits_allowed_L5",
+      "importance": 145.01912650093436
+    },
+    {
+      "feature": "home_runs_scored_L5",
+      "importance": 142.51673271879554
     },
     {
       "feature": "home_runs_allowed_L5",
-      "importance": 114.51674106530845
+      "importance": 128.01645803265274
+    },
+    {
+      "feature": "home_bullpen_runs_allowed_L5",
+      "importance": 120.51869166456163
+    },
+    {
+      "feature": "away_bullpen_runs_allowed_L5",
+      "importance": 119.0206390619278
     }
   ]
 }

@@ -4,10 +4,15 @@ from pathlib import Path
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
+import os
 
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 import pandas as pd
 import requests
@@ -19,8 +24,14 @@ RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 FILE_PATH_ADVANCED = RAW_DATA_DIR / "liga_mx_advanced_history.csv"
 FILE_PATH_UPCOMING = RAW_DATA_DIR / "liga_mx_upcoming_schedule.csv"
+FILE_PATH_ALT_HT = RAW_DATA_DIR / "liga_mx_ht_alt_source.csv"
+FILE_PATH_ODDS_SNAPSHOTS = RAW_DATA_DIR / "liga_mx_odds_snapshots.csv"
 
 SEASONS_TO_FETCH = {
+    "2021": ("2021-01-01", "2021-12-31"),
+    "2022": ("2022-01-01", "2022-12-31"),
+    "2023": ("2023-01-01", "2023-12-31"),
+    "2024": ("2024-01-01", "2024-12-31"),
     "2025": ("2025-01-01", "2025-12-31"),
     "2026": ("2026-01-01", "2026-12-31"),
 }
@@ -36,6 +47,12 @@ ESPN_SCOREBOARD_URL = (
 ESPN_SUMMARY_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/summary?event={event_id}"
 )
+
+USE_SYSTEM_PROXY = str(os.getenv("ESPN_USE_SYSTEM_PROXY", "0")).strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 
 # -----------------------------
@@ -135,6 +152,24 @@ def normalize_team_abbr(team_data: dict):
     return display_name[:3]
 
 
+def espn_get_json(url: str, timeout: int = 20, retries: int = 2):
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            with requests.Session() as session:
+                # By default we bypass env proxy because some local envs use
+                # placeholder proxies (e.g. 127.0.0.1:9) that block ESPN.
+                session.trust_env = USE_SYSTEM_PROXY
+                resp = session.get(url, timeout=timeout)
+                resp.raise_for_status()
+                return resp.json() or {}
+        except Exception as e:
+            last_error = e
+            if attempt < retries:
+                time.sleep(0.25 * (attempt + 1))
+    raise last_error
+
+
 def _extract_corners_from_stats(stats_list):
     if not isinstance(stats_list, list):
         return None
@@ -148,12 +183,57 @@ def _extract_corners_from_stats(stats_list):
     return None
 
 
+def _extract_first_period_score(linescores):
+    if not isinstance(linescores, list) or not linescores:
+        return None
+    first = linescores[0] or {}
+    for key in ["value", "displayValue", "score"]:
+        parsed = safe_int(first.get(key), default=None)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _extract_ht_from_summary_payload(payload: dict):
+    teams = (payload.get("boxscore") or {}).get("teams") or []
+    home_ht = None
+    away_ht = None
+
+    for side in teams:
+        team_meta = side.get("team") or {}
+        side_key = str(team_meta.get("homeAway", "") or "").lower()
+        ht_val = _extract_first_period_score(side.get("linescores"))
+        if ht_val is None:
+            for stat in side.get("statistics") or []:
+                stat_name = str((stat or {}).get("name", "") or "").strip().lower()
+                if stat_name in {"firsthalfgoals", "first_half_goals", "firsthalfscore"}:
+                    ht_val = safe_int((stat or {}).get("displayValue"), default=None)
+                    break
+        if side_key == "home":
+            home_ht = ht_val
+        elif side_key == "away":
+            away_ht = ht_val
+
+    # Fallback for soccer payloads where HT lives in header competitions competitors.
+    if home_ht is None or away_ht is None:
+        comps = (payload.get("header") or {}).get("competitions") or []
+        if comps:
+            competitors = (comps[0] or {}).get("competitors") or []
+            for side in competitors:
+                side_key = str((side or {}).get("homeAway", "") or "").lower()
+                ht_val = _extract_first_period_score((side or {}).get("linescores"))
+                if side_key == "home" and ht_val is not None and home_ht is None:
+                    home_ht = ht_val
+                elif side_key == "away" and ht_val is not None and away_ht is None:
+                    away_ht = ht_val
+
+    return home_ht, away_ht
+
+
 def fetch_event_corners(event_id: str):
     try:
         url = ESPN_SUMMARY_URL.format(event_id=event_id)
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-        payload = resp.json() or {}
+        payload = espn_get_json(url, timeout=15, retries=1)
     except Exception:
         return 0, 0
 
@@ -175,6 +255,270 @@ def fetch_event_corners(event_id: str):
             away_corners = corners
 
     return home_corners, away_corners
+
+
+def fetch_event_halftime(event_id: str):
+    try:
+        url = ESPN_SUMMARY_URL.format(event_id=event_id)
+        payload = espn_get_json(url, timeout=15, retries=1)
+    except Exception:
+        return None, None
+
+    return _extract_ht_from_summary_payload(payload)
+
+
+def backfill_halftime_from_alt_source(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or not FILE_PATH_ALT_HT.exists():
+        return df
+
+    try:
+        alt = pd.read_csv(FILE_PATH_ALT_HT, dtype={"game_id": str})
+    except Exception as e:
+        print(f"⚠️ No se pudo leer fuente alternativa HT: {e}")
+        return df
+
+    required = {"home_ht_score", "away_ht_score"}
+    if not required.issubset(set(alt.columns)):
+        print("⚠️ Fuente alternativa HT inválida: faltan columnas home_ht_score/away_ht_score.")
+        return df
+
+    for c in ["game_id", "date", "home_team", "away_team"]:
+        if c not in alt.columns:
+            alt[c] = None
+
+    alt["game_id"] = alt["game_id"].astype(str).replace("nan", "").str.strip()
+    for c in ["date", "home_team", "away_team"]:
+        alt[c] = alt[c].astype(str).str.strip()
+    alt["home_team"] = alt["home_team"].apply(normalize_text)
+    alt["away_team"] = alt["away_team"].apply(normalize_text)
+    alt["home_ht_score"] = pd.to_numeric(alt["home_ht_score"], errors="coerce")
+    alt["away_ht_score"] = pd.to_numeric(alt["away_ht_score"], errors="coerce")
+
+    by_game_id = {}
+    by_triplet = {}
+    for _, r in alt.iterrows():
+        hht = r.get("home_ht_score")
+        aht = r.get("away_ht_score")
+        if pd.isna(hht) or pd.isna(aht):
+            continue
+        gid = str(r.get("game_id") or "").strip()
+        if gid:
+            by_game_id[gid] = (int(hht), int(aht))
+        key = (str(r.get("date") or "").strip(), str(r.get("home_team") or ""), str(r.get("away_team") or ""))
+        if key[0] and key[1] and key[2]:
+            by_triplet[key] = (int(hht), int(aht))
+
+    if not by_game_id and not by_triplet:
+        print("ℹ️ Fuente alternativa HT no contiene registros útiles.")
+        return df
+
+    updates = 0
+    for idx, row in df.iterrows():
+        h = row.get("home_ht_score")
+        a = row.get("away_ht_score")
+        if pd.notna(h) and pd.notna(a):
+            continue
+
+        gid = str(row.get("game_id") or "").strip()
+        key = (
+            str(row.get("date") or "").strip(),
+            normalize_text(str(row.get("home_team") or "")),
+            normalize_text(str(row.get("away_team") or "")),
+        )
+
+        vals = by_game_id.get(gid) if gid else None
+        if vals is None:
+            vals = by_triplet.get(key)
+        if vals is None:
+            continue
+
+        hht, aht = vals
+        df.at[idx, "home_ht_score"] = int(hht)
+        df.at[idx, "away_ht_score"] = int(aht)
+        df.at[idx, "total_ht_goals"] = int(hht) + int(aht)
+        updates += 1
+
+    if updates:
+        print(f"   ✅ Fuente alternativa HT aplicada en {updates} juegos.")
+    else:
+        print("   ℹ️ Fuente alternativa HT no matcheó juegos faltantes.")
+    return df
+
+
+def backfill_missing_halftime_scores(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    for col in ["home_ht_score", "away_ht_score", "total_ht_goals"]:
+        if col not in df.columns:
+            df[col] = None
+
+    missing_mask = df["home_ht_score"].isna() | df["away_ht_score"].isna()
+    missing_ids = df.loc[missing_mask, "game_id"].astype(str).tolist()
+    if not missing_ids:
+        return df
+
+    print(f"   ⏱️  Backfill HT faltante para {len(missing_ids)} juegos...")
+
+    def _fetch_one(gid: str):
+        hht, aht = fetch_event_halftime(gid)
+        return gid, hht, aht
+
+    updates = {}
+    max_workers = min(8, max(1, len(missing_ids)))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_fetch_one, gid) for gid in missing_ids]
+        for future in as_completed(futures):
+            gid, hht, aht = future.result()
+            if hht is None or aht is None:
+                continue
+            updates[gid] = (int(hht), int(aht))
+
+    if not updates:
+        print("   ℹ️  No se recuperaron marcadores HT adicionales.")
+        return df
+
+    idx_by_gid = {str(g): i for i, g in enumerate(df["game_id"].astype(str).tolist())}
+    applied = 0
+    for gid, (hht, aht) in updates.items():
+        idx = idx_by_gid.get(gid)
+        if idx is None:
+            continue
+        df.at[idx, "home_ht_score"] = hht
+        df.at[idx, "away_ht_score"] = aht
+        df.at[idx, "total_ht_goals"] = int(hht) + int(aht)
+        applied += 1
+
+    print(f"   ✅ Backfill HT aplicado en {applied} juegos.")
+    return df
+
+
+def _odds_columns():
+    return [
+        "odds_over_under",
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "closing_moneyline_odds",
+        "closing_spread_odds",
+        "closing_total_odds",
+    ]
+
+
+def _has_real_odds(row: pd.Series) -> bool:
+    for c in _odds_columns():
+        v = pd.to_numeric(pd.Series([row.get(c)]), errors="coerce").iloc[0]
+        if pd.notna(v) and float(v) != 0.0:
+            return True
+    return False
+
+
+def _last_nonzero(series: pd.Series):
+    for v in reversed(series.tolist()):
+        parsed = pd.to_numeric(pd.Series([v]), errors="coerce").iloc[0]
+        if pd.notna(parsed) and float(parsed) != 0.0:
+            return float(parsed)
+    return None
+
+
+def persist_odds_snapshots(df_upcoming: pd.DataFrame):
+    if df_upcoming.empty:
+        return
+
+    required = ["game_id", "date", "time", "home_team", "away_team", "odds_data_quality"]
+    for c in required + _odds_columns():
+        if c not in df_upcoming.columns:
+            df_upcoming[c] = None
+
+    snap = df_upcoming[required + _odds_columns()].copy()
+    snap["has_real_odds"] = snap.apply(_has_real_odds, axis=1)
+    snap = snap[snap["has_real_odds"]].drop(columns=["has_real_odds"])
+    if snap.empty:
+        return
+
+    snap["snapshot_ts"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    if FILE_PATH_ODDS_SNAPSHOTS.exists():
+        try:
+            old = pd.read_csv(FILE_PATH_ODDS_SNAPSHOTS, dtype={"game_id": str})
+        except Exception:
+            old = pd.DataFrame()
+        snap = pd.concat([old, snap], ignore_index=True)
+
+    snap["game_id"] = snap["game_id"].astype(str).str.strip()
+    snap = snap.sort_values(["game_id", "snapshot_ts"]).drop_duplicates(subset=["game_id"], keep="last")
+    snap.to_csv(FILE_PATH_ODDS_SNAPSHOTS, index=False)
+    print(f"💾 Snapshots de odds guardados: {len(snap)} juegos -> {FILE_PATH_ODDS_SNAPSHOTS}")
+
+
+def backfill_history_odds_from_snapshots(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or not FILE_PATH_ODDS_SNAPSHOTS.exists():
+        return df
+    try:
+        snap = pd.read_csv(FILE_PATH_ODDS_SNAPSHOTS, dtype={"game_id": str})
+    except Exception as e:
+        print(f"⚠️ No se pudo leer snapshots de odds: {e}")
+        return df
+
+    if snap.empty:
+        return df
+
+    for c in ["game_id"] + _odds_columns():
+        if c not in snap.columns:
+            return df
+
+    snap = snap.sort_values("snapshot_ts").drop_duplicates(subset=["game_id"], keep="last")
+    snap = snap.set_index("game_id")
+
+    updated = 0
+    for idx, row in df.iterrows():
+        gid = str(row.get("game_id") or "").strip()
+        if not gid or gid not in snap.index:
+            continue
+        snap_row = snap.loc[gid]
+        row_changed = False
+        for c in _odds_columns():
+            curr = pd.to_numeric(pd.Series([row.get(c)]), errors="coerce").iloc[0]
+            repl = pd.to_numeric(pd.Series([snap_row.get(c)]), errors="coerce").iloc[0]
+            if (pd.isna(curr) or float(curr) == 0.0) and pd.notna(repl) and float(repl) != 0.0:
+                df.at[idx, c] = float(repl)
+                row_changed = True
+        if row_changed:
+            df.at[idx, "odds_data_quality"] = "real"
+            updated += 1
+
+    if updated:
+        print(f"   ✅ Backfill odds desde snapshot aplicado en {updated} juegos.")
+    return df
+
+
+def preserve_odds_within_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "game_id" not in df.columns:
+        return df
+    odds_cols = _odds_columns()
+    for c in odds_cols:
+        if c not in df.columns:
+            df[c] = None
+
+    by_gid = df.groupby("game_id", dropna=False)
+    fill_maps = {c: by_gid[c].apply(_last_nonzero).to_dict() for c in odds_cols}
+
+    repaired = 0
+    for idx, row in df.iterrows():
+        gid = row.get("game_id")
+        if pd.isna(gid):
+            continue
+        row_changed = False
+        for c in odds_cols:
+            curr = pd.to_numeric(pd.Series([row.get(c)]), errors="coerce").iloc[0]
+            best = fill_maps[c].get(gid)
+            if (pd.isna(curr) or float(curr) == 0.0) and best is not None:
+                df.at[idx, c] = float(best)
+                row_changed = True
+        if row_changed:
+            df.at[idx, "odds_data_quality"] = "real"
+            repaired += 1
+    if repaired:
+        print(f"   ✅ Conservación de odds intra-duplicados aplicada en {repaired} filas.")
+    return df
 
 
 # -----------------------------
@@ -333,6 +677,8 @@ def parse_event_to_row(event: dict, season: str | None = None):
 
     home_score = safe_int(home_data.get("score"))
     away_score = safe_int(away_data.get("score"))
+    home_ht_score = _extract_first_period_score(home_data.get("linescores"))
+    away_ht_score = _extract_first_period_score(away_data.get("linescores"))
     home_corners = _extract_corners_from_stats(home_data.get("statistics") or [])
     away_corners = _extract_corners_from_stats(away_data.get("statistics") or [])
     if home_corners is None:
@@ -368,6 +714,13 @@ def parse_event_to_row(event: dict, season: str | None = None):
         "away_team": away_team,
         "home_score": home_score,
         "away_score": away_score,
+        "home_ht_score": home_ht_score,
+        "away_ht_score": away_ht_score,
+        "total_ht_goals": (
+            safe_int(home_ht_score, default=0) + safe_int(away_ht_score, default=0)
+            if home_ht_score is not None and away_ht_score is not None
+            else None
+        ),
         "home_corners": int(home_corners),
         "away_corners": int(away_corners),
         "total_corners": int(home_corners) + int(away_corners),
@@ -418,9 +771,7 @@ def fetch_games_for_ranges(ranges):
             url = f"{ESPN_SCOREBOARD_URL}?dates={d1}-{d2}&limit=500"
             for attempt in range(3):
                 try:
-                    resp = requests.get(url, timeout=20)
-                    resp.raise_for_status()
-                    data = resp.json() or {}
+                    data = espn_get_json(url, timeout=20, retries=1)
                     events = data.get("events") or []
                     return (d1, d2, events, None)
                 except Exception as e:
@@ -447,6 +798,12 @@ def fetch_games_for_ranges(ranges):
                                 row["home_corners"] = int(hc)
                                 row["away_corners"] = int(ac)
                                 row["total_corners"] = int(hc) + int(ac)
+                            if row.get("home_ht_score") is None or row.get("away_ht_score") is None:
+                                hht, aht = fetch_event_halftime(str(row.get("game_id")))
+                                row["home_ht_score"] = hht
+                                row["away_ht_score"] = aht
+                                if hht is not None and aht is not None:
+                                    row["total_ht_goals"] = int(hht) + int(aht)
                             completed_games.append(row)
                     except Exception as inner_e:
                         print(f"⚠️ Error procesando evento: {inner_e}")
@@ -461,8 +818,6 @@ def fetch_games_for_ranges(ranges):
 # -----------------------------
 
 def fetch_upcoming_schedule_for_range(start_date: str, days_ahead: int = UPCOMING_DAYS_AHEAD):
-
-    session = requests.Session()
     upcoming_rows = []
     base_dt = datetime.strptime(start_date, "%Y-%m-%d")
 
@@ -472,11 +827,7 @@ def fetch_upcoming_schedule_for_range(start_date: str, days_ahead: int = UPCOMIN
         url = f"{ESPN_SCOREBOARD_URL}?dates={day_dt.strftime('%Y%m%d')}&limit=500"
 
         try:
-
-            resp = session.get(url, timeout=20)
-            resp.raise_for_status()
-
-            data = resp.json() or {}
+            data = espn_get_json(url, timeout=20, retries=1)
             events = data.get("events") or []
 
             day_count = 0
@@ -537,8 +888,12 @@ def extract_advanced_espn_data():
         final_df = pd.concat([existing_df, new_df], ignore_index=True)
 
     if not final_df.empty:
+        final_df = backfill_halftime_from_alt_source(final_df)
+        final_df = backfill_missing_halftime_scores(final_df)
+        final_df = preserve_odds_within_duplicates(final_df)
 
         final_df = final_df.drop_duplicates(subset=["game_id"], keep="last")
+        final_df = backfill_history_odds_from_snapshots(final_df)
 
         final_df = final_df.sort_values(
             ["date", "time", "game_id"],
@@ -558,6 +913,7 @@ def extract_advanced_espn_data():
 
     if not df_upcoming.empty:
         df_upcoming.to_csv(FILE_PATH_UPCOMING, index=False)
+        persist_odds_snapshots(df_upcoming)
         print(f"🗓️ Agenda rolling guardada en: {FILE_PATH_UPCOMING}")
         print(f"   Juegos totales agenda: {len(df_upcoming)}")
     else:

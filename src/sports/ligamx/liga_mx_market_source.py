@@ -6,6 +6,7 @@ from typing import Dict
 def load_market_feature_sources(selective_plan_file: Path) -> Dict[str, str]:
     sources: Dict[str, str] = {
         "full_game": "baseline",
+        "ht_result": "baseline",
         "over_25": "baseline",
         "btts": "baseline",
         "corners_over_95": "baseline",

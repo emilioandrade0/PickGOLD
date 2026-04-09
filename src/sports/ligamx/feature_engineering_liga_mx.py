@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from typing import Tuple
 
 import sys
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -13,13 +14,15 @@ PROCESSED_DATA_DIR = BASE_DIR / "data" / "liga_mx" / "processed"
 PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_FILE = PROCESSED_DATA_DIR / "model_ready_features_liga_mx.csv"
 
+HAS_ADVANCED_FEATURES = True  # Inline functions below
+
 
 def calculate_elo_ratings(df: pd.DataFrame, k: float = 16, home_advantage: float = 50) -> pd.DataFrame:
     """
     Calcula ratings ELO para todos los equipos usando histórico de partidos.
     Adaptado para fútbol con home_advantage = 50 (menor que en NBA/MLB).
     """
-    print("📈 Calculando Sistema ELO para Liga MX...")
+    print("[ELO] Calculando Sistema ELO para Liga MX...")
 
     elo_dict = {}
     elo_home_before = []
@@ -64,7 +67,14 @@ def calculate_elo_ratings(df: pd.DataFrame, k: float = 16, home_advantage: float
 
 def ensure_market_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Asegura que existan columnas de mercado."""
-    market_cols = ["odds_over_under"]
+    market_cols = [
+        "odds_over_under",
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "closing_moneyline_odds",
+        "closing_spread_odds",
+        "closing_total_odds",
+    ]
 
     for col in market_cols:
         if col in df.columns:
@@ -74,10 +84,32 @@ def ensure_market_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     df["market_missing"] = df[market_cols].isna().any(axis=1).astype(int)
 
-    for col in market_cols:
-        df[col] = df[col].fillna(2.5)
+    df["odds_over_under"] = df["odds_over_under"].fillna(2.5)
+
+    # Conservative defaults for missing odds fields.
+    for col in [
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "closing_moneyline_odds",
+        "closing_spread_odds",
+        "closing_total_odds",
+    ]:
+        df[col] = df[col].fillna(0.0)
 
     return df
+
+
+def _american_to_implied_prob_series(odds: pd.Series) -> pd.Series:
+    odds = pd.to_numeric(odds, errors="coerce").fillna(0.0)
+
+    pos = odds > 0
+    neg = odds < 0
+
+    out = pd.Series(np.zeros(len(odds), dtype=float), index=odds.index)
+    out.loc[pos] = 100.0 / (odds.loc[pos] + 100.0)
+    out.loc[neg] = np.abs(odds.loc[neg]) / (np.abs(odds.loc[neg]) + 100.0)
+    out.loc[~(pos | neg)] = 0.5
+    return out.clip(0.01, 0.99)
 
 
 def count_games_in_last_days(group: pd.DataFrame, days: int) -> pd.Series:
@@ -93,9 +125,101 @@ def count_games_in_last_days(group: pd.DataFrame, days: int) -> pd.Series:
     return pd.Series(counts, index=group.index)
 
 
+# ====== ADVANCED FEATURES FOR FULL_GAME ======
+def calculate_home_away_streaks(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Calculate home/away streaks and dominance."""
+    print("[ADVANCED] Computing home/away streaks...")
+    
+    home_df = df[["date", "game_id", "home_team", "home_score", "away_score", "is_draw"]].copy()
+    home_df.columns = ["date", "game_id", "team", "goals_for", "goals_against", "drew"]
+    home_df["date_dt"] = pd.to_datetime(home_df["date"])
+    home_df = home_df.sort_values(["team", "date_dt", "game_id"]).reset_index(drop=True)
+    
+    home_df["won"] = (home_df["goals_for"] > home_df["goals_against"]).astype(int)
+    home_df["goal_diff"] = home_df["goals_for"] - home_df["goals_against"]
+    
+    home_df["home_win_streak_L5"] = home_df.groupby("team")["won"].shift(1).rolling(5, 1).max().values
+    home_df["home_win_streak_L10"] = home_df.groupby("team")["won"].shift(1).rolling(10, 1).max().values
+    home_df["home_dominance_L10"] = home_df.groupby("team")["goal_diff"].shift(1).rolling(10, 1).mean().values
+    
+    home_streaks = home_df[["game_id", "team", "home_win_streak_L5", "home_win_streak_L10", "home_dominance_L10"]].copy()
+    
+    away_df = df[["date", "game_id", "away_team", "away_score", "home_score", "is_draw"]].copy()
+    away_df.columns = ["date", "game_id", "team", "goals_for", "goals_against", "drew"]
+    away_df["date_dt"] = pd.to_datetime(away_df["date"])
+    away_df = away_df.sort_values(["team", "date_dt", "game_id"]).reset_index(drop=True)
+    
+    away_df["won"] = (away_df["goals_for"] > away_df["goals_against"]).astype(int)
+    away_df["goal_diff"] = away_df["goals_for"] - away_df["goals_against"]
+    
+    away_df["away_win_streak_L5"] = away_df.groupby("team")["won"].shift(1).rolling(5, 1).max().values
+    away_df["away_win_streak_L10"] = away_df.groupby("team")["won"].shift(1).rolling(10, 1).max().values
+    away_df["away_dominance_L10"] = away_df.groupby("team")["goal_diff"].shift(1).rolling(10, 1).mean().values
+    
+    away_streaks = away_df[["game_id", "team", "away_win_streak_L5", "away_win_streak_L10", "away_dominance_L10"]].copy()
+    
+    return home_streaks, away_streaks
+
+
+def calculate_draw_parity_strength(df: pd.DataFrame) -> pd.DataFrame:
+    """Draw outcome strength based on parity."""
+    print("[ADVANCED] Computing draw parity strength...")
+    
+    out = df.copy()
+    
+    home_draw_rate = out.get("home_draw_pct_L10", out.get("home_draw_pct_L5", 0.0)).fillna(0)
+    away_draw_rate = out.get("away_draw_pct_L10", out.get("away_draw_pct_L5", 0.0)).fillna(0)
+    out["draw_tendency_similarity"] = 1.0 - np.abs(home_draw_rate - away_draw_rate)
+    
+    elo_diff = np.abs(out.get("diff_elo", 0).fillna(0))
+    out["elo_proximity"] = np.exp(-elo_diff / 150.0)
+    
+    gd_diff = np.abs(out.get("diff_goal_diff_L10", out.get("diff_goal_diff_L5", 0)).fillna(0))
+    out["form_balance"] = np.exp(-gd_diff / 2.0)
+    
+    out["draw_parity_strength"] = (
+        0.35 * out["draw_tendency_similarity"]
+        + 0.30 * out["elo_proximity"]
+        + 0.20 * out["form_balance"]
+        + 0.15 * (1.0 / (1.0 + np.abs(out.get("diff_goal_diff_std_L10", 1)).fillna(1)))
+    )
+    
+    return out[["draw_parity_strength"]]
+
+
+def calculate_fatigue_differential(df: pd.DataFrame) -> pd.DataFrame:
+    """Fatigue advantage: positive = home fresher."""
+    print("[ADVANCED] Computing fatigue differential...")
+    
+    out = df.copy()
+    
+    rest_diff = out.get("diff_rest_days", 0).fillna(0)
+    games_7d_home = out.get("home_games_last_7_days", 0).fillna(0)
+    games_7d_away = out.get("away_games_last_7_days", 0).fillna(0)
+    
+    out["fatigue_advantage"] = 0.6 * rest_diff + 0.4 * (games_7d_away - games_7d_home)
+    
+    return out[["fatigue_advantage"]]
+
+
+def calculate_opponent_quality_adjusted_form(df: pd.DataFrame) -> pd.DataFrame:
+    """Recent form weighted by opponent strength."""
+    print("[ADVANCED] Computing opponent-adjusted form...")
+    
+    out = df.copy()
+    
+    away_strength = np.abs(out.get("away_elo_pre", 1500).fillna(1500)) / 1500.0
+    home_strength = np.abs(out.get("home_elo_pre", 1500).fillna(1500)) / 1500.0
+    
+    out["home_form_vs_strong"] = out.get("home_win_pct_L5", 0.5).fillna(0.5) * (0.8 + 0.2 * away_strength)
+    out["away_form_vs_strong"] = out.get("away_win_pct_L5", 0.5).fillna(0.5) * (0.8 + 0.2 * home_strength)
+    
+    return out[["home_form_vs_strong", "away_form_vs_strong"]]
+
+
 def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     """Calcula variables generales de rolling por equipo."""
-    print("⚙️ Generando variables generales por equipo (Liga MX)...")
+    print("[GENERAL] Generando variables generales por equipo (Liga MX)...")
 
     home_df = df[
         ["date", "game_id", "home_team", "home_score", "away_score", "total_goals", "is_draw"]
@@ -223,7 +347,7 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def calculate_surface_split_features(df: pd.DataFrame):
     """Calcula features separados para HOME y AWAY surface."""
-    print("🏠✈️ Generando splits Home/Away (Liga MX)...")
+    print("[SURFACE] Generando splits Home/Away (Liga MX)...")
 
     # HOME ONLY
     home_only = df[
@@ -304,18 +428,18 @@ def calculate_surface_split_features(df: pd.DataFrame):
 
 def build_features() -> pd.DataFrame:
     """Construye el dataset final con todas las features para modelos."""
-    print("\n🔨 Construyendo dataset de features para Liga MX...")
+    print("\n[BUILD] Construyendo dataset de features para Liga MX...")
 
     df = pd.read_csv(RAW_DATA, dtype={"game_id": str})
 
-    for col in ["home_corners", "away_corners", "total_corners"]:
+    for col in ["home_corners", "away_corners", "total_corners", "home_ht_score", "away_ht_score", "total_ht_goals"]:
         if col not in df.columns:
             df[col] = np.nan
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
     df["date_dt"] = pd.to_datetime(df["date"])
     df = df.sort_values(["date_dt", "game_id"]).reset_index(drop=True)
-    df = df.drop(columns=["date_dt"])
+    # NOTE: Keep date_dt for H2H/Venue features (will drop later)
 
     # Calcular ELO
     df = calculate_elo_ratings(df)
@@ -331,6 +455,15 @@ def build_features() -> pd.DataFrame:
     df["TARGET_corners_over_95"] = np.where(
         df["total_corners"].notna(),
         (df["total_corners"] > 9.5).astype(int),
+        np.nan,
+    )
+    df["TARGET_ht_result"] = np.where(
+        df["home_ht_score"].notna() & df["away_ht_score"].notna(),
+        np.select(
+            [df["home_ht_score"] > df["away_ht_score"], df["home_ht_score"] == df["away_ht_score"]],
+            [1, 2],
+            default=0,
+        ),
         np.nan,
     )
 
@@ -408,6 +541,13 @@ def build_features() -> pd.DataFrame:
 
     # Validar columnas de mercado
     df = ensure_market_columns(df)
+
+    # Market-implied probabilities (strong pre-match signal)
+    df["home_ml_implied_prob"] = _american_to_implied_prob_series(df["home_moneyline_odds"])
+    df["away_ml_implied_prob"] = _american_to_implied_prob_series(df["away_moneyline_odds"])
+    df["market_fav_edge"] = df["home_ml_implied_prob"] - df["away_ml_implied_prob"]
+    df["market_fav_abs_edge"] = np.abs(df["market_fav_edge"])
+    df["market_total_line"] = pd.to_numeric(df["odds_over_under"], errors="coerce").fillna(2.5)
 
     # Feature de diferencia ELO
     df["diff_elo"] = df["home_elo_pre"] - df["away_elo_pre"]
@@ -529,6 +669,46 @@ def build_features() -> pd.DataFrame:
     ) / 4.0
     df["draw_equilibrium_index"] = draw_tendency_score * ((parity_elo_score + parity_goal_score) / 2.0)
 
+    # ====== ADVANCED FEATURES FOR FULL_GAME ======
+    print("\n[ADVANCED] Integrando features avanzadas para full_game...")
+    try:
+        # 1. Home/Away streaks
+        print("  1/4 Calculando rachas por local/visita...")
+        home_streaks, away_streaks = calculate_home_away_streaks(df)
+        df = pd.merge(df, home_streaks, left_on=["game_id", "home_team"], 
+                     right_on=["game_id", "team"], how="left").drop(columns=["team"], errors="ignore")
+        df = pd.merge(df, away_streaks, left_on=["game_id", "away_team"], 
+                     right_on=["game_id", "team"], how="left").drop(columns=["team"], errors="ignore")
+        
+        # 2. Draw parity strength
+        print("  2/4 Calculando fuerza de empate por paridad...")
+        draw_features = calculate_draw_parity_strength(df)
+        for col in draw_features.columns:
+            df[col] = draw_features[col]
+        
+        # 3. Fatigue differential
+        print("  3/4 Calculando ventaja de fatiga...")
+        fatigue_features = calculate_fatigue_differential(df)
+        for col in fatigue_features.columns:
+            df[col] = fatigue_features[col]
+        
+        # 4. Opponent-adjusted form
+        print("  4/4 Calculando forma ponderada por rival...")
+        form_features = calculate_opponent_quality_adjusted_form(df)
+        for col in form_features.columns:
+            df[col] = form_features[col]
+
+        print("  [OK] Advanced features agregadas exitosamente")
+    except Exception as e:
+        print(f"  [WARN] Error agregando advanced features: {e}")
+        import traceback
+        traceback.print_exc()
+        print("     Continuando con features baseline...")
+
+    # Drop helper date column before selecting final model columns.
+    if "date_dt" in df.columns:
+        df = df.drop(columns=["date_dt"])
+
     # Seleccionar columnas finales
     model_columns = [
         "game_id",
@@ -538,9 +718,13 @@ def build_features() -> pd.DataFrame:
         "away_team",
         "home_score",
         "away_score",
+        "home_ht_score",
+        "away_ht_score",
+        "total_ht_goals",
         "is_draw",
         "total_goals",
         "TARGET_full_game",
+        "TARGET_ht_result",
         "TARGET_over_25",
         "TARGET_btts",
         "TARGET_corners_over_95",
@@ -676,25 +860,60 @@ def build_features() -> pd.DataFrame:
         "diff_match_stability_L10",
         "draw_equilibrium_index",
 
+        # Advanced features for full_game
+        "home_win_streak_L5",
+        "home_win_streak_L10",
+        "home_dominance_L10",
+        "away_win_streak_L5",
+        "away_win_streak_L10",
+        "away_dominance_L10",
+        "draw_parity_strength",
+        "fatigue_advantage",
+        "home_form_vs_strong",
+        "away_form_vs_strong",
+
+        # Market-driven full-game features
+        "home_moneyline_odds",
+        "away_moneyline_odds",
+        "closing_moneyline_odds",
+        "closing_spread_odds",
+        "closing_total_odds",
+        "home_ml_implied_prob",
+        "away_ml_implied_prob",
+        "market_fav_edge",
+        "market_fav_abs_edge",
+        "market_total_line",
+
         "odds_over_under",
         "market_missing",
     ]
 
+    # Filter to only existing columns (advanced features might not be generated)
+    model_columns = [c for c in model_columns if c in df.columns]
+    
     df = df[model_columns].copy()
 
     # Validar que no haya NaN
-    print(f"\n⚠️ Revisando NaN antes de guardar...")
+    print(f"\n[CHECK] Revisando NaN antes de guardar...")
     nan_cols = df.columns[df.isna().any()].tolist()
     if nan_cols:
         print(f"   Columnas con NaN: {nan_cols}")
-        df = df.fillna(0)
+        preserve_nan = {
+            "home_ht_score",
+            "away_ht_score",
+            "total_ht_goals",
+            "TARGET_ht_result",
+            "TARGET_corners_over_95",
+        }
+        fill_cols = [c for c in df.columns if c not in preserve_nan]
+        df.loc[:, fill_cols] = df[fill_cols].fillna(0)
 
     return df
 
 
 def main():
     print("=" * 70)
-    print("🎯 FEATURE ENGINEERING PARA LIGA MX")
+    print("[FEATURE ENGINEERING] PARA LIGA MX")
     print("=" * 70)
 
     if not RAW_DATA.exists():
@@ -702,20 +921,21 @@ def main():
 
     df = build_features()
 
-    print(f"\n📊 Dataset generado:")
+    print(f"\n[SUMMARY] Dataset generado:")
     print(f"   - Partidos: {len(df)}")
     print(f"   - Columnas: {len(df.columns)}")
     corners_n = int(df["TARGET_corners_over_95"].notna().sum()) if "TARGET_corners_over_95" in df.columns else 0
+    ht_n = int(df["TARGET_ht_result"].notna().sum()) if "TARGET_ht_result" in df.columns else 0
     print(
         f"   - Targets: {df['TARGET_full_game'].nunique()} full_game, "
         f"{df['TARGET_over_25'].nunique()} over_25, {df['TARGET_btts'].nunique()} btts, "
-        f"corners_over_95 muestras={corners_n}"
+        f"ht_result muestras={ht_n}, corners_over_95 muestras={corners_n}"
     )
 
     df.to_csv(OUTPUT_FILE, index=False)
-    print(f"\n✅ Features guardadas en: {OUTPUT_FILE}")
+    print(f"\n[SUCCESS] Features guardadas en: {OUTPUT_FILE}")
 
-    print(f"\n📋 Primeras filas:")
+    print(f"\n[PREVIEW] Primeras filas:")
     print(df.head(3))
 
 

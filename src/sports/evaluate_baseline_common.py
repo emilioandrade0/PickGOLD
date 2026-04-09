@@ -93,6 +93,16 @@ SPORT_CONFIG = {
             "src/data/nhl/predictions",
         ],
     },
+    "triple_a": {
+        "label": "Triple-A",
+        "raw_candidates": [
+            "src/data/triple_a/raw/triple_a_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/triple_a/historical_predictions",
+            "src/data/triple_a/predictions",
+        ],
+    },
 }
 
 
@@ -115,6 +125,305 @@ def _format_ratio_from_pct(pct_value: float, total: int):
         return "0/0"
     hits = int(round((pct_value / 100.0) * total))
     return f"{hits}/{total}"
+
+
+def _to_bool(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+        return None
+    txt = str(value).strip().lower()
+    if txt in {"1", "true", "yes", "si", "hit", "acierto"}:
+        return True
+    if txt in {"0", "false", "no", "fallo", "miss"}:
+        return False
+    return None
+
+
+def _safe_rows_from_json(path: Path):
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        games = payload.get("games")
+        if isinstance(games, list):
+            return games
+    return []
+
+
+def _parse_over_under_pick(pick):
+    if pick is None:
+        return None
+    txt = str(pick).upper()
+    if "OVER" in txt:
+        return True
+    if "UNDER" in txt:
+        return False
+    return None
+
+
+def _parse_btts_pick(pick):
+    if pick is None:
+        return None
+    txt = str(pick).upper()
+    if "YES" in txt or "SI" in txt:
+        return True
+    if "NO" in txt:
+        return False
+    return None
+
+
+def _parse_yes_no_actual(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+    txt = str(value).strip().upper()
+    if txt in {"YES", "SI", "TRUE", "OVER", "1"}:
+        return True
+    if txt in {"NO", "FALSE", "UNDER", "0"}:
+        return False
+    return None
+
+
+def _parse_team_result_value(value):
+    if value is None:
+        return None
+    txt = str(value).strip().upper()
+    if not txt:
+        return None
+    if txt in {"DRAW", "EMPATE", "TIE"}:
+        return "DRAW"
+    return txt
+
+
+def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
+    print(f"Calculando accuracy base para {label}...")
+    if pred_dir is None or not pred_dir.exists():
+        print(f"ERROR: No encontre carpeta de predicciones para {label}.")
+        return True
+
+    json_files = sorted(pred_dir.glob("*.json"))
+    if not json_files:
+        print(f"ERROR: No hay JSONs en {pred_dir}.")
+        return True
+
+    counters = {
+        "full_base": [0, 0],
+        "full_adj": [0, 0],
+        "ou_base": [0, 0],
+        "ou_adj": [0, 0],
+        "btts_base": [0, 0],
+        "btts_adj": [0, 0],
+        "corners_base": [0, 0],
+        "corners_adj": [0, 0],
+        "ht_base": [0, 0],
+        "ht_adj": [0, 0],
+    }
+    tiers = {}
+    total_rows = 0
+    with_actual = 0
+
+    for jf in json_files:
+        rows = _safe_rows_from_json(jf)
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            total_rows += 1
+
+            # Detect if row has resolvable actuals.
+            has_actual = any(
+                r.get(k) is not None
+                for k in [
+                    "actual_result",
+                    "actual_ht_result",
+                    "actual_home_score",
+                    "actual_away_score",
+                    "over_actual",
+                    "btts_actual",
+                    "corners_actual",
+                ]
+            )
+            if not has_actual:
+                continue
+            with_actual += 1
+
+            # Full game base/adjusted
+            fg_base_hit = _to_bool(r.get("correct_full_game_base"))
+            if fg_base_hit is None:
+                pred = _parse_team_result_value(r.get("full_game_pick"))
+                actual = _parse_team_result_value(r.get("actual_result"))
+                if pred is not None and actual is not None:
+                    fg_base_hit = pred == actual
+            if fg_base_hit is not None:
+                counters["full_base"][1] += 1
+                counters["full_base"][0] += int(fg_base_hit)
+                tier = str(r.get("full_game_tier", "PASS")).upper()
+                if tier not in tiers:
+                    tiers[tier] = [0, 0]
+                tiers[tier][1] += 1
+                tiers[tier][0] += int(fg_base_hit)
+
+            fg_adj_hit = _to_bool(r.get("correct_full_game_adjusted"))
+            if fg_adj_hit is None:
+                pred = _parse_team_result_value(r.get("recommended_pick"))
+                actual = _parse_team_result_value(r.get("actual_result"))
+                if pred is not None and actual is not None:
+                    fg_adj_hit = pred == actual
+            if fg_adj_hit is not None:
+                counters["full_adj"][1] += 1
+                counters["full_adj"][0] += int(fg_adj_hit)
+
+            # Over/Under goals
+            ou_base_hit = _to_bool(r.get("correct_total_base"))
+            if ou_base_hit is None:
+                pred = _parse_over_under_pick(r.get("total_pick"))
+                actual = _parse_yes_no_actual(r.get("over_actual"))
+                if pred is not None and actual is not None:
+                    ou_base_hit = pred == actual
+            if ou_base_hit is not None:
+                counters["ou_base"][1] += 1
+                counters["ou_base"][0] += int(ou_base_hit)
+
+            ou_adj_hit = _to_bool(r.get("correct_total_adjusted"))
+            if ou_adj_hit is None:
+                pred = _parse_over_under_pick(r.get("total_recommended_pick"))
+                actual = _parse_yes_no_actual(r.get("over_actual"))
+                if pred is not None and actual is not None:
+                    ou_adj_hit = pred == actual
+            if ou_adj_hit is not None:
+                counters["ou_adj"][1] += 1
+                counters["ou_adj"][0] += int(ou_adj_hit)
+
+            # BTTS
+            btts_base_hit = _to_bool(r.get("correct_btts_base"))
+            if btts_base_hit is None:
+                pred = _parse_btts_pick(r.get("btts_pick"))
+                actual = _parse_yes_no_actual(r.get("btts_actual"))
+                if pred is not None and actual is not None:
+                    btts_base_hit = pred == actual
+            if btts_base_hit is not None:
+                counters["btts_base"][1] += 1
+                counters["btts_base"][0] += int(btts_base_hit)
+
+            btts_adj_hit = _to_bool(r.get("correct_btts_adjusted"))
+            if btts_adj_hit is None:
+                pred = _parse_btts_pick(r.get("btts_recommended_pick"))
+                actual = _parse_yes_no_actual(r.get("btts_actual"))
+                if pred is not None and actual is not None:
+                    btts_adj_hit = pred == actual
+            if btts_adj_hit is not None:
+                counters["btts_adj"][1] += 1
+                counters["btts_adj"][0] += int(btts_adj_hit)
+
+            # Corners O/U
+            corners_base_hit = _to_bool(r.get("correct_corners_base"))
+            if corners_base_hit is None:
+                pred = _parse_over_under_pick(r.get("corners_pick"))
+                actual = _parse_yes_no_actual(r.get("corners_actual"))
+                if pred is not None and actual is not None:
+                    corners_base_hit = pred == actual
+            if corners_base_hit is not None:
+                counters["corners_base"][1] += 1
+                counters["corners_base"][0] += int(corners_base_hit)
+
+            corners_adj_hit = _to_bool(r.get("correct_corners_adjusted"))
+            if corners_adj_hit is None:
+                pred = _parse_over_under_pick(r.get("corners_recommended_pick"))
+                actual = _parse_yes_no_actual(r.get("corners_actual"))
+                if pred is not None and actual is not None:
+                    corners_adj_hit = pred == actual
+            if corners_adj_hit is not None:
+                counters["corners_adj"][1] += 1
+                counters["corners_adj"][0] += int(corners_adj_hit)
+
+            # Medio tiempo (si existe data en JSON)
+            ht_base_hit = _to_bool(r.get("correct_ht_base"))
+            if ht_base_hit is not None:
+                counters["ht_base"][1] += 1
+                counters["ht_base"][0] += int(ht_base_hit)
+
+            ht_adj_hit = _to_bool(r.get("correct_ht_adjusted"))
+            if ht_adj_hit is not None:
+                counters["ht_adj"][1] += 1
+                counters["ht_adj"][0] += int(ht_adj_hit)
+
+            ht_actual = _parse_team_result_value(
+                r.get("actual_ht_result") or r.get("halftime_actual_result") or r.get("h1_actual_result")
+            )
+            ht_base_pick = _parse_team_result_value(
+                r.get("ht_pick") or r.get("half_time_pick") or r.get("h1_pick")
+            )
+            if ht_base_hit is None and ht_actual is not None and ht_base_pick is not None:
+                counters["ht_base"][1] += 1
+                counters["ht_base"][0] += int(ht_base_pick == ht_actual)
+
+            ht_adj_pick = _parse_team_result_value(
+                r.get("ht_recommended_pick") or r.get("half_time_recommended_pick") or r.get("h1_recommended_pick")
+            )
+            if ht_adj_hit is None and ht_actual is not None and ht_adj_pick is not None:
+                counters["ht_adj"][1] += 1
+                counters["ht_adj"][0] += int(ht_adj_pick == ht_actual)
+
+    def _pct(h, t):
+        return (100.0 * h / t) if t > 0 else None
+
+    full_total = counters["full_base"][1]
+    if full_total == 0:
+        print("No hay cruces evaluables entre picks y resultados.")
+        return True
+
+    print("=" * 66)
+    print(f"REPORTE ACCURACY BASE - {label} (MUESTRA FULL GAME: {full_total} JUEGOS)")
+    print("=" * 66)
+    print(f"Filas JSON revisadas : {total_rows}")
+    print(f"Filas con resultado  : {with_actual}")
+    print("-" * 66)
+    fg_base = _pct(*counters["full_base"])
+    fg_adj = _pct(*counters["full_adj"])
+    print(f"FULL GAME Base       : {fg_base:.2f}% ({counters['full_base'][0]}/{counters['full_base'][1]})")
+    if fg_adj is None:
+        print("FULL GAME Adjusted   : N/A")
+    else:
+        print(f"FULL GAME Adjusted   : {fg_adj:.2f}% ({counters['full_adj'][0]}/{counters['full_adj'][1]})")
+
+    for key, title in [
+        ("ou_base", "OVER/UNDER GOLES Base"),
+        ("ou_adj", "OVER/UNDER GOLES Adjusted"),
+        ("btts_base", "BTTS Base"),
+        ("btts_adj", "BTTS Adjusted"),
+        ("corners_base", "CORNERS O/U Base"),
+        ("corners_adj", "CORNERS O/U Adjusted"),
+        ("ht_base", "RESULTADO HT Base"),
+        ("ht_adj", "RESULTADO HT Adjusted"),
+    ]:
+        h, t = counters[key]
+        p = _pct(h, t)
+        if p is None:
+            print(f"{title.ljust(22)}: N/A")
+        else:
+            print(f"{title.ljust(22)}: {p:.2f}% ({h}/{t})")
+
+    print("-" * 66)
+    print("ACCURACY POR TIER (FULL GAME BASE)")
+    for tier_name in sorted(tiers.keys()):
+        h, t = tiers[tier_name]
+        tier_acc = (100.0 * h / t) if t > 0 else 0.0
+        print(f"   {tier_name.ljust(8)} : {tier_acc:.2f}% ({h}/{t})")
+    print("=" * 66)
+    return True
 
 
 def _evaluate_mlb_from_walkforward(base_dir: Path):
@@ -259,6 +568,11 @@ def evaluate_for_sport(sport_key: str):
 
     # MLB usa walk-forward como referencia seria; los JSON historicos legacy pueden inflar el baseline.
     if sport_key == "mlb" and _evaluate_mlb_from_walkforward(base_dir):
+        return
+
+    if sport_key == "ligamx":
+        _, pred_dir = _resolve_paths(base_dir, sport_key)
+        _evaluate_ligamx_markets(base_dir=base_dir, label=label, pred_dir=pred_dir)
         return
 
     raw_path, pred_dir = _resolve_paths(base_dir, sport_key)

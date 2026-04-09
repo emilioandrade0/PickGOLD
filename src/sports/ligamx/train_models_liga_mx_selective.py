@@ -80,9 +80,9 @@ def main() -> None:
     baseline_train.MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     summary = {}
-    for market_key in ["full_game", "over_25", "btts", "corners_over_95"]:
+    for market_key in ["full_game", "ht_result", "over_25", "btts", "corners_over_95"]:
         source = market_sources.get(market_key, "baseline")
-        if source == "v3" and market_key in {"over_25", "btts", "full_game"}:
+        if source == "v3" and market_key in {"over_25", "btts", "full_game", "ht_result"}:
             print(f"\n[TRAIN] {market_key} from v3 features")
             summary[market_key] = _train_market_from_file(market_key, V3_FEATURES_FILE)
         else:

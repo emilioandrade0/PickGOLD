@@ -102,7 +102,7 @@ def _two_stage_full_game_probs(model_pack: dict, X: pd.DataFrame) -> np.ndarray:
 
 
 def _model_predict_proba(model, X: pd.DataFrame, market_key: str) -> np.ndarray:
-    if market_key == "full_game" and isinstance(model, dict) and model.get("model_type") == "two_stage_full_game":
+    if isinstance(model, dict) and model.get("model_type") == "two_stage_full_game":
         return _two_stage_full_game_probs(model, X)
     return np.asarray(model.predict_proba(X), dtype=float)
 
@@ -163,7 +163,23 @@ def predict_market_probabilities(row_df: pd.DataFrame, market_key: str, assets: 
         + weights["lightgbm_secondary"] * lgbm_sec_probs
     )
     if catboost_model is not None:
-        probs = probs + weights["catboost"] * catboost_model.predict_proba(X)
+        cat_cols = metadata.get("catboost_feature_columns") or feat_list
+        cat_cols = [c for c in cat_cols if c in row_df.columns]
+        X_cat = row_df[cat_cols].copy()
+        for c in ["season", "home_team", "away_team"]:
+            if c in X_cat.columns:
+                X_cat[c] = X_cat[c].astype(str)
+        for c in X_cat.columns:
+            if X_cat[c].dtype == object:
+                X_cat[c] = X_cat[c].fillna("UNK")
+        X_cat = X_cat.replace([np.inf, -np.inf], np.nan).fillna(0)
+        probs = probs + weights["catboost"] * np.asarray(catboost_model.predict_proba(X_cat), dtype=float)
+
+    if market_key in {"full_game", "ht_result"} and probs.ndim == 2 and probs.shape[1] == 3:
+        draw_scale = float((metadata.get("ensemble_weights", {}) or {}).get("draw_scale", 1.0))
+        probs[:, 2] = probs[:, 2] * draw_scale
+        probs = np.clip(probs, 1e-9, None)
+        probs = probs / probs.sum(axis=1, keepdims=True)
 
     return probs[0]
 
@@ -249,6 +265,18 @@ def parse_actual_result(row: pd.Series):
     actual_btts = 1 if (home_score > 0 and away_score > 0) else 0
     corners_raw = row.get("TARGET_corners_over_95", 0)
     actual_corners = 0 if pd.isna(corners_raw) else int(corners_raw)
+    ht_class_raw = row.get("TARGET_ht_result", np.nan)
+    if pd.isna(ht_class_raw):
+        actual_ht_class = None
+        actual_ht_result = None
+    else:
+        actual_ht_class = int(ht_class_raw)
+        if actual_ht_class == 1:
+            actual_ht_result = str(row["home_team"])
+        elif actual_ht_class == 0:
+            actual_ht_result = str(row["away_team"])
+        else:
+            actual_ht_result = "DRAW"
 
     return {
         "actual_home_score": home_score,
@@ -258,6 +286,8 @@ def parse_actual_result(row: pd.Series):
         "actual_over": actual_over,
         "actual_btts": actual_btts,
         "actual_corners": actual_corners,
+        "actual_ht_class": actual_ht_class,
+        "actual_ht_result": actual_ht_result,
     }
 
 
@@ -296,6 +326,12 @@ def build_walk_forward_predictions(
         "btts": load_market_assets("btts", market_sources),
         "corners_over_95": load_market_assets("corners_over_95", market_sources),
     }
+    try:
+        assets["ht_result"] = load_market_assets("ht_result", market_sources)
+        ht_model_available = True
+    except Exception:
+        assets["ht_result"] = None
+        ht_model_available = False
 
     adj_engine.USE_EVENT_ADJUSTMENTS = USE_EVENT_ADJUSTMENTS
     corners_constant_fallback = _is_constant_binary_asset(assets["corners_over_95"])
@@ -309,6 +345,10 @@ def build_walk_forward_predictions(
         match_date = str(row["date"])
 
         fg_probs_base = predict_market_probabilities(row_df, "full_game", assets)
+        if ht_model_available and assets["ht_result"] is not None:
+            ht_probs_base = predict_market_probabilities(row_df, "ht_result", assets)
+        else:
+            ht_probs_base = np.array([0.0, 0.0, 1.0], dtype=float)
         over_prob_base = float(predict_market_probabilities(row_df, "over_25", assets)[1])
         btts_prob_base = float(predict_market_probabilities(row_df, "btts", assets)[1])
         corners_prob_base = float(predict_market_probabilities(row_df, "corners_over_95", assets)[1])
@@ -317,6 +357,9 @@ def build_walk_forward_predictions(
 
         fg_base_pick, fg_base_pick_prob, fg_base_class = pick_from_multiclass_probs(
             fg_probs_base, home_team, away_team
+        )
+        ht_base_pick, ht_base_pick_prob, ht_base_class = pick_from_multiclass_probs(
+            ht_probs_base, home_team, away_team
         )
 
         over_thr = assets["over_25"]["threshold"]
@@ -330,6 +373,7 @@ def build_walk_forward_predictions(
         corners_base_pick = "OVER 9.5" if corners_prob_base >= corners_thr else "UNDER 9.5"
 
         fg_probs_adj = np.array(fg_probs_base, dtype=float)
+        ht_probs_adj = np.array(ht_probs_base, dtype=float)
         over_prob_adj = over_prob_base
         btts_prob_adj = btts_prob_base
         corners_prob_adj = corners_prob_base
@@ -398,6 +442,9 @@ def build_walk_forward_predictions(
         fg_adj_pick, fg_adj_pick_prob, fg_adj_class = pick_from_multiclass_probs(
             fg_probs_adj, home_team, away_team
         )
+        ht_adj_pick, ht_adj_pick_prob, ht_adj_class = pick_from_multiclass_probs(
+            ht_probs_adj, home_team, away_team
+        )
         over_adj_pick = "OVER 2.5" if over_prob_adj >= over_thr else "UNDER 2.5"
         btts_adj_pick = "BTTS YES" if btts_prob_adj >= btts_thr else "BTTS NO"
         corners_adj_pick = "OVER 9.5" if corners_prob_adj >= corners_thr else "UNDER 9.5"
@@ -422,6 +469,10 @@ def build_walk_forward_predictions(
                 "full_game_tier": "ELITE" if probability_to_confidence(fg_base_pick_prob) >= 72 else "NORMAL",
                 "recommended_pick": fg_adj_pick,
                 "recommended_confidence": probability_to_confidence(fg_adj_pick_prob),
+                "ht_pick": ht_base_pick if ht_model_available else None,
+                "ht_confidence": probability_to_confidence(ht_base_pick_prob),
+                "ht_recommended_pick": ht_adj_pick if ht_model_available else None,
+                "ht_recommended_confidence": probability_to_confidence(ht_adj_pick_prob),
 
                 "base_probability": round(float(fg_base_pick_prob), 6),
                 "adjusted_probability": round(float(fg_adj_pick_prob), 6),
@@ -453,6 +504,7 @@ def build_walk_forward_predictions(
                 "actual_home_score": actual["actual_home_score"],
                 "actual_away_score": actual["actual_away_score"],
                 "actual_result": actual["actual_result"],
+                "actual_ht_result": actual["actual_ht_result"],
 
                 "correct_full_game_base": 1 if fg_base_class == actual["actual_full_game_class"] else 0,
                 "correct_full_game_adjusted": 1 if fg_adj_class == actual["actual_full_game_class"] else 0,
@@ -462,14 +514,31 @@ def build_walk_forward_predictions(
                 "correct_btts_adjusted": 1 if (1 if "YES" in btts_adj_pick else 0) == actual["actual_btts"] else 0,
                 "correct_corners_base": 1 if (1 if "OVER" in corners_base_pick else 0) == actual["actual_corners"] else 0,
                 "correct_corners_adjusted": 1 if (1 if "OVER" in corners_adj_pick else 0) == actual["actual_corners"] else 0,
+                "correct_ht_base": (
+                    None
+                    if (not ht_model_available) or actual["actual_ht_class"] is None
+                    else (1 if ht_base_class == actual["actual_ht_class"] else 0)
+                ),
+                "correct_ht_adjusted": (
+                    None
+                    if (not ht_model_available) or actual["actual_ht_class"] is None
+                    else (1 if ht_adj_class == actual["actual_ht_class"] else 0)
+                ),
 
                 "actual_full_game_class": actual["actual_full_game_class"],
+                "actual_ht_class": actual["actual_ht_class"],
                 "fg_prob_away_base": float(fg_probs_base[0]),
                 "fg_prob_home_base": float(fg_probs_base[1]),
                 "fg_prob_draw_base": float(fg_probs_base[2]),
                 "fg_prob_away_adjusted": float(fg_probs_adj[0]),
                 "fg_prob_home_adjusted": float(fg_probs_adj[1]),
                 "fg_prob_draw_adjusted": float(fg_probs_adj[2]),
+                "ht_prob_away_base": float(ht_probs_base[0]),
+                "ht_prob_home_base": float(ht_probs_base[1]),
+                "ht_prob_draw_base": float(ht_probs_base[2]),
+                "ht_prob_away_adjusted": float(ht_probs_adj[0]),
+                "ht_prob_home_adjusted": float(ht_probs_adj[1]),
+                "ht_prob_draw_adjusted": float(ht_probs_adj[2]),
                 "over_actual": actual["actual_over"],
                 "btts_actual": actual["actual_btts"],
                 "corners_actual": actual["actual_corners"],
@@ -489,6 +558,14 @@ def compute_comparative_metrics(predictions: list):
     df = pd.DataFrame(predictions)
 
     y_fg = df["actual_full_game_class"].astype(int).to_numpy()
+    has_ht = "actual_ht_class" in df.columns and df["actual_ht_class"].notna().any()
+    if has_ht:
+        df_ht = df[df["actual_ht_class"].notna()].copy()
+        y_ht = df_ht["actual_ht_class"].astype(int).to_numpy()
+        ht_base_probs = df_ht[["ht_prob_away_base", "ht_prob_home_base", "ht_prob_draw_base"]].to_numpy()
+        ht_adj_probs = df_ht[["ht_prob_away_adjusted", "ht_prob_home_adjusted", "ht_prob_draw_adjusted"]].to_numpy()
+    else:
+        df_ht = None
     y_over = df["over_actual"].astype(int).to_numpy()
     y_btts = df["btts_actual"].astype(int).to_numpy()
     y_corners = df["corners_actual"].astype(int).to_numpy()
@@ -529,6 +606,14 @@ def compute_comparative_metrics(predictions: list):
             "adjusted_log_loss": float(log_loss(y_corners, corners_adj_probs, labels=[0, 1])),
         },
     }
+    if has_ht:
+        metrics["ht_result"] = {
+            "base_accuracy": float(accuracy_score(y_ht, np.argmax(ht_base_probs, axis=1))),
+            "adjusted_accuracy": float(accuracy_score(y_ht, np.argmax(ht_adj_probs, axis=1))),
+            "base_log_loss": float(log_loss(y_ht, ht_base_probs, labels=[0, 1, 2])),
+            "adjusted_log_loss": float(log_loss(y_ht, ht_adj_probs, labels=[0, 1, 2])),
+            "rows": int(len(df_ht)),
+        }
 
     return metrics
 
@@ -586,8 +671,10 @@ def main():
 
     print("\n[STATS] COMPARATIVA BASE VS ADJUSTED")
     print("=" * 70)
-    for market in ["full_game", "over_25", "btts", "corners_over_95"]:
+    for market in ["full_game", "ht_result", "over_25", "btts", "corners_over_95"]:
         m = metrics.get(market, {})
+        if not m:
+            continue
         print(
             f"{market.upper():<10} | "
             f"ACC base: {m.get('base_accuracy', 0.0):.4f} -> adj: {m.get('adjusted_accuracy', 0.0):.4f} | "

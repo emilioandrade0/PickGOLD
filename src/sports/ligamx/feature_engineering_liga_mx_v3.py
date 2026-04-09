@@ -24,6 +24,18 @@ def _safe_div(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
 
 def add_v3_features(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
+    preserve_nan_cols = [
+        c
+        for c in [
+            "home_ht_score",
+            "away_ht_score",
+            "total_ht_goals",
+            "TARGET_ht_result",
+            "TARGET_corners_over_95",
+        ]
+        if c in out.columns
+    ]
+    preserved = {c: out[c].copy() for c in preserve_nan_cols}
 
     # Rolling xG-like proxies from attack-defense interaction (no leakage: all inputs are shifted windows).
     out["home_xg_proxy_l10"] = (
@@ -118,6 +130,8 @@ def add_v3_features(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     out = out.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    for c, series in preserved.items():
+        out[c] = series
     return out
 
 

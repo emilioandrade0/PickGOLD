@@ -2,7 +2,7 @@
   "market": "full_game",
   "target_col": "TARGET_full_game",
   "problem_type": "binary",
-  "threshold": 0.49000000000000005,
+  "threshold": 0.5800000000000001,
   "feature_columns": [
     "away_elo_pre",
     "away_goalie_confirmed",
@@ -31,11 +31,11 @@
     "home_win_rate_l10",
     "home_win_rate_l5"
   ],
-  "n_rows": 1249,
+  "n_rows": 1271,
   "n_features": 26,
-  "valid_accuracy": 0.544,
-  "valid_logloss": 0.7622919878441603,
-  "valid_auc": 0.5521633384536611,
+  "valid_accuracy": 0.5176470588235295,
+  "valid_logloss": 0.770164455740644,
+  "valid_auc": 0.5242551095789214,
   "classes": [
     0,
     1

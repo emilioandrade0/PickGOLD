@@ -127,6 +127,69 @@ const KBO_LOGO_OVERRIDES: Record<string, string> = {
   SSG: 'ssg-landers',
 };
 
+const TRIPLE_A_LOGO_IDS: Record<string, string> = {
+  ABQ: '342',
+  'ALBUQUERQUE ISOTOPES': '342',
+  BUF: '422',
+  'BUFFALO BISONS': '422',
+  CLT: '494',
+  'CHARLOTTE KNIGHTS': '494',
+  COL: '445',
+  'COLUMBUS CLIPPERS': '445',
+  DUR: '234',
+  'DURHAM BULLS': '234',
+  ELP: '4904',
+  'EL PASO CHIHUAHUAS': '4904',
+  GWN: '431',
+  'GWINNETT STRIPERS': '431',
+  IND: '484',
+  'INDIANAPOLIS INDIANS': '484',
+  IOW: '451',
+  'IOWA CUBS': '451',
+  JAX: '564',
+  'JACKSONVILLE JUMBO SHRIMP': '564',
+  LV: '400',
+  'LAS VEGAS AVIATORS': '400',
+  LHV: '1410',
+  'LEHIGH VALLEY IRONPIGS': '1410',
+  LOU: '416',
+  'LOUISVILLE BATS': '416',
+  MEM: '235',
+  'MEMPHIS REDBIRDS': '235',
+  NAS: '556',
+  'NASHVILLE SOUNDS': '556',
+  NOR: '568',
+  'NORFOLK TIDES': '568',
+  OKC: '238',
+  'OKLAHOMA CITY COMETS': '238',
+  OMA: '541',
+  'OMAHA STORM CHASERS': '541',
+  RNO: '2310',
+  'RENO ACES': '2310',
+  ROC: '534',
+  'ROCHESTER RED WINGS': '534',
+  RR: '102',
+  'ROUND ROCK EXPRESS': '102',
+  SAC: '105',
+  'SACRAMENTO RIVER CATS': '105',
+  SL: '561',
+  'SALT LAKE BEES': '561',
+  SWB: '531',
+  'SCRANTON/WILKES-BARRE RAILRIDERS': '531',
+  STP: '1960',
+  'ST. PAUL SAINTS': '1960',
+  SUG: '5434',
+  'SUGAR LAND SPACE COWBOYS': '5434',
+  SYR: '552',
+  'SYRACUSE METS': '552',
+  TAC: '529',
+  'TACOMA RAINIERS': '529',
+  TOL: '512',
+  'TOLEDO MUD HENS': '512',
+  WOR: '533',
+  'WORCESTER RED SOX': '533',
+};
+
 function normalizeAbbr(abbr: string | null | undefined): string {
   return String(abbr || '').trim().toUpperCase();
 }
@@ -175,6 +238,12 @@ export function getKBOLogo(teamCode: string | null | undefined): string {
   return `https://a.espncdn.com/i/teamlogos/baseball/500/${code}.png`;
 }
 
+export function getTripleALogo(teamCode: string | null | undefined): string {
+  const normalized = normalizeAbbr(teamCode);
+  const id = TRIPLE_A_LOGO_IDS[normalized];
+  return id ? `https://www.mlbstatic.com/team-logos/${id}.svg` : FALLBACK_LOGO;
+}
+
 export function getTeamLogoUrl(sportKey: string, abbr: string | null | undefined): string | null {
   if (sportKey === 'mlb') return getMLBLogoUrl(abbr);
   if (sportKey === 'nba') return getNBALogoUrl(abbr);
@@ -182,6 +251,7 @@ export function getTeamLogoUrl(sportKey: string, abbr: string | null | undefined
   if (sportKey === 'liga_mx') return getLigaMXLogo(abbr);
   if (sportKey === 'laliga') return getLaLigaLogo(abbr);
   if (sportKey === 'kbo') return getKBOLogo(abbr);
+  if (sportKey === 'triple_a') return getTripleALogo(abbr);
   return null;
 }
 

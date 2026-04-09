@@ -1,7 +1,7 @@
 {
   "date": "2026-04-07",
   "sport": "liga_mx",
-  "generated_at": "2026-04-05T17:51:30.736934",
+  "generated_at": "2026-04-05T19:48:00.145006",
   "games": [
     {
       "game_id": "401840876",
@@ -11,10 +11,10 @@
       "home_team": "QRO",
       "away_team": "JUA",
       "full_game_pick": "JUA",
-      "full_game_confidence": 80,
-      "full_game_tier": "ELITE",
-      "base_probability": 0.799477,
-      "adjusted_probability": 0.799477,
+      "full_game_confidence": 65,
+      "full_game_tier": "STRONG",
+      "base_probability": 0.350678,
+      "adjusted_probability": 0.350678,
       "adjustment_amount": 0.0,
       "adjustment_breakdown": [
         {
@@ -22,7 +22,7 @@
           "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
-          "contribution": 0.014400000000000001,
+          "contribution": 0.018000000000000002,
           "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
@@ -31,18 +31,9 @@
           "direction": "negative",
           "strength": 0.02,
           "sign": -1.0,
-          "contribution": -0.014400000000000001,
+          "contribution": -0.018000000000000002,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
         }
       ],
       "detected_events": [
@@ -59,13 +50,6 @@
           "strength": 0.02,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
         }
       ],
       "intraday_market_mood": "neutral",
@@ -87,16 +71,16 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "JUA",
-      "recommended_confidence": 80,
-      "recommended_score": 80.3,
+      "recommended_confidence": 65,
+      "recommended_score": 65.3,
       "recommended": true,
       "spread_pick": "DNB JUA",
       "spread_market": "DNB / 1X",
       "total_pick": "OVER 2.5",
-      "total_confidence": 64,
+      "total_confidence": 80,
       "total_action": "JUGAR",
-      "total_base_probability": 0.363541,
-      "total_adjusted_probability": 0.363541,
+      "total_base_probability": 0.795079,
+      "total_adjusted_probability": 0.795079,
       "total_adjustment_amount": 0.0,
       "total_adjustment_breakdown": [
         {
@@ -104,7 +88,7 @@
           "direction": "negative",
           "strength": 0.02,
           "sign": -1.0,
-          "contribution": -0.016,
+          "contribution": -0.02,
           "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
@@ -113,22 +97,13 @@
           "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
-          "contribution": 0.016,
+          "contribution": 0.02,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 64.0,
+      "total_recommended_score": 79.9,
       "odds_over_under": 2.5,
       "closing_moneyline_odds": 140.0,
       "home_moneyline_odds": 190.0,
@@ -137,10 +112,10 @@
       "closing_total_odds": -115.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
-      "btts_confidence": 86,
-      "btts_tier": "ELITE",
-      "btts_base_probability": 0.861049,
-      "btts_adjusted_probability": 0.861049,
+      "btts_confidence": 57,
+      "btts_tier": "NORMAL",
+      "btts_base_probability": 0.430283,
+      "btts_adjusted_probability": 0.430283,
       "btts_adjustment_amount": 0.0,
       "btts_adjustment_breakdown": [
         {
@@ -148,7 +123,7 @@
           "direction": "negative",
           "strength": 0.02,
           "sign": -1.0,
-          "contribution": -0.016,
+          "contribution": -0.02,
           "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
@@ -157,29 +132,20 @@
           "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
-          "contribution": 0.016,
+          "contribution": 0.02,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 86.5,
+      "btts_recommended_score": 57.4,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
-      "corners_confidence": 81,
-      "corners_model_prob_over": 0.188071,
+      "corners_confidence": 67,
+      "corners_model_prob_over": 0.32605,
       "corners_recommended_pick": "UNDER 9.5",
-      "corners_recommended_score": 81.6,
+      "corners_recommended_score": 67.8,
       "corners_action": "JUGAR",
       "status_state": "pre",
       "status_description": "nan"

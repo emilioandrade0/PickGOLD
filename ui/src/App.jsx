@@ -4,6 +4,7 @@ import Header from "./components/Header.jsx";
 import LandingPage from "./pages/LandingPage.jsx";
 import NBAPage from "./pages/NBAPage.jsx";
 import MLBPage from "./pages/MLBPage.jsx";
+import TripleAPage from "./pages/TripleAPage.jsx";
 import TennisPage from "./pages/TennisPage.jsx";
 import KBOPage from "./pages/KBOPage.jsx";
 import NHLPage from "./pages/NHLPage.jsx";
@@ -134,6 +135,7 @@ export default function App() {
       >
         <Route path="/nba" element={<NBAPage />} />
         <Route path="/mlb" element={<MLBPage />} />
+        <Route path="/triple-a" element={<TripleAPage />} />
         <Route path="/tennis" element={<TennisPage />} />
         <Route path="/kbo" element={<KBOPage />} />
         <Route path="/nhl" element={<NHLPage />} />

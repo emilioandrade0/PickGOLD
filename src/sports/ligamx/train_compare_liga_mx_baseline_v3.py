@@ -25,6 +25,7 @@ SELECTIVE_PLAN_JSON = REPORTS_DIR / "liga_mx_selective_upgrade_plan.json"
 
 TARGETS = {
     "full_game": {"target": "TARGET_full_game", "problem": "multiclass"},
+    "ht_result": {"target": "TARGET_ht_result", "problem": "multiclass"},
     "over_25": {"target": "TARGET_over_25", "problem": "binary"},
     "btts": {"target": "TARGET_btts", "problem": "binary"},
 }
@@ -40,6 +41,7 @@ NON_FEATURE_COLS = {
     "is_draw",
     "total_goals",
     "TARGET_full_game",
+    "TARGET_ht_result",
     "TARGET_over_25",
     "TARGET_btts",
     "TARGET_corners_over_95",
@@ -262,7 +264,7 @@ def build_reactivation_recommendations(summary_df: pd.DataFrame) -> pd.DataFrame
         delta_ll = base_ll - v3_ll
         delta_br = base_br - v3_br
 
-        if market == "full_game":
+        if market in {"full_game", "ht_result"}:
             if v3_acc >= 0.50 and v3_ll <= 1.03 and delta_acc >= 0.005 and delta_ll >= 0.003:
                 decision = "REACTIVATE"
             elif v3_acc >= 0.48 and delta_acc >= 0.0:

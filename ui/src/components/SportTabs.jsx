@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 const SPORTS = [
   { key: "nba", label: "NBA", path: "/nba" },
   { key: "mlb", label: "MLB", path: "/mlb" },
+  { key: "triple_a", label: "Triple-A", path: "/triple-a" },
   { key: "tennis", label: "Tennis", path: "/tennis" },
   { key: "kbo", label: "KBO", path: "/kbo" },
   { key: "nhl", label: "NHL", path: "/nhl" },

@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 
 import sys
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -33,6 +34,12 @@ TARGET_CONFIG = {
     "full_game": {
         "target_col": "TARGET_full_game",
         "description": "Ganador/Empate (win/draw/loss)",
+        "problem_type": "multiclass",
+        "num_classes": 3,
+    },
+    "ht_result": {
+        "target_col": "TARGET_ht_result",
+        "description": "Resultado al medio tiempo (home/draw/away)",
         "problem_type": "multiclass",
         "num_classes": 3,
     },
@@ -64,9 +71,13 @@ NON_FEATURE_COLUMNS = {
     "away_team",
     "home_score",
     "away_score",
+    "home_ht_score",
+    "away_ht_score",
+    "total_ht_goals",
     "is_draw",
     "total_goals",
     "TARGET_full_game",
+    "TARGET_ht_result",
     "TARGET_over_25",
     "TARGET_btts",
     "TARGET_corners_over_95",
@@ -88,6 +99,25 @@ ADVANCED_EXPERIMENTAL_FEATURES = {
     "home_defense_closing_trend", "away_defense_closing_trend", "diff_defense_closing_trend",
     "home_match_stability_L10", "away_match_stability_L10", "diff_match_stability_L10",
     "draw_equilibrium_index",
+}
+
+RISKY_OVERFIT_FEATURE_PREFIXES = (
+    "h2h_",
+    "venue_",
+    "mc_",
+)
+
+RISKY_OVERFIT_FEATURES = {
+    "home_win_streak_L5",
+    "home_win_streak_L10",
+    "home_dominance_L10",
+    "away_win_streak_L5",
+    "away_win_streak_L10",
+    "away_dominance_L10",
+    "draw_parity_strength",
+    "fatigue_advantage",
+    "home_form_vs_strong",
+    "away_form_vs_strong",
 }
 
 
@@ -151,6 +181,71 @@ def load_dataset() -> pd.DataFrame:
 
 def get_feature_columns(df: pd.DataFrame) -> List[str]:
     return [c for c in df.columns if c not in NON_FEATURE_COLUMNS and c != "date_dt"]
+
+
+def _is_risky_feature(col: str) -> bool:
+    if col in RISKY_OVERFIT_FEATURES:
+        return True
+    return any(col.startswith(prefix) for prefix in RISKY_OVERFIT_FEATURE_PREFIXES)
+
+
+def select_market_features(feature_cols: List[str], market_key: str) -> List[str]:
+    """Use conservative feature set by default to prevent overfit on small dataset."""
+    selected = [c for c in feature_cols if c not in ADVANCED_EXPERIMENTAL_FEATURES]
+    selected = [c for c in selected if not _is_risky_feature(c)]
+
+    # If filtering is too aggressive, keep original features.
+    if len(selected) < 25:
+        return feature_cols.copy()
+    return selected
+
+
+def build_recency_weights(date_series: pd.Series, half_life_days: float = 120.0) -> np.ndarray:
+    """Higher weight to recent matches to improve today's and future predictions."""
+    if date_series.empty:
+        return np.array([], dtype=float)
+
+    max_date = pd.to_datetime(date_series).max()
+    age_days = (max_date - pd.to_datetime(date_series)).dt.days.clip(lower=0).astype(float)
+    weights = np.exp(-np.log(2.0) * age_days / max(half_life_days, 1.0))
+    weights = np.clip(weights, 0.25, 1.0)
+    return weights.to_numpy(dtype=float)
+
+
+def build_confidence_profile_binary(y_true: pd.Series, probs: np.ndarray, threshold: float) -> Dict[str, float]:
+    preds = (probs >= threshold).astype(int)
+    conf = np.maximum(probs, 1.0 - probs)
+
+    def _acc_at(min_conf: float) -> float:
+        mask = conf >= min_conf
+        if mask.sum() == 0:
+            return 0.0
+        return float((preds[mask] == y_true.to_numpy()[mask]).mean())
+
+    return {
+        "acc_conf_055": _acc_at(0.55),
+        "acc_conf_060": _acc_at(0.60),
+        "acc_conf_065": _acc_at(0.65),
+        "acc_conf_070": _acc_at(0.70),
+    }
+
+
+def build_confidence_profile_multiclass(y_true: pd.Series, probs: np.ndarray) -> Dict[str, float]:
+    preds = np.argmax(probs, axis=1)
+    conf = np.max(probs, axis=1)
+
+    def _acc_at(min_conf: float) -> float:
+        mask = conf >= min_conf
+        if mask.sum() == 0:
+            return 0.0
+        return float((preds[mask] == y_true.to_numpy()[mask]).mean())
+
+    return {
+        "acc_conf_045": _acc_at(0.45),
+        "acc_conf_050": _acc_at(0.50),
+        "acc_conf_055": _acc_at(0.55),
+        "acc_conf_060": _acc_at(0.60),
+    }
 
 
 def time_based_split(df: pd.DataFrame, valid_fraction: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -296,6 +391,20 @@ def build_lgbm_secondary_multiclass() -> LGBMClassifier:
     )
 
 
+def build_catboost_multiclass(seed: int) -> CatBoostClassifier:
+    """CatBoost multiclass tuned for small/medium tabular soccer data."""
+    return CatBoostClassifier(
+        loss_function="MultiClass",
+        eval_metric="Accuracy",
+        iterations=1000,
+        depth=8,
+        learning_rate=0.03,
+        l2_leaf_reg=16.0,
+        random_seed=seed,
+        verbose=False,
+    )
+
+
 def evaluate_probs_binary(y_true: pd.Series, probs: np.ndarray, threshold: float) -> Dict[str, float]:
     """EvalÃºa predicciones binarias."""
     preds = (probs >= threshold).astype(int)
@@ -369,6 +478,7 @@ def choose_best_ensemble_weights_multiclass(
         "xgb_weight": 1 / 3,
         "lgbm_weight": 1 / 3,
         "lgbm_secondary_weight": 1 / 3,
+        "draw_scale": 1.0,
         "accuracy": -1.0,
         "logloss": 999.0,
     }
@@ -379,19 +489,26 @@ def choose_best_ensemble_weights_multiclass(
             if ws < 0:
                 continue
 
-            probs = wx * xgb_probs + wl * lgbm_probs + ws * lgbm_sec_probs
-            metrics = evaluate_probs_multiclass(y_true, probs)
-            acc = metrics["accuracy"]
-            ll = metrics["logloss"]
+            raw_probs = wx * xgb_probs + wl * lgbm_probs + ws * lgbm_sec_probs
+            for draw_scale in (0.85, 0.95, 1.00, 1.05, 1.15):
+                probs = np.asarray(raw_probs, dtype=float).copy()
+                probs[:, 2] = probs[:, 2] * draw_scale
+                probs = np.clip(probs, 1e-9, None)
+                probs = probs / probs.sum(axis=1, keepdims=True)
 
-            if (acc > best["accuracy"]) or (acc == best["accuracy"] and ll < best["logloss"]):
-                best = {
-                    "xgb_weight": float(round(wx, 3)),
-                    "lgbm_weight": float(round(wl, 3)),
-                    "lgbm_secondary_weight": float(round(ws, 3)),
-                    "accuracy": float(acc),
-                    "logloss": float(ll),
-                }
+                metrics = evaluate_probs_multiclass(y_true, probs)
+                acc = metrics["accuracy"]
+                ll = metrics["logloss"]
+
+                if (acc > best["accuracy"]) or (acc == best["accuracy"] and ll < best["logloss"]):
+                    best = {
+                        "xgb_weight": float(round(wx, 3)),
+                        "lgbm_weight": float(round(wl, 3)),
+                        "lgbm_secondary_weight": float(round(ws, 3)),
+                        "draw_scale": float(draw_scale),
+                        "accuracy": float(acc),
+                        "logloss": float(ll),
+                    }
 
     return best
 
@@ -452,9 +569,14 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 
     market_df = df.dropna(subset=[target_col]).copy()
 
-    model_feature_cols = [c for c in feature_cols if c not in ADVANCED_EXPERIMENTAL_FEATURES]
-    if len(model_feature_cols) < 20:
-        model_feature_cols = feature_cols.copy()
+    # For full_game/ht_result, prefer recent era to reduce concept drift across very old seasons.
+    if market_key in {"full_game", "ht_result"} and "date_dt" in market_df.columns:
+        recent_cut = pd.Timestamp("2023-01-01")
+        recent_df = market_df[market_df["date_dt"] >= recent_cut].copy()
+        if len(recent_df) >= 700:
+            market_df = recent_df
+
+    model_feature_cols = select_market_features(feature_cols, market_key)
 
     X = market_df[model_feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
     y = market_df[target_col].astype(int)
@@ -466,6 +588,7 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 
     X_train = train_df[model_feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
     y_train = train_df[target_col].astype(int)
+    w_train = build_recency_weights(train_df["date_dt"], half_life_days=110.0)
 
     X_valid = valid_df[model_feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
     y_valid = valid_df[target_col].astype(int)
@@ -477,6 +600,8 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     print(f"   Features      : {len(model_feature_cols)}")
 
     if problem_type == "binary":
+        catboost_model = None
+        catboost_feature_cols = []
         ensemble_weights = {
             "xgb_weight": 1 / 3,
             "lgbm_weight": 1 / 3,
@@ -543,6 +668,8 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     else:  # multiclass (full_game)
         seed_candidates = [7, 11, 23, 42, 77]
         best_pack = None
+        catboost_model = None
+        catboost_feature_cols = []
 
         y_draw_train = (y_train == 2).astype(int)
         winner_mask = y_train != 2
@@ -559,14 +686,15 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             else:
                 xgb_draw = build_xgb_binary(draw_pos_weight)
                 xgb_draw.set_params(random_state=seed)
-                xgb_draw.fit(X_train, y_draw_train)
+                xgb_draw.fit(X_train, y_draw_train, sample_weight=w_train)
 
             if y_winner_train.nunique() < 2:
                 xgb_winner = ConstantBinaryModel(int(y_winner_train.iloc[0]) if len(y_winner_train) else 0)
             else:
                 xgb_winner = build_xgb_binary(winner_pos_weight)
                 xgb_winner.set_params(random_state=seed)
-                xgb_winner.fit(X_winner_train, y_winner_train)
+                winner_w = w_train[winner_mask.to_numpy()]
+                xgb_winner.fit(X_winner_train, y_winner_train, sample_weight=winner_w)
 
             xgb_model_try = {
                 "model_type": "two_stage_full_game",
@@ -582,14 +710,15 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             else:
                 lgbm_draw = build_lgbm_binary(draw_pos_weight)
                 lgbm_draw.set_params(random_state=seed)
-                lgbm_draw.fit(X_train, y_draw_train)
+                lgbm_draw.fit(X_train, y_draw_train, sample_weight=w_train)
 
             if y_winner_train.nunique() < 2:
                 lgbm_winner = ConstantBinaryModel(int(y_winner_train.iloc[0]) if len(y_winner_train) else 0)
             else:
                 lgbm_winner = build_lgbm_binary(winner_pos_weight)
                 lgbm_winner.set_params(random_state=seed)
-                lgbm_winner.fit(X_winner_train, y_winner_train)
+                winner_w = w_train[winner_mask.to_numpy()]
+                lgbm_winner.fit(X_winner_train, y_winner_train, sample_weight=winner_w)
 
             lgbm_model_try = {
                 "model_type": "two_stage_full_game",
@@ -605,14 +734,15 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             else:
                 lgbm_sec_draw = build_lgbm_secondary_binary(draw_pos_weight)
                 lgbm_sec_draw.set_params(random_state=seed)
-                lgbm_sec_draw.fit(X_train, y_draw_train)
+                lgbm_sec_draw.fit(X_train, y_draw_train, sample_weight=w_train)
 
             if y_winner_train.nunique() < 2:
                 lgbm_sec_winner = ConstantBinaryModel(int(y_winner_train.iloc[0]) if len(y_winner_train) else 0)
             else:
                 lgbm_sec_winner = build_lgbm_secondary_binary(winner_pos_weight)
                 lgbm_sec_winner.set_params(random_state=seed)
-                lgbm_sec_winner.fit(X_winner_train, y_winner_train)
+                winner_w = w_train[winner_mask.to_numpy()]
+                lgbm_sec_winner.fit(X_winner_train, y_winner_train, sample_weight=winner_w)
 
             lgbm_secondary_try = {
                 "model_type": "two_stage_full_game",
@@ -634,6 +764,9 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
                 + ensemble_weights_try["lgbm_weight"] * lgbm_valid_probs_try
                 + ensemble_weights_try["lgbm_secondary_weight"] * lgbm_sec_valid_probs_try
             )
+            ensemble_valid_probs_try[:, 2] = ensemble_valid_probs_try[:, 2] * float(ensemble_weights_try.get("draw_scale", 1.0))
+            ensemble_valid_probs_try = np.clip(ensemble_valid_probs_try, 1e-9, None)
+            ensemble_valid_probs_try = ensemble_valid_probs_try / ensemble_valid_probs_try.sum(axis=1, keepdims=True)
             ensemble_metrics_try = evaluate_probs_multiclass(y_valid, ensemble_valid_probs_try)
 
             candidate = {
@@ -670,12 +803,59 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             + ensemble_weights["lgbm_weight"] * lgbm_valid_probs
             + ensemble_weights["lgbm_secondary_weight"] * lgbm_sec_valid_probs
         )
+        ensemble_valid_probs[:, 2] = ensemble_valid_probs[:, 2] * float(ensemble_weights.get("draw_scale", 1.0))
+        ensemble_valid_probs = np.clip(ensemble_valid_probs, 1e-9, None)
+        ensemble_valid_probs = ensemble_valid_probs / ensemble_valid_probs.sum(axis=1, keepdims=True)
+
+        # Train CatBoost with categorical context and blend if it helps.
+        candidate_cat_cols = [c for c in ["season", "home_team", "away_team"] if c in train_df.columns]
+        catboost_feature_cols = model_feature_cols + [c for c in candidate_cat_cols if c not in model_feature_cols]
+        X_train_cat = train_df[catboost_feature_cols].copy()
+        X_valid_cat = valid_df[catboost_feature_cols].copy()
+        for c in candidate_cat_cols:
+            X_train_cat[c] = X_train_cat[c].astype(str)
+            X_valid_cat[c] = X_valid_cat[c].astype(str)
+
+        cat_feature_idx = [catboost_feature_cols.index(c) for c in candidate_cat_cols]
+        catboost_model = build_catboost_multiclass(seed=123)
+        catboost_model.fit(
+            X_train_cat,
+            y_train,
+            cat_features=cat_feature_idx,
+            sample_weight=w_train,
+            eval_set=(X_valid_cat, y_valid),
+            use_best_model=True,
+        )
+        catboost_valid_probs = np.asarray(catboost_model.predict_proba(X_valid_cat), dtype=float)
+
+        best_blend_probs = ensemble_valid_probs
+        best_blend_metrics = evaluate_probs_multiclass(y_valid, ensemble_valid_probs)
+        best_cat_weight = 0.0
+
+        for wc in np.arange(0.05, 1.01, 0.05):
+            p = (1.0 - wc) * ensemble_valid_probs + wc * catboost_valid_probs
+            p = np.clip(p, 1e-9, None)
+            p = p / p.sum(axis=1, keepdims=True)
+            m = evaluate_probs_multiclass(y_valid, p)
+            if (m["accuracy"] > best_blend_metrics["accuracy"]) or (
+                m["accuracy"] == best_blend_metrics["accuracy"] and m["logloss"] < best_blend_metrics["logloss"]
+            ):
+                best_blend_probs = p
+                best_blend_metrics = m
+                best_cat_weight = float(round(wc, 3))
+
+        if best_cat_weight > 0:
+            ensemble_valid_probs = best_blend_probs
+            ensemble_metrics = best_blend_metrics
+        else:
+            ensemble_metrics = evaluate_probs_multiclass(y_valid, ensemble_valid_probs)
 
         best_threshold = 0.0  # No threshold para multiclass
         xgb_metrics = evaluate_probs_multiclass(y_valid, xgb_valid_probs)
         lgbm_metrics = evaluate_probs_multiclass(y_valid, lgbm_valid_probs)
         lgbm_sec_metrics = evaluate_probs_multiclass(y_valid, lgbm_sec_valid_probs)
-        ensemble_metrics = evaluate_probs_multiclass(y_valid, ensemble_valid_probs)
+        if best_cat_weight <= 0:
+            ensemble_metrics = evaluate_probs_multiclass(y_valid, ensemble_valid_probs)
 
         print(f"   ✅ XGB Accuracy   : {xgb_metrics['accuracy']:.4f}")
         print(f"   ✅ LGBM Accuracy  : {lgbm_metrics['accuracy']:.4f}")
@@ -689,16 +869,21 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             f"LGBM={ensemble_weights['lgbm_weight']:.2f}, "
             f"LGBM-Sec={ensemble_weights['lgbm_secondary_weight']:.2f}"
         )
+        print(f"   ✅ Draw scale     : {float(ensemble_weights.get('draw_scale', 1.0)):.2f}")
+        print(f"   ✅ CatBoost w     : {best_cat_weight:.2f}")
 
     xgb_path = market_dir / "xgb_model.pkl"
     lgbm_path = market_dir / "lgbm_model.pkl"
     lgbm_sec_path = market_dir / "lgbm_secondary_model.pkl"
+    catboost_path = market_dir / "catboost_model.pkl"
     feature_path = market_dir / "feature_columns.json"
     metadata_path = market_dir / "metadata.json"
 
     joblib.dump(xgb_model, xgb_path)
     joblib.dump(lgbm_model, lgbm_path)
     joblib.dump(lgbm_secondary, lgbm_sec_path)
+    if catboost_model is not None:
+        joblib.dump(catboost_model, catboost_path)
 
     with open(feature_path, "w", encoding="utf-8") as f:
         json.dump(model_feature_cols, f, indent=2, ensure_ascii=False)
@@ -722,6 +907,8 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             "xgboost": float(ensemble_weights["xgb_weight"]),
             "lightgbm_primary": float(ensemble_weights["lgbm_weight"]),
             "lightgbm_secondary": float(ensemble_weights["lgbm_secondary_weight"]),
+            "draw_scale": float(ensemble_weights.get("draw_scale", 1.0)),
+            "catboost": float(best_cat_weight),
         }
     else:
         ensemble_weight_payload = {
@@ -737,14 +924,21 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
         "train_rows": int(len(X_train)),
         "valid_rows": int(len(X_valid)),
         "feature_count": int(len(model_feature_cols)),
+        "catboost_feature_count": int(len(catboost_feature_cols)) if catboost_feature_cols else 0,
         "ensemble_threshold": float(best_threshold) if problem_type == "binary" else None,
         "ensemble_weights": ensemble_weight_payload,
+        "catboost_feature_columns": catboost_feature_cols,
         "metrics": {
             "xgboost_valid": xgb_metrics,
             "lightgbm_valid": lgbm_metrics,
             "lightgbm_secondary_valid": lgbm_sec_metrics,
             "ensemble_valid": ensemble_metrics,
         },
+        "confidence_profile": (
+            build_confidence_profile_multiclass(y_valid, ensemble_valid_probs)
+            if problem_type == "multiclass"
+            else build_confidence_profile_binary(y_valid, ensemble_valid_probs, best_threshold)
+        ),
         "top_features": [
             {"feature": col, "importance": float(score)}
             for col, score in combined_importance
@@ -787,10 +981,15 @@ def train_all_models() -> Dict:
     results = {}
 
     for market_key, config in TARGET_CONFIG.items():
+        target_col = config["target_col"]
+        n_target = int(df[target_col].notna().sum()) if target_col in df.columns else 0
+        if n_target < 120:
+            print(f"\n⚠️  Saltando mercado {market_key}: muestras insuficientes ({n_target})")
+            continue
         result = train_single_market(
             df=df,
             market_key=market_key,
-            target_col=config["target_col"],
+            target_col=target_col,
             feature_cols=feature_cols,
             problem_type=config["problem_type"],
         )
