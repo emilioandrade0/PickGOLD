@@ -25,6 +25,7 @@ import PrivacyPage from "./pages/PrivacyPage.jsx";
 import DisclaimerPage from "./pages/DisclaimerPage.jsx";
 import { getActiveSession, logoutUser, refreshSession } from "./services/auth.js";
 import { Link } from "react-router-dom";
+import { AppSettingsProvider } from "./context/AppSettingsContext.jsx";
 
 function AppFooter() {
   return (
@@ -92,6 +93,7 @@ export default function App() {
   }
 
   return (
+    <AppSettingsProvider>
     <Routes>
       <Route
         path="/"
@@ -159,5 +161,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to={session ? "/nba" : "/"} replace />} />
     </Routes>
+    </AppSettingsProvider>
   );
 }

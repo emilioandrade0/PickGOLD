@@ -244,3 +244,43 @@ export async function fetchTierPerformanceInsights() {
     errorMessage: "No se pudieron cargar los insights por tier.",
   });
 }
+
+export async function fetchTeamFormInsights(windowGames = 8, minGames = 3, forceRefresh = false) {
+  const params = new URLSearchParams({
+    window_games: String(windowGames),
+    min_games: String(minGames),
+  });
+  if (forceRefresh) params.set("force_refresh", "true");
+  return await fetchJsonWithRetry(`/insights/team-form?${params.toString()}`, {
+    timeoutMs: 45000,
+    retries: 1,
+    retryDelayMs: 1000,
+    errorMessage: "No se pudieron cargar las estadisticas de racha.",
+  });
+}
+
+export async function fetchTeamFormTeamDetail(
+  sport,
+  team,
+  windowGames = 8,
+  maxPoints = 30,
+  horizonGames = 5,
+  simulations = 4000,
+  forceRefresh = false,
+) {
+  const params = new URLSearchParams({
+    sport: String(sport),
+    team: String(team),
+    window_games: String(windowGames),
+    max_points: String(maxPoints),
+    horizon_games: String(horizonGames),
+    simulations: String(simulations),
+  });
+  if (forceRefresh) params.set("force_refresh", "true");
+  return await fetchJsonWithRetry(`/insights/team-form/team?${params.toString()}`, {
+    timeoutMs: 30000,
+    retries: 1,
+    retryDelayMs: 800,
+    errorMessage: "No se pudo cargar el detalle de racha del equipo.",
+  });
+}

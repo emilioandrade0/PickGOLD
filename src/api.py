@@ -30,44 +30,58 @@ except ImportError:
 try:
     from .auth_storage import (
         create_session,
+        create_purchase_order,
         delete_session,
         ensure_admin_user,
         find_user_by_email,
         find_user_by_id,
+        find_open_purchase_order_by_email_plan,
+        find_purchase_order_by_id,
         delete_user_account,
         get_session,
+        get_app_setting,
         hash_password,
         init_auth_db,
         is_access_expired,
         iso_utc,
+        list_purchase_orders,
         list_non_pending_users,
         list_pending_users,
         parse_utc,
         register_user,
         reset_user_password,
         row_to_user_payload,
+        set_app_setting,
+        update_purchase_order_status,
         set_user_approval,
         utc_now,
     )
 except ImportError:
     from auth_storage import (
         create_session,
+        create_purchase_order,
         delete_session,
         ensure_admin_user,
         find_user_by_email,
         find_user_by_id,
+        find_open_purchase_order_by_email_plan,
+        find_purchase_order_by_id,
         delete_user_account,
         get_session,
+        get_app_setting,
         hash_password,
         init_auth_db,
         is_access_expired,
         iso_utc,
+        list_purchase_orders,
         list_non_pending_users,
         list_pending_users,
         parse_utc,
         register_user,
         reset_user_password,
         row_to_user_payload,
+        set_app_setting,
+        update_purchase_order_status,
         set_user_approval,
         utc_now,
     )
@@ -130,6 +144,8 @@ SPORT_RAW_FILES = {
 BEST_PICKS_SNAPSHOTS_DIR = BASE_DIR / "data" / "insights" / "best_picks"
 BEST_PICKS_SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 BEST_PICKS_EXCLUDED_SPORTS = {"ncaa_baseball"}
+TEAM_FORM_SNAPSHOTS_DIR = BASE_DIR / "data" / "insights" / "team_form_snapshots"
+TEAM_FORM_SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 ESPN_SCOREBOARD_URLS = {
     "nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
@@ -192,6 +208,12 @@ SPORTS_CONFIG = {
         "label": "Triple-A",
     },
 }
+
+TEAM_FORM_CACHE_LOCK = threading.Lock()
+TEAM_FORM_CACHE: dict[tuple, dict] = {}
+TEAM_FORM_CACHE_TTL_SECONDS = 300
+TEAM_FORM_AUTO_SNAPSHOT_LOCK = threading.Lock()
+TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE: Optional[str] = None
 
 app = FastAPI(title="NBA GOLD API")
 
@@ -382,6 +404,45 @@ init_auth_db()
 ensure_admin_user(ADMIN_EMAIL, ADMIN_PASSWORD)
 
 APPROVABLE_ROLES = {"member", "vip", "capper", "admin"}
+PURCHASE_ORDER_STATUSES = {"pending_contact", "contacted", "paid", "approved", "cancelled"}
+PURCHASE_PLAN_MAP = {
+    "starter": {"role": "member", "price_mxn": 99, "label": "Starter"},
+    "pro": {"role": "vip", "price_mxn": 249, "label": "Pro"},
+    "vip": {"role": "capper", "price_mxn": 499, "label": "VIP"},
+}
+TELEGRAM_URL = os.getenv("TELEGRAM_URL", "https://t.me/PickGoldApp").strip()
+
+
+def _build_purchase_order_code() -> str:
+    now = datetime.now()
+    return f"PG-{now.strftime('%Y%m%d')}-{np.random.randint(1000, 9999)}"
+
+
+def _build_telegram_order_text(order: dict) -> str:
+    plan_info = PURCHASE_PLAN_MAP.get(str(order.get("plan_key") or "").lower(), {})
+    lines = [
+        "Hola PickGold, quiero activar mi acceso.",
+        f"Orden: {order.get('order_code')}",
+        f"Plan: {plan_info.get('label') or order.get('plan_key')}",
+        f"Email: {order.get('email')}",
+        f"Nombre: {order.get('name')}",
+        "Comparto comprobante para validacion.",
+    ]
+    username = str(order.get("telegram_username") or "").strip()
+    if username:
+        lines.append(f"Telegram user: @{username.lstrip('@')}")
+    return "\n".join(lines)
+
+
+def _build_telegram_deep_link(message: str) -> str:
+    base = str(TELEGRAM_URL or "").strip()
+    if not base:
+        return ""
+    encoded = requests.utils.quote(str(message or ""))
+    joiner = "&" if "?" in base else "?"
+    if "/joinchat/" in base or base.endswith("+") or "/+" in base:
+        return base
+    return f"{base}{joiner}text={encoded}"
 
 
 def _extract_bearer_token(authorization: Optional[str]) -> str:
@@ -774,6 +835,56 @@ def register(payload: dict = Body(...)):
     }
 
 
+@app.post("/api/purchase-orders")
+def create_manual_purchase_order(payload: dict = Body(...)):
+    name = str(payload.get("name", "")).strip()
+    email = str(payload.get("email", "")).strip().lower()
+    plan_key = str(payload.get("plan_key", "starter")).strip().lower()
+    telegram_username = str(payload.get("telegram_username", "")).strip() or None
+    notes = str(payload.get("notes", "")).strip() or None
+
+    if not name or not email:
+        return {"ok": False, "error": "Nombre y email son requeridos para generar la orden."}
+
+    plan_info = PURCHASE_PLAN_MAP.get(plan_key)
+    if not plan_info:
+        return {"ok": False, "error": "Plan no soportado."}
+
+    existing = find_open_purchase_order_by_email_plan(email, plan_key)
+    if existing:
+        message = _build_telegram_order_text(existing)
+        return {
+            "ok": True,
+            "created": False,
+            "order": existing,
+            "telegram_message": message,
+            "telegram_deep_link": _build_telegram_deep_link(message),
+            "message": f"Ya existe una orden abierta ({existing.get('order_code')}).",
+        }
+
+    linked_user = find_user_by_email(email)
+    order = create_purchase_order(
+        order_code=_build_purchase_order_code(),
+        name=name,
+        email=email,
+        user_id=(linked_user or {}).get("id"),
+        plan_key=plan_key,
+        plan_role=str(plan_info.get("role")),
+        plan_price_mxn=int(plan_info.get("price_mxn")),
+        telegram_username=telegram_username,
+        notes=notes,
+    )
+    text = _build_telegram_order_text(order)
+    return {
+        "ok": True,
+        "created": True,
+        "order": order,
+        "telegram_message": text,
+        "telegram_deep_link": _build_telegram_deep_link(text),
+        "message": f"Orden creada: {order.get('order_code')}.",
+    }
+
+
 @app.post("/api/login")
 def login(payload: dict = Body(...)):
     email = str(payload.get("email", "")).strip().lower()
@@ -798,6 +909,7 @@ def login(payload: dict = Body(...)):
         }
 
     session_data = create_session(user["id"])
+    _schedule_daily_team_form_snapshot_if_needed()
     return _build_auth_session_payload(session_data)
 
 
@@ -816,6 +928,7 @@ def get_active_session(authorization: Optional[str] = Header(default=None)):
         delete_session(token)
         return {"ok": False, "error": "Tu acceso ya expiro."}
 
+    _schedule_daily_team_form_snapshot_if_needed()
     return _build_auth_session_payload(session_data)
 
 
@@ -844,6 +957,87 @@ def admin_users(authorization: Optional[str] = Header(default=None)):
         "users": users,
         "active_count": len(active_users),
         "approved_count": sum(1 for user in users if user.get("status") == "approved"),
+    }
+
+
+@app.get("/api/admin/purchase-orders")
+def admin_purchase_orders(
+    authorization: Optional[str] = Header(default=None),
+    status: Optional[str] = None,
+    limit: int = 200,
+):
+    _require_admin_session(authorization)
+    requested_status = str(status or "").strip().lower() or None
+    if requested_status and requested_status not in PURCHASE_ORDER_STATUSES:
+        return {"ok": False, "error": "Estatus de orden no soportado."}
+    orders = list_purchase_orders(status=requested_status, limit=limit)
+    return {
+        "ok": True,
+        "orders": orders,
+        "count": len(orders),
+    }
+
+
+@app.post("/api/admin/purchase-orders/status")
+def admin_update_purchase_order_status(payload: dict = Body(...), authorization: Optional[str] = Header(default=None)):
+    admin_session = _require_admin_session(authorization)
+    order_id = str(payload.get("order_id", "")).strip()
+    status = str(payload.get("status", "")).strip().lower()
+    admin_notes = str(payload.get("admin_notes", "")).strip() or None
+    payment_reference = str(payload.get("payment_reference", "")).strip() or None
+    access_days = payload.get("access_days")
+    role_override = str(payload.get("role", "")).strip().lower() or None
+
+    if not order_id or not status:
+        return {"ok": False, "error": "order_id y status son requeridos."}
+    if status not in PURCHASE_ORDER_STATUSES:
+        return {"ok": False, "error": "Estatus de orden no soportado."}
+
+    current = find_purchase_order_by_id(order_id)
+    if not current:
+        return {"ok": False, "error": "Orden no encontrada."}
+
+    updated = update_purchase_order_status(
+        order_id=order_id,
+        status=status,
+        admin_notes=admin_notes,
+        payment_reference=payment_reference,
+        approved_by=(admin_session.get("user") or {}).get("email", ADMIN_EMAIL),
+    )
+    if not updated:
+        return {"ok": False, "error": "No se pudo actualizar la orden."}
+
+    activated_user = None
+    if status == "approved":
+        plan_key = str(updated.get("plan_key") or "").lower()
+        plan_info = PURCHASE_PLAN_MAP.get(plan_key) or {}
+        role = role_override or str(plan_info.get("role") or "member").lower()
+        if role not in APPROVABLE_ROLES:
+            role = "member"
+
+        linked_user = find_user_by_id(str(updated.get("user_id") or "").strip()) if updated.get("user_id") else None
+        if not linked_user:
+            linked_user = find_user_by_email(str(updated.get("email") or ""))
+
+        if linked_user:
+            expires_at = None
+            try:
+                days = int(access_days if access_days is not None else 30)
+            except Exception:
+                days = 30
+            days = max(1, days)
+            expires_at = iso_utc(utc_now() + timedelta(days=days))
+            activated_user = set_user_approval(
+                str(linked_user.get("id") or ""),
+                role=role,
+                access_expires_at=expires_at,
+                approved_by=(admin_session.get("user") or {}).get("email", ADMIN_EMAIL),
+            )
+
+    return {
+        "ok": True,
+        "order": updated,
+        "activated_user": activated_user,
     }
 
 
@@ -931,6 +1125,42 @@ def admin_delete_user(payload: dict = Body(...), authorization: Optional[str] = 
 
     delete_user_account(user_id)
     return {"ok": True, "message": "Usuario eliminado correctamente."}
+
+
+def _app_settings_payload() -> dict:
+    social_mode_raw = str(get_app_setting("social_mode", "0") or "0").strip().lower()
+    social_mode = social_mode_raw in {"1", "true", "yes", "si", "on"}
+    return {
+        "social_mode": social_mode,
+    }
+
+
+@app.get("/api/public/app-settings")
+def public_app_settings():
+    return {
+        "ok": True,
+        **_app_settings_payload(),
+    }
+
+
+@app.get("/api/admin/app-settings")
+def admin_app_settings(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    return {
+        "ok": True,
+        **_app_settings_payload(),
+    }
+
+
+@app.post("/api/admin/app-settings")
+def update_admin_app_settings(payload: dict = Body(...), authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    social_mode = bool(payload.get("social_mode"))
+    set_app_setting("social_mode", "1" if social_mode else "0")
+    return {
+        "ok": True,
+        **_app_settings_payload(),
+    }
 
 
 def ensure_sport_exists(sport: str):
@@ -2649,6 +2879,899 @@ def _resolve_picked_team(event: dict):
     return None
 
 
+def _to_float_or_none(value):
+    try:
+        v = float(value)
+    except Exception:
+        return None
+    if pd.isna(v):
+        return None
+    return v
+
+
+def _team_form_classify(score_pct: float):
+    if score_pct < 30.0:
+        return "Mala racha"
+    if score_pct < 45.0:
+        return "Racha media"
+    if score_pct < 60.0:
+        return "Racha normal"
+    if score_pct < 75.0:
+        return "Buena racha"
+    return "Muy buena racha"
+
+
+def _team_form_streak_label(outcomes: list[str]):
+    if not outcomes:
+        return "Sin datos"
+    first = outcomes[0]
+    count = 0
+    for value in outcomes:
+        if value == first:
+            count += 1
+        else:
+            break
+    return f"{first}{count}"
+
+
+def _team_form_points_for_outcome(outcome: str):
+    if outcome == "W":
+        return 3
+    if outcome == "D":
+        return 1
+    return 0
+
+
+def _team_form_score_from_window(outcomes_window: list[str]):
+    if not outcomes_window:
+        return 0.0
+    pts = sum(_team_form_points_for_outcome(o) for o in outcomes_window)
+    max_pts = len(outcomes_window) * 3
+    if max_pts <= 0:
+        return 0.0
+    return (pts / max_pts) * 100.0
+
+
+def _team_form_estimate_outcome_probs(records: list[dict], lookback: int = 20):
+    recent = records[-max(3, int(lookback)):]
+    if not recent:
+        return {"W": 1 / 3, "D": 1 / 3, "L": 1 / 3}
+
+    # Recency-weighted frequencies + Laplace smoothing.
+    weights = np.linspace(0.5, 1.0, num=len(recent))
+    weighted = {"W": 1.0, "D": 1.0, "L": 1.0}
+    for rec, w in zip(recent, weights):
+        outcome = str(rec.get("outcome") or "")
+        if outcome in weighted:
+            weighted[outcome] += float(w)
+
+    total = float(sum(weighted.values()))
+    if total <= 0:
+        return {"W": 1 / 3, "D": 1 / 3, "L": 1 / 3}
+    return {k: float(v / total) for k, v in weighted.items()}
+
+
+def _team_form_monte_carlo_forecast(
+    records: list[dict],
+    window_games: int,
+    horizon_games: int = 5,
+    simulations: int = 4000,
+):
+    if not records:
+        return None
+
+    horizon = max(1, min(int(horizon_games), 12))
+    sims = max(500, min(int(simulations), 20000))
+    probs = _team_form_estimate_outcome_probs(records, lookback=20)
+    p_w = float(probs.get("W", 1 / 3))
+    p_d = float(probs.get("D", 1 / 3))
+    p_l = float(probs.get("L", 1 / 3))
+    # Ensure numeric stability.
+    total = p_w + p_d + p_l
+    if total <= 0:
+        p_w = p_d = p_l = 1 / 3
+    else:
+        p_w, p_d, p_l = (p_w / total), (p_d / total), (p_l / total)
+
+    base_window = [str(r.get("outcome") or "L") for r in records[-max(3, int(window_games)):]]
+    current_score = _team_form_score_from_window(base_window)
+
+    choices = np.array(["W", "D", "L"], dtype=object)
+    probs_arr = np.array([p_w, p_d, p_l], dtype=float)
+    sampled = np.random.choice(choices, size=(sims, horizon), p=probs_arr)
+
+    final_scores = np.zeros(sims, dtype=float)
+    deltas = np.zeros(sims, dtype=float)
+    for i in range(sims):
+        window = list(base_window)
+        for step in sampled[i]:
+            window.append(str(step))
+            if len(window) > window_games:
+                window.pop(0)
+        score = _team_form_score_from_window(window)
+        final_scores[i] = score
+        deltas[i] = score - current_score
+
+    improve_prob = float(np.mean(deltas >= 3.0))
+    decline_prob = float(np.mean(deltas <= -3.0))
+    stable_prob = float(max(0.0, 1.0 - improve_prob - decline_prob))
+
+    exp_score = float(np.mean(final_scores))
+    exp_delta = float(np.mean(deltas))
+    p25 = float(np.percentile(final_scores, 25))
+    p75 = float(np.percentile(final_scores, 75))
+
+    trend_label = "estable"
+    if improve_prob > 0.5:
+        trend_label = "mejora probable"
+    elif decline_prob > 0.5:
+        trend_label = "baja probable"
+
+    return {
+        "horizon_games": horizon,
+        "simulations": sims,
+        "outcome_probs": {
+            "win": round(p_w, 4),
+            "draw": round(p_d, 4),
+            "loss": round(p_l, 4),
+        },
+        "improve_probability": round(improve_prob, 4),
+        "stable_probability": round(stable_prob, 4),
+        "decline_probability": round(decline_prob, 4),
+        "expected_score_pct": round(exp_score, 2),
+        "expected_change_pct": round(exp_delta, 2),
+        "score_p25": round(p25, 2),
+        "score_p75": round(p75, 2),
+        "trend_label": trend_label,
+    }
+
+
+def _team_form_raw_file_for_sport(sport: str) -> Optional[Path]:
+    raw_info = SPORT_RAW_FILES.get(sport) or {}
+    raw_history = raw_info.get("raw_history")
+    if isinstance(raw_history, Path):
+        return raw_history
+    return None
+
+
+def _team_form_sources_fingerprint(sports: list[str]):
+    parts = []
+    for sport in sports:
+        raw_path = _team_form_raw_file_for_sport(sport)
+        if not raw_path or not raw_path.exists():
+            parts.append((sport, None, None))
+            continue
+        try:
+            stat = raw_path.stat()
+            parts.append((sport, int(stat.st_mtime), int(stat.st_size)))
+        except Exception:
+            parts.append((sport, None, None))
+    return tuple(parts)
+
+
+def _team_form_resolved_score_columns(columns: list[str]):
+    home_candidates = ["home_score", "home_pts_total", "home_runs_total"]
+    away_candidates = ["away_score", "away_pts_total", "away_runs_total"]
+    home_col = next((c for c in home_candidates if c in columns), None)
+    away_col = next((c for c in away_candidates if c in columns), None)
+    return home_col, away_col
+
+
+def _team_form_records_from_sport_raw(sport: str):
+    raw_path = _team_form_raw_file_for_sport(sport)
+    if not raw_path or not raw_path.exists():
+        return []
+
+    try:
+        df = pd.read_csv(raw_path, low_memory=False)
+    except Exception:
+        return []
+
+    if df.empty or "date" not in df.columns:
+        return []
+
+    records = []
+
+    # Tennis schema (player_a/player_b/winner)
+    if {"player_a", "player_b", "winner"}.issubset(set(df.columns)):
+        for row in df.itertuples(index=False):
+            row_dict = row._asdict()
+            date_raw = str(row_dict.get("date") or "").strip()
+            if not date_raw:
+                continue
+
+            player_a = str(row_dict.get("player_a") or "").strip()
+            player_b = str(row_dict.get("player_b") or "").strip()
+            winner = str(row_dict.get("winner") or "").strip()
+            if not player_a or not player_b or not winner:
+                continue
+
+            ts = pd.to_datetime(date_raw, errors="coerce")
+            if pd.isna(ts):
+                continue
+
+            a_sets = _to_float_or_none(row_dict.get("player_a_sets"))
+            b_sets = _to_float_or_none(row_dict.get("player_b_sets"))
+            if a_sets is None or b_sets is None:
+                a_sets = _to_float_or_none(row_dict.get("player_a_games")) or 0.0
+                b_sets = _to_float_or_none(row_dict.get("player_b_games")) or 0.0
+
+            if winner == player_a:
+                outcome_a, outcome_b = "W", "L"
+            elif winner == player_b:
+                outcome_a, outcome_b = "L", "W"
+            else:
+                outcome_a, outcome_b = "D", "D"
+
+            records.append(
+                {
+                    "sport": sport,
+                    "team": player_a,
+                    "date": str(ts.date()),
+                    "ts": float(ts.timestamp()),
+                    "outcome": outcome_a,
+                    "gf": float(a_sets),
+                    "ga": float(b_sets),
+                }
+            )
+            records.append(
+                {
+                    "sport": sport,
+                    "team": player_b,
+                    "date": str(ts.date()),
+                    "ts": float(ts.timestamp()),
+                    "outcome": outcome_b,
+                    "gf": float(b_sets),
+                    "ga": float(a_sets),
+                }
+            )
+        return records
+
+    required_team_cols = {"home_team", "away_team"}
+    if not required_team_cols.issubset(set(df.columns)):
+        return []
+
+    home_col, away_col = _team_form_resolved_score_columns(list(df.columns))
+    if not home_col or not away_col:
+        return []
+
+    time_col = "time" if "time" in df.columns else None
+    for row in df.itertuples(index=False):
+        row_dict = row._asdict()
+        date_raw = str(row_dict.get("date") or "").strip()
+        if not date_raw:
+            continue
+
+        home_team = str(row_dict.get("home_team") or "").strip()
+        away_team = str(row_dict.get("away_team") or "").strip()
+        if not home_team or not away_team:
+            continue
+
+        home_score = _to_float_or_none(row_dict.get(home_col))
+        away_score = _to_float_or_none(row_dict.get(away_col))
+        if home_score is None or away_score is None:
+            continue
+
+        time_raw = str(row_dict.get(time_col) or "00:00").strip() if time_col else "00:00"
+        if not re.match(r"^\d{1,2}:\d{2}$", time_raw):
+            time_raw = "00:00"
+
+        ts = pd.to_datetime(f"{date_raw} {time_raw}", errors="coerce")
+        if pd.isna(ts):
+            ts = pd.to_datetime(date_raw, errors="coerce")
+        if pd.isna(ts):
+            continue
+
+        if home_score > away_score:
+            home_outcome, away_outcome = "W", "L"
+        elif away_score > home_score:
+            home_outcome, away_outcome = "L", "W"
+        else:
+            home_outcome, away_outcome = "D", "D"
+
+        records.append(
+            {
+                "sport": sport,
+                "team": home_team,
+                "date": str(ts.date()),
+                "ts": float(ts.timestamp()),
+                "outcome": home_outcome,
+                "gf": float(home_score),
+                "ga": float(away_score),
+            }
+        )
+        records.append(
+            {
+                "sport": sport,
+                "team": away_team,
+                "date": str(ts.date()),
+                "ts": float(ts.timestamp()),
+                "outcome": away_outcome,
+                "gf": float(away_score),
+                "ga": float(home_score),
+            }
+        )
+
+    return records
+
+
+def build_team_form_summary(
+    sports: list[str],
+    window_games: int = 8,
+    min_games: int = 3,
+    as_of_date: Optional[str] = None,
+):
+    cutoff_date = None
+    if as_of_date:
+        cutoff_date = parse_date_str(as_of_date)
+
+    all_records = []
+    for sport in sports:
+        sport_records = _team_form_records_from_sport_raw(sport)
+        if cutoff_date is not None:
+            filtered = []
+            for rec in sport_records:
+                try:
+                    rec_date = parse_date_str(str(rec.get("date") or ""))
+                except HTTPException:
+                    continue
+                if rec_date <= cutoff_date:
+                    filtered.append(rec)
+            sport_records = filtered
+        all_records.extend(sport_records)
+
+    by_team = {}
+    for rec in all_records:
+        key = (str(rec["sport"]), str(rec["team"]))
+        by_team.setdefault(key, []).append(rec)
+
+    rows = []
+    for (sport, team), items in by_team.items():
+        sorted_items = sorted(items, key=lambda x: x["ts"], reverse=True)
+        recent = sorted_items[: max(1, int(window_games))]
+        if len(recent) < max(1, int(min_games)):
+            continue
+
+        wins = sum(1 for x in recent if x["outcome"] == "W")
+        losses = sum(1 for x in recent if x["outcome"] == "L")
+        draws = sum(1 for x in recent if x["outcome"] == "D")
+        gf = float(sum(float(x["gf"]) for x in recent))
+        ga = float(sum(float(x["ga"]) for x in recent))
+        points = float((wins * 3) + draws)
+        max_points = float(len(recent) * 3)
+        score_pct = float((points / max_points) * 100.0) if max_points > 0 else 0.0
+
+        rows.append(
+            {
+                "sportKey": sport,
+                "sportLabel": SPORTS_CONFIG.get(sport, {}).get("label", sport.upper()),
+                "teamCode": team,
+                "teamName": team,
+                "gamesSample": len(recent),
+                "formScorePct": round(score_pct, 2),
+                "wins": int(wins),
+                "losses": int(losses),
+                "draws": int(draws),
+                "gf": round(gf, 2),
+                "ga": round(ga, 2),
+                "diff": round(gf - ga, 2),
+                "streak": _team_form_streak_label([str(x["outcome"]) for x in recent]),
+                "formLabel": _team_form_classify(score_pct),
+                "lastMatchDate": str(recent[0]["date"]),
+            }
+        )
+
+    rows = sorted(rows, key=lambda x: (float(x["formScorePct"]), int(x["gamesSample"])), reverse=True)
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "window_games": int(window_games),
+        "min_games": int(min_games),
+        "rows": rows,
+    }
+
+
+def _team_form_snapshot_file(date_str: str) -> Path:
+    return TEAM_FORM_SNAPSHOTS_DIR / f"{date_str}.json"
+
+
+def _parse_month_str(month_str: str) -> str:
+    m = str(month_str or "").strip()
+    if not re.match(r"^\d{4}-\d{2}$", m):
+        raise HTTPException(status_code=400, detail="Formato de mes invalido. Usa YYYY-MM.")
+    return m
+
+
+def _snapshot_has_pending(snapshot: Optional[dict]) -> bool:
+    if not isinstance(snapshot, dict):
+        return True
+    totals = snapshot.get("totals") or {}
+    pending = totals.get("pending")
+    try:
+        return int(pending) > 0
+    except Exception:
+        pass
+    return True
+
+
+def _admin_capture_team_form_snapshot(date_str: str, window_games: int = 8, force: bool = False):
+    target = parse_date_str(date_str).strftime("%Y-%m-%d")
+    existing = _admin_load_team_form_snapshot(target)
+    if (not force) and existing is not None and (not _snapshot_has_pending(existing)):
+        return existing
+
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+
+    form_payload = build_team_form_summary(
+        sports=sports,
+        window_games=window_games,
+        min_games=3,
+        as_of_date=target,
+    )
+    form_rows = list(form_payload.get("rows") or [])
+    form_map = {(str(r.get("sportKey")), str(r.get("teamCode"))): r for r in form_rows}
+
+    team_stats = {}
+    sport_stats = {}
+
+    for sport in sports:
+        try:
+            events = _best_picks_load_events_raw_by_date(sport, target)
+            lookup = build_results_lookup_for_sport(sport)
+            events = enrich_predictions_if_available(sport, events, lookup=lookup)
+        except Exception:
+            events = []
+
+        sport_total = 0
+        sport_hits = 0
+        sport_pending = 0
+
+        for event in events:
+            picked_team = _resolve_picked_team(event)
+            if not picked_team:
+                continue
+
+            full_hit = _event_market_hits(event).get("full_game")
+            key = (sport, str(picked_team))
+            stat = team_stats.setdefault(
+                key,
+                {
+                    "sport": sport,
+                    "sport_label": SPORTS_CONFIG.get(sport, {}).get("label", sport.upper()),
+                    "team": str(picked_team),
+                    "picks": 0,
+                    "hits": 0,
+                    "pending": 0,
+                    "avg_form_score_acc": 0.0,
+                    "avg_form_score_n": 0,
+                    "form_label": None,
+                },
+            )
+            stat["picks"] += 1
+            sport_total += 1
+
+            if full_hit is True:
+                stat["hits"] += 1
+                sport_hits += 1
+            elif full_hit is None:
+                stat["pending"] += 1
+                sport_pending += 1
+
+            mapped = form_map.get((sport, str(picked_team)))
+            if mapped:
+                stat["avg_form_score_acc"] += float(mapped.get("formScorePct") or 0.0)
+                stat["avg_form_score_n"] += 1
+                if not stat["form_label"]:
+                    stat["form_label"] = mapped.get("formLabel")
+
+        if sport_total > 0:
+            sport_stats[sport] = {
+                "sport": sport,
+                "sport_label": SPORTS_CONFIG.get(sport, {}).get("label", sport.upper()),
+                "picks": sport_total,
+                "hits": sport_hits,
+                "pending": sport_pending,
+                "hit_rate": round((sport_hits / sport_total) if sport_total > 0 else 0.0, 4),
+            }
+
+    teams_out = []
+    for stat in team_stats.values():
+        picks = int(stat["picks"])
+        hits = int(stat["hits"])
+        pending = int(stat["pending"])
+        settled = max(0, picks - pending)
+        hit_rate = (hits / settled) if settled > 0 else 0.0
+        avg_form_score = (
+            stat["avg_form_score_acc"] / stat["avg_form_score_n"]
+            if int(stat["avg_form_score_n"]) > 0
+            else None
+        )
+        teams_out.append(
+            {
+                "sport": stat["sport"],
+                "sport_label": stat["sport_label"],
+                "team": stat["team"],
+                "picks": picks,
+                "hits": hits,
+                "pending": pending,
+                "settled": settled,
+                "hit_rate": round(hit_rate, 4),
+                "avg_form_score_pct": round(avg_form_score, 2) if avg_form_score is not None else None,
+                "form_label": stat["form_label"],
+            }
+        )
+
+    teams_out.sort(key=lambda x: (x["hit_rate"], x["hits"], x["picks"]), reverse=True)
+    sports_out = sorted(list(sport_stats.values()), key=lambda x: x["sport"])
+
+    snapshot = {
+        "snapshot_date": target,
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "is_partial": bool(any(int(t.get("pending") or 0) > 0 for t in teams_out)),
+        "window_games": int(window_games),
+        "sports": sports_out,
+        "teams": teams_out,
+        "totals": {
+            "sports_count": len(sports_out),
+            "teams_count": len(teams_out),
+            "picks": int(sum(x["picks"] for x in teams_out)),
+            "hits": int(sum(x["hits"] for x in teams_out)),
+            "pending": int(sum(x["pending"] for x in teams_out)),
+        },
+    }
+
+    file_path = _team_form_snapshot_file(target)
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, ensure_ascii=False, indent=2)
+    return snapshot
+
+
+def _admin_load_team_form_snapshot(date_str: str):
+    target = parse_date_str(date_str).strftime("%Y-%m-%d")
+    path = _team_form_snapshot_file(target)
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
+        return None
+    return None
+
+
+def _admin_team_form_snapshot_monthly_summary(month_str: str):
+    month_key = _parse_month_str(month_str)
+    files = sorted(TEAM_FORM_SNAPSHOTS_DIR.glob(f"{month_key}-*.json"))
+
+    snapshots = []
+    for file_path in files:
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            if isinstance(payload, dict):
+                snapshots.append(payload)
+        except Exception:
+            continue
+
+    by_team = {}
+    by_sport = {}
+    for snap in snapshots:
+        date_str = str(snap.get("snapshot_date") or "")
+        for team in snap.get("teams") or []:
+            key = (str(team.get("sport")), str(team.get("team")))
+            agg = by_team.setdefault(
+                key,
+                {
+                    "sport": str(team.get("sport")),
+                    "sport_label": str(team.get("sport_label") or ""),
+                    "team": str(team.get("team")),
+                    "days": 0,
+                    "picks": 0,
+                    "hits": 0,
+                    "pending": 0,
+                    "form_acc": 0.0,
+                    "form_n": 0,
+                    "last_form_label": None,
+                    "last_snapshot_date": None,
+                },
+            )
+            agg["days"] += 1
+            agg["picks"] += int(team.get("picks") or 0)
+            agg["hits"] += int(team.get("hits") or 0)
+            agg["pending"] += int(team.get("pending") or 0)
+            avg_form = team.get("avg_form_score_pct")
+            if avg_form is not None:
+                agg["form_acc"] += float(avg_form)
+                agg["form_n"] += 1
+            if date_str and (not agg["last_snapshot_date"] or date_str >= agg["last_snapshot_date"]):
+                agg["last_snapshot_date"] = date_str
+                agg["last_form_label"] = team.get("form_label")
+
+        for sport_row in snap.get("sports") or []:
+            sport = str(sport_row.get("sport") or "")
+            agg_sport = by_sport.setdefault(
+                sport,
+                {
+                    "sport": sport,
+                    "sport_label": str(sport_row.get("sport_label") or sport.upper()),
+                    "days": 0,
+                    "picks": 0,
+                    "hits": 0,
+                    "pending": 0,
+                },
+            )
+            agg_sport["days"] += 1
+            agg_sport["picks"] += int(sport_row.get("picks") or 0)
+            agg_sport["hits"] += int(sport_row.get("hits") or 0)
+            agg_sport["pending"] += int(sport_row.get("pending") or 0)
+
+    teams_out = []
+    for agg in by_team.values():
+        settled = max(0, int(agg["picks"]) - int(agg["pending"]))
+        hit_rate = (float(agg["hits"]) / settled) if settled > 0 else 0.0
+        avg_form = (agg["form_acc"] / agg["form_n"]) if int(agg["form_n"]) > 0 else None
+        teams_out.append(
+            {
+                "sport": agg["sport"],
+                "sport_label": agg["sport_label"],
+                "team": agg["team"],
+                "days": int(agg["days"]),
+                "picks": int(agg["picks"]),
+                "hits": int(agg["hits"]),
+                "pending": int(agg["pending"]),
+                "settled": settled,
+                "hit_rate": round(hit_rate, 4),
+                "avg_form_score_pct": round(avg_form, 2) if avg_form is not None else None,
+                "last_form_label": agg["last_form_label"],
+                "last_snapshot_date": agg["last_snapshot_date"],
+            }
+        )
+    teams_out.sort(key=lambda x: (x["hit_rate"], x["hits"], x["picks"]), reverse=True)
+
+    sports_out = []
+    for agg in by_sport.values():
+        picks = int(agg["picks"])
+        hits = int(agg["hits"])
+        pending = int(agg["pending"])
+        settled = max(0, picks - pending)
+        sports_out.append(
+            {
+                "sport": agg["sport"],
+                "sport_label": agg["sport_label"],
+                "days": int(agg["days"]),
+                "picks": picks,
+                "hits": hits,
+                "pending": pending,
+                "settled": settled,
+                "hit_rate": round((hits / settled) if settled > 0 else 0.0, 4),
+            }
+        )
+    sports_out.sort(key=lambda x: x["sport"])
+
+    return {
+        "month": month_key,
+        "snapshots_count": len(snapshots),
+        "snapshots_dates": sorted([str(s.get("snapshot_date") or "") for s in snapshots if str(s.get("snapshot_date") or "")]),
+        "sports": sports_out,
+        "teams": teams_out,
+        "top_teams": teams_out[:25],
+        "generated_at": datetime.now().isoformat(),
+    }
+
+
+def _run_auto_team_form_snapshot_for_date(date_str: str):
+    global TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE
+    try:
+        _admin_capture_team_form_snapshot(date_str=date_str, window_games=8)
+    except Exception:
+        # Non-blocking background task; failures are intentionally silent.
+        pass
+    finally:
+        with TEAM_FORM_AUTO_SNAPSHOT_LOCK:
+            if TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE == date_str:
+                TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE = None
+
+
+def _schedule_daily_team_form_snapshot_if_needed():
+    global TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE
+    today_str = date.today().strftime("%Y-%m-%d")
+    existing = _admin_load_team_form_snapshot(today_str)
+    if existing is not None and (not _snapshot_has_pending(existing)):
+        return
+
+    with TEAM_FORM_AUTO_SNAPSHOT_LOCK:
+        if TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE == today_str:
+            return
+        TEAM_FORM_AUTO_SNAPSHOT_IN_PROGRESS_DATE = today_str
+
+    worker = threading.Thread(
+        target=_run_auto_team_form_snapshot_for_date,
+        args=(today_str,),
+        daemon=True,
+    )
+    worker.start()
+
+
+def _admin_team_form_snapshots_compare(base_date: str, target_date: str):
+    d1 = parse_date_str(base_date).strftime("%Y-%m-%d")
+    d2 = parse_date_str(target_date).strftime("%Y-%m-%d")
+    snap_a = _admin_load_team_form_snapshot(d1)
+    snap_b = _admin_load_team_form_snapshot(d2)
+    if snap_a is None:
+        raise HTTPException(status_code=404, detail=f"No existe snapshot para {d1}.")
+    if snap_b is None:
+        raise HTTPException(status_code=404, detail=f"No existe snapshot para {d2}.")
+
+    by_team_a = {
+        (str(t.get("sport")), str(t.get("team"))): t
+        for t in (snap_a.get("teams") or [])
+    }
+    by_team_b = {
+        (str(t.get("sport")), str(t.get("team"))): t
+        for t in (snap_b.get("teams") or [])
+    }
+    all_keys = sorted(set(by_team_a.keys()) | set(by_team_b.keys()))
+
+    rows = []
+    for key in all_keys:
+        a = by_team_a.get(key, {})
+        b = by_team_b.get(key, {})
+        settled_a = int(a.get("settled") or max(0, int(a.get("picks") or 0) - int(a.get("pending") or 0)))
+        settled_b = int(b.get("settled") or max(0, int(b.get("picks") or 0) - int(b.get("pending") or 0)))
+        hit_a = float(a.get("hit_rate") or 0.0) if settled_a > 0 else None
+        hit_b = float(b.get("hit_rate") or 0.0) if settled_b > 0 else None
+        form_a = a.get("avg_form_score_pct")
+        form_b = b.get("avg_form_score_pct")
+        delta_hit = (hit_b - hit_a) if (hit_a is not None and hit_b is not None) else None
+        delta_form = (
+            float(form_b) - float(form_a)
+            if (form_a is not None and form_b is not None)
+            else None
+        )
+
+        effective_delta = None
+        effective_metric = None
+        if delta_hit is not None:
+            effective_delta = float(delta_hit)
+            effective_metric = "hit_rate"
+        elif delta_form is not None:
+            effective_delta = float(delta_form) / 100.0
+            effective_metric = "form_score"
+
+        rows.append(
+            {
+                "sport": key[0],
+                "sport_label": str((b or a).get("sport_label") or key[0].upper()),
+                "team": key[1],
+                "base": {
+                    "date": d1,
+                    "picks": int(a.get("picks") or 0),
+                    "hits": int(a.get("hits") or 0),
+                    "pending": int(a.get("pending") or 0),
+                    "settled": settled_a,
+                    "hit_rate": round(hit_a, 4) if hit_a is not None else None,
+                    "avg_form_score_pct": form_a,
+                },
+                "target": {
+                    "date": d2,
+                    "picks": int(b.get("picks") or 0),
+                    "hits": int(b.get("hits") or 0),
+                    "pending": int(b.get("pending") or 0),
+                    "settled": settled_b,
+                    "hit_rate": round(hit_b, 4) if hit_b is not None else None,
+                    "avg_form_score_pct": form_b,
+                },
+                "delta_hit_rate": round(delta_hit, 4) if delta_hit is not None else None,
+                "delta_form_score_pct": round(delta_form, 2) if delta_form is not None else None,
+                "effective_delta": round(effective_delta, 4) if effective_delta is not None else None,
+                "effective_metric": effective_metric,
+            }
+        )
+
+    comparable = [r for r in rows if r.get("effective_delta") is not None]
+    improved = [r for r in comparable if float(r["effective_delta"]) > 0]
+    declined = [r for r in comparable if float(r["effective_delta"]) < 0]
+    stable = [r for r in comparable if float(r["effective_delta"]) == 0]
+
+    improved.sort(key=lambda x: (x["effective_delta"], x.get("delta_form_score_pct") or 0), reverse=True)
+    declined.sort(key=lambda x: (x["effective_delta"], x.get("delta_form_score_pct") or 0))
+
+    return {
+        "base_date": d1,
+        "target_date": d2,
+        "teams_compared": len(rows),
+        "teams_comparable": len(comparable),
+        "improved_count": len(improved),
+        "declined_count": len(declined),
+        "stable_count": len(stable),
+        "top_improved": improved[:20],
+        "top_declined": declined[:20],
+        "rows": rows,
+        "generated_at": datetime.now().isoformat(),
+    }
+
+
+def build_team_form_team_detail(
+    sport: str,
+    team: str,
+    window_games: int = 8,
+    max_points: int = 30,
+    horizon_games: int = 5,
+    simulations: int = 4000,
+):
+    sport_key = str(sport or "").strip().lower()
+    team_key = str(team or "").strip()
+    if not sport_key or not team_key:
+        raise HTTPException(status_code=400, detail="Parámetros sport/team inválidos.")
+    if sport_key not in SPORTS_CONFIG:
+        raise HTTPException(status_code=404, detail=f"Deporte no soportado: {sport_key}")
+
+    records = [r for r in _team_form_records_from_sport_raw(sport_key) if str(r.get("team") or "") == team_key]
+    if not records:
+        raise HTTPException(status_code=404, detail="No hay historial suficiente para ese equipo.")
+
+    records = sorted(records, key=lambda x: x["ts"])
+    window = max(3, min(int(window_games), 20))
+    limit_points = max(10, min(int(max_points), 80))
+
+    timeline = []
+    for idx, rec in enumerate(records):
+        start = max(0, idx - window + 1)
+        sample = records[start: idx + 1]
+        if len(sample) < 3:
+            continue
+
+        wins = sum(1 for x in sample if x["outcome"] == "W")
+        draws = sum(1 for x in sample if x["outcome"] == "D")
+        losses = sum(1 for x in sample if x["outcome"] == "L")
+        points = (wins * 3) + draws
+        max_pts = len(sample) * 3
+        score_pct = (points / max_pts) * 100.0 if max_pts > 0 else 0.0
+
+        timeline.append(
+            {
+                "date": str(rec.get("date")),
+                "outcome": str(rec.get("outcome")),
+                "gf": float(rec.get("gf") or 0.0),
+                "ga": float(rec.get("ga") or 0.0),
+                "window_games": len(sample),
+                "score_pct": round(float(score_pct), 2),
+                "form_label": _team_form_classify(float(score_pct)),
+                "streak": _team_form_streak_label([str(x.get("outcome")) for x in reversed(sample)]),
+                "wins": int(wins),
+                "draws": int(draws),
+                "losses": int(losses),
+            }
+        )
+
+    if not timeline:
+        raise HTTPException(status_code=404, detail="No hay suficiente muestra para curva de racha.")
+
+    timeline = timeline[-limit_points:]
+    latest = timeline[-1]
+    first = timeline[0]
+    forecast = _team_form_monte_carlo_forecast(
+        records=records,
+        window_games=window,
+        horizon_games=horizon_games,
+        simulations=simulations,
+    )
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "sport": sport_key,
+        "sport_label": SPORTS_CONFIG.get(sport_key, {}).get("label", sport_key.upper()),
+        "team": team_key,
+        "window_games": window,
+        "timeline": timeline,
+        "current": latest,
+        "change_vs_start_pct": round(float(latest["score_pct"]) - float(first["score_pct"]), 2),
+        "forecast": forecast,
+    }
+
+
 def build_sport_insights_summary(sport: str):
     config = ensure_sport_exists(sport)
     hist_dir = config["historical_dir"]
@@ -4012,6 +5135,70 @@ def admin_all_sports_update_status(authorization: Optional[str] = Header(default
     return {"ok": True, **_copy_all_sports_update_state()}
 
 
+@app.get("/api/admin/team-form-snapshots/status")
+def admin_team_form_snapshots_status(
+    month: Optional[str] = None,
+    authorization: Optional[str] = Header(default=None),
+):
+    _require_admin_session(authorization)
+    month_key = _parse_month_str(month) if month else date.today().strftime("%Y-%m")
+    summary = _admin_team_form_snapshot_monthly_summary(month_key)
+    latest = summary["snapshots_dates"][-1] if summary["snapshots_dates"] else None
+    return {
+        "ok": True,
+        "month": month_key,
+        "snapshots_count": summary["snapshots_count"],
+        "latest_snapshot_date": latest,
+        "snapshots_dates": summary["snapshots_dates"],
+    }
+
+
+@app.get("/api/admin/team-form-snapshots/monthly")
+def admin_team_form_snapshots_monthly(
+    month: Optional[str] = None,
+    authorization: Optional[str] = Header(default=None),
+):
+    _require_admin_session(authorization)
+    month_key = _parse_month_str(month) if month else date.today().strftime("%Y-%m")
+    summary = _admin_team_form_snapshot_monthly_summary(month_key)
+    return {"ok": True, **summary}
+
+
+@app.post("/api/admin/team-form-snapshots/capture")
+def admin_team_form_snapshots_capture(
+    payload: dict = Body(default={}),
+    authorization: Optional[str] = Header(default=None),
+):
+    _require_admin_session(authorization)
+    date_str = str((payload or {}).get("date") or date.today().strftime("%Y-%m-%d"))
+    window_games = int((payload or {}).get("window_games") or 8)
+    force = bool((payload or {}).get("force_refresh", False))
+    target = parse_date_str(date_str).strftime("%Y-%m-%d")
+    existing = _admin_load_team_form_snapshot(target)
+    should_refresh = force or existing is None or _snapshot_has_pending(existing)
+
+    snapshot = _admin_capture_team_form_snapshot(date_str=target, window_games=window_games, force=force)
+    monthly = _admin_team_form_snapshot_monthly_summary(date_str[:7])
+    return {
+        "ok": True,
+        "message": f"Snapshot {'actualizado' if should_refresh else 'sin cambios'} para {target}.",
+        "updated": bool(should_refresh),
+        "snapshot": snapshot,
+        "monthly": monthly,
+    }
+
+
+@app.get("/api/admin/team-form-snapshots/compare")
+def admin_team_form_snapshots_compare(
+    base_date: str,
+    target_date: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    _require_admin_session(authorization)
+    payload = _admin_team_form_snapshots_compare(base_date=base_date, target_date=target_date)
+    return {"ok": True, **payload}
+
+
 @app.post("/api/admin/update-all-sports")
 def admin_update_all_sports(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
@@ -4115,6 +5302,84 @@ def get_insights_summary():
         "generated_at": datetime.now().isoformat(),
         "sports": summaries,
     }
+
+
+@app.get("/api/insights/team-form")
+def get_team_form_insights(
+    window_games: int = 8,
+    min_games: int = 3,
+    force_refresh: bool = False,
+):
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    window = max(3, min(int(window_games), 20))
+    min_sample = max(2, min(int(min_games), window))
+    fingerprint = _team_form_sources_fingerprint(sports)
+    cache_key = (window, min_sample, fingerprint)
+
+    now_ts = datetime.now().timestamp()
+    if not force_refresh:
+        with TEAM_FORM_CACHE_LOCK:
+            cache_hit = TEAM_FORM_CACHE.get(cache_key)
+            if cache_hit and (now_ts - float(cache_hit.get("created_ts", 0))) <= TEAM_FORM_CACHE_TTL_SECONDS:
+                return cache_hit["payload"]
+
+    payload = build_team_form_summary(
+        sports=sports,
+        window_games=window,
+        min_games=min_sample,
+    )
+
+    with TEAM_FORM_CACHE_LOCK:
+        TEAM_FORM_CACHE[cache_key] = {
+            "created_ts": now_ts,
+            "payload": payload,
+        }
+
+    return payload
+
+
+@app.get("/api/insights/team-form/team")
+def get_team_form_team_insights(
+    sport: str,
+    team: str,
+    window_games: int = 8,
+    max_points: int = 30,
+    horizon_games: int = 5,
+    simulations: int = 4000,
+    force_refresh: bool = False,
+):
+    sport_key = str(sport or "").strip().lower()
+    team_key = str(team or "").strip()
+    window = max(3, min(int(window_games), 20))
+    points = max(10, min(int(max_points), 80))
+    horizon = max(1, min(int(horizon_games), 12))
+    sims = max(500, min(int(simulations), 20000))
+    fingerprint = _team_form_sources_fingerprint([sport_key]) if sport_key else tuple()
+    cache_key = ("team_detail", sport_key, team_key, window, points, horizon, sims, fingerprint)
+
+    now_ts = datetime.now().timestamp()
+    if not force_refresh:
+        with TEAM_FORM_CACHE_LOCK:
+            cache_hit = TEAM_FORM_CACHE.get(cache_key)
+            if cache_hit and (now_ts - float(cache_hit.get("created_ts", 0))) <= TEAM_FORM_CACHE_TTL_SECONDS:
+                return cache_hit["payload"]
+
+    payload = build_team_form_team_detail(
+        sport=sport_key,
+        team=team_key,
+        window_games=window,
+        max_points=points,
+        horizon_games=horizon,
+        simulations=sims,
+    )
+
+    with TEAM_FORM_CACHE_LOCK:
+        TEAM_FORM_CACHE[cache_key] = {
+            "created_ts": now_ts,
+            "payload": payload,
+        }
+
+    return payload
 
 
 @app.get("/api/insights/weekday-scoring")
@@ -4286,3 +5551,6 @@ def get_best_picks_by_date(date_str: str, top_n: int = 25, force_refresh: bool =
 @app.get("/api/insights/tier-performance")
 def get_tier_performance_insights():
     return build_tier_performance_summary()
+
+
+

@@ -163,6 +163,44 @@ def init_auth_db() -> None:
             )
             _execute(conn, "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             _execute(conn, "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS purchase_orders (
+                    id TEXT PRIMARY KEY,
+                    order_code TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    user_id TEXT NULL,
+                    plan_key TEXT NOT NULL,
+                    plan_role TEXT NOT NULL,
+                    plan_price_mxn INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    telegram_username TEXT NULL,
+                    notes TEXT NULL,
+                    admin_notes TEXT NULL,
+                    payment_reference TEXT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    paid_at TEXT NULL,
+                    approved_at TEXT NULL,
+                    approved_by TEXT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+                )
+                """,
+            )
+            _execute(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_orders_email ON purchase_orders(email)")
+            _execute(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)")
         else:
             _execute(
                 conn,
@@ -197,6 +235,44 @@ def init_auth_db() -> None:
             )
             _execute(conn, "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             _execute(conn, "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """,
+            )
+            _execute(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS purchase_orders (
+                    id TEXT PRIMARY KEY,
+                    order_code TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    user_id TEXT NULL,
+                    plan_key TEXT NOT NULL,
+                    plan_role TEXT NOT NULL,
+                    plan_price_mxn INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    telegram_username TEXT NULL,
+                    notes TEXT NULL,
+                    admin_notes TEXT NULL,
+                    payment_reference TEXT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    paid_at TEXT NULL,
+                    approved_at TEXT NULL,
+                    approved_by TEXT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+                )
+                """,
+            )
+            _execute(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_orders_email ON purchase_orders(email)")
+            _execute(conn, "CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)")
 
 
 def ensure_admin_user(admin_email: str, admin_password: str) -> None:
@@ -348,6 +424,34 @@ def list_non_pending_users() -> list[dict]:
     return [row_to_user_payload(row) for row in rows]
 
 
+def get_app_setting(key: str, default: str | None = None) -> str | None:
+    with get_connection() as conn:
+        row = _fetchone(conn, "SELECT value FROM app_settings WHERE key = ?", (str(key).strip(),))
+    if not row:
+        return default
+    return row.get("value", default)
+
+
+def set_app_setting(key: str, value: str) -> None:
+    setting_key = str(key).strip()
+    setting_value = str(value)
+    updated_at = iso_utc(utc_now())
+    with get_connection() as conn:
+        existing = _fetchone(conn, "SELECT key FROM app_settings WHERE key = ?", (setting_key,))
+        if existing:
+            _execute(
+                conn,
+                "UPDATE app_settings SET value = ?, updated_at = ? WHERE key = ?",
+                (setting_value, updated_at, setting_key),
+            )
+        else:
+            _execute(
+                conn,
+                "INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)",
+                (setting_key, setting_value, updated_at),
+            )
+
+
 def is_access_expired(user_row: dict | sqlite3.Row | None) -> bool:
     normalized = _normalize_row(user_row)
     if not normalized:
@@ -421,3 +525,177 @@ def get_session(token: str) -> dict | None:
         "session_expires_at": row.get("session_expires_at"),
         "user": user,
     }
+
+
+def _normalize_purchase_order(row: dict | sqlite3.Row | None) -> dict | None:
+    normalized = _normalize_row(row)
+    if not normalized:
+        return None
+    return {
+        "id": normalized.get("id"),
+        "order_code": normalized.get("order_code"),
+        "name": normalized.get("name"),
+        "email": normalized.get("email"),
+        "user_id": normalized.get("user_id"),
+        "plan_key": normalized.get("plan_key"),
+        "plan_role": normalized.get("plan_role"),
+        "plan_price_mxn": normalized.get("plan_price_mxn"),
+        "status": normalized.get("status"),
+        "telegram_username": normalized.get("telegram_username"),
+        "notes": normalized.get("notes"),
+        "admin_notes": normalized.get("admin_notes"),
+        "payment_reference": normalized.get("payment_reference"),
+        "created_at": normalized.get("created_at"),
+        "updated_at": normalized.get("updated_at"),
+        "paid_at": normalized.get("paid_at"),
+        "approved_at": normalized.get("approved_at"),
+        "approved_by": normalized.get("approved_by"),
+    }
+
+
+def create_purchase_order(
+    *,
+    order_code: str,
+    name: str,
+    email: str,
+    user_id: str | None,
+    plan_key: str,
+    plan_role: str,
+    plan_price_mxn: int,
+    telegram_username: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    now = iso_utc(utc_now())
+    order_id = str(uuid.uuid4())
+    with get_connection() as conn:
+        _execute(
+            conn,
+            """
+            INSERT INTO purchase_orders (
+                id, order_code, name, email, user_id,
+                plan_key, plan_role, plan_price_mxn, status,
+                telegram_username, notes, admin_notes, payment_reference,
+                created_at, updated_at, paid_at, approved_at, approved_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending_contact', ?, ?, NULL, NULL, ?, ?, NULL, NULL, NULL)
+            """,
+            (
+                order_id,
+                str(order_code).strip().upper(),
+                str(name).strip(),
+                str(email).strip().lower(),
+                (str(user_id).strip() if user_id else None),
+                str(plan_key).strip().lower(),
+                str(plan_role).strip().lower(),
+                int(plan_price_mxn),
+                (str(telegram_username).strip() if telegram_username else None),
+                (str(notes).strip() if notes else None),
+                now,
+                now,
+            ),
+        )
+        row = _fetchone(conn, "SELECT * FROM purchase_orders WHERE id = ?", (order_id,))
+    return _normalize_purchase_order(row) or {}
+
+
+def find_open_purchase_order_by_email_plan(email: str, plan_key: str) -> dict | None:
+    with get_connection() as conn:
+        row = _fetchone(
+            conn,
+            """
+            SELECT * FROM purchase_orders
+            WHERE email = ? AND plan_key = ? AND status IN ('pending_contact', 'contacted', 'paid')
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (str(email).strip().lower(), str(plan_key).strip().lower()),
+        )
+    return _normalize_purchase_order(row)
+
+
+def list_purchase_orders(status: str | None = None, limit: int = 200) -> list[dict]:
+    max_limit = max(1, min(500, int(limit or 200)))
+    with get_connection() as conn:
+        if status and str(status).strip():
+            rows = _fetchall(
+                conn,
+                """
+                SELECT * FROM purchase_orders
+                WHERE status = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (str(status).strip().lower(), max_limit),
+            )
+        else:
+            rows = _fetchall(
+                conn,
+                """
+                SELECT * FROM purchase_orders
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (max_limit,),
+            )
+    normalized_rows: list[dict] = []
+    for row in rows:
+        payload = _normalize_purchase_order(row)
+        if payload:
+            normalized_rows.append(payload)
+    return normalized_rows
+
+
+def find_purchase_order_by_id(order_id: str) -> dict | None:
+    with get_connection() as conn:
+        row = _fetchone(conn, "SELECT * FROM purchase_orders WHERE id = ?", (str(order_id).strip(),))
+    return _normalize_purchase_order(row)
+
+
+def update_purchase_order_status(
+    *,
+    order_id: str,
+    status: str,
+    admin_notes: str | None = None,
+    payment_reference: str | None = None,
+    approved_by: str | None = None,
+) -> dict | None:
+    now = iso_utc(utc_now())
+    next_status = str(status).strip().lower()
+    paid_at = now if next_status == "paid" else None
+    approved_at = now if next_status == "approved" else None
+    approved_by_value = str(approved_by).strip().lower() if approved_by and next_status == "approved" else None
+
+    with get_connection() as conn:
+        current = _fetchone(conn, "SELECT * FROM purchase_orders WHERE id = ?", (str(order_id).strip(),))
+        if not current:
+            return None
+
+        existing_paid_at = current.get("paid_at")
+        existing_approved_at = current.get("approved_at")
+        existing_approved_by = current.get("approved_by")
+
+        _execute(
+            conn,
+            """
+            UPDATE purchase_orders
+            SET status = ?,
+                admin_notes = COALESCE(?, admin_notes),
+                payment_reference = COALESCE(?, payment_reference),
+                updated_at = ?,
+                paid_at = COALESCE(?, paid_at),
+                approved_at = COALESCE(?, approved_at),
+                approved_by = COALESCE(?, approved_by)
+            WHERE id = ?
+            """,
+            (
+                next_status,
+                (str(admin_notes).strip() if admin_notes else None),
+                (str(payment_reference).strip() if payment_reference else None),
+                now,
+                paid_at if not existing_paid_at else None,
+                approved_at if not existing_approved_at else None,
+                approved_by_value if not existing_approved_by else None,
+                str(order_id).strip(),
+            ),
+        )
+        row = _fetchone(conn, "SELECT * FROM purchase_orders WHERE id = ?", (str(order_id).strip(),))
+    return _normalize_purchase_order(row)

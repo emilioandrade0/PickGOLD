@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import PlanCheckoutActions from "../components/PlanCheckoutActions.jsx";
-import { loginUser, registerUser, setActiveSession } from "../services/auth.js";
+import { createPurchaseOrder, loginUser, registerUser, setActiveSession } from "../services/auth.js";
 import { getPlanByKey, PLANS } from "../config/plans.js";
 
-const TELEGRAM_URL = (import.meta.env.VITE_TELEGRAM_URL || "").trim();
+const TELEGRAM_URL = (import.meta.env.VITE_TELEGRAM_URL || "https://t.me/PickGoldApp").trim();
 
 function AuthPlanCard({
   plan,
@@ -72,6 +72,7 @@ export default function AuthPage({ onAuthenticated }) {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [orderInfo, setOrderInfo] = useState(null);
 
   const isLogin = mode === "login";
   const selectedPlanKey = searchParams.get("plan") || "starter";
@@ -87,6 +88,7 @@ export default function AuthPage({ onAuthenticated }) {
     e.preventDefault();
     setError("");
     setInfo("");
+    setOrderInfo(null);
 
     if (!isLogin && !acceptedLegal) {
       setError("Debes aceptar los terminos y el aviso de privacidad para continuar.");
@@ -104,6 +106,27 @@ export default function AuthPage({ onAuthenticated }) {
       return;
     }
 
+    if (!isLogin) {
+      const orderRes = await createPurchaseOrder({
+        name,
+        email,
+        planKey: selectedPlan.key,
+      });
+      if (orderRes?.ok) {
+        setOrderInfo({
+          code: orderRes?.order?.order_code || "",
+          message: orderRes?.telegram_message || "",
+          deepLink: orderRes?.telegram_deep_link || TELEGRAM_URL || "",
+        });
+        setInfo(
+          `${action.message || "Tu cuenta sigue pendiente de aprobacion."} Orden creada: ${orderRes?.order?.order_code || "N/A"}.`
+        );
+        return;
+      }
+      setInfo(action.message || "Tu cuenta sigue pendiente de aprobacion.");
+      return;
+    }
+
     if (action.pending) {
       setInfo(action.message || "Tu cuenta sigue pendiente de aprobacion.");
       return;
@@ -116,6 +139,17 @@ export default function AuthPage({ onAuthenticated }) {
 
     setActiveSession(action);
     onAuthenticated?.(action);
+  }
+
+  async function handleCopyOrderMessage() {
+    const raw = String(orderInfo?.message || "").trim();
+    if (!raw) return;
+    try {
+      await navigator.clipboard.writeText(raw);
+      setInfo("Mensaje copiado. Pegalo en Telegram para agilizar la activacion.");
+    } catch {
+      setInfo("No pude copiar automaticamente. Copia el texto manualmente.");
+    }
   }
 
   return (
@@ -254,6 +288,36 @@ export default function AuthPage({ onAuthenticated }) {
 
               {error && <p className="text-sm text-rose-300">{error}</p>}
               {info && <p className="text-sm text-amber-200">{info}</p>}
+              {!!orderInfo?.code && (
+                <div className="rounded-2xl border border-cyan-300/30 bg-cyan-300/[0.08] p-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-cyan-100/80">Orden de compra</p>
+                  <p className="mt-2 text-lg font-semibold text-cyan-100">{orderInfo.code}</p>
+                  <p className="mt-2 text-sm text-white/75">
+                    Envia este codigo por Telegram junto con tu comprobante para activar tu acceso mas rapido.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyOrderMessage}
+                      className="rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-xs font-semibold text-white/90 transition hover:bg-black/30"
+                    >
+                      Copiar mensaje
+                    </button>
+                    <a
+                      href={orderInfo.deepLink || undefined}
+                      target={orderInfo.deepLink ? "_blank" : undefined}
+                      rel={orderInfo.deepLink ? "noreferrer" : undefined}
+                      className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+                        orderInfo.deepLink
+                          ? "bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#141821] hover:brightness-105"
+                          : "cursor-not-allowed bg-white/10 text-white/50"
+                      }`}
+                    >
+                      Abrir Telegram
+                    </a>
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -273,3 +337,6 @@ export default function AuthPage({ onAuthenticated }) {
     </div>
   );
 }
+
+
+

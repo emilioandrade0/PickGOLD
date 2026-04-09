@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { startSportUpdateAll } from "../services/api.js";
-import { adminDeleteUser, adminResetUserPassword, approveUser, getAdminAllSportsUpdateStatus, getAdminSportUpdates, getAdminUsers, getPendingUsers, startAdminAllSportsUpdate } from "../services/auth.js";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
+import { getTeamDisplayName } from "../utils/teamNames.js";
+import {
+  adminCaptureTeamSnapshot,
+  adminDeleteUser,
+  adminResetUserPassword,
+  approveUser,
+  getAdminPurchaseOrders,
+  getAdminAppSettings,
+  getAdminAllSportsUpdateStatus,
+  getAdminTeamSnapshotCompare,
+  getAdminSportUpdates,
+  getAdminTeamSnapshotMonthly,
+  getAdminTeamSnapshotStatus,
+  getAdminUsers,
+  getPendingUsers,
+  startAdminAllSportsUpdate,
+  updateAdminPurchaseOrderStatus,
+  updateAdminAppSettings,
+} from "../services/auth.js";
 
 const ROLE_OPTIONS = [
   { value: "member", label: "Starter" },
@@ -31,6 +50,13 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
+function currentMonthYmd() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
 function AccessBadge({ user }) {
   const isActive = Boolean(user?.is_active);
   const isExpired = Boolean(user?.is_expired);
@@ -44,16 +70,26 @@ function AccessBadge({ user }) {
 }
 
 export default function AdminUserApproval() {
+  const { socialMode, setSocialMode } = useAppSettings();
   const [pending, setPending] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
   const [sportUpdates, setSportUpdates] = useState([]);
   const [allSportsUpdate, setAllSportsUpdate] = useState(null);
   const [stats, setStats] = useState({ active_count: 0, approved_count: 0 });
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [settingsByUser, setSettingsByUser] = useState({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [runningSport, setRunningSport] = useState("");
   const [passwordDrafts, setPasswordDrafts] = useState({});
+  const [activeSection, setActiveSection] = useState("overview");
+  const [snapshotMonth, setSnapshotMonth] = useState(() => currentMonthYmd());
+  const [snapshotStatus, setSnapshotStatus] = useState(null);
+  const [snapshotMonthly, setSnapshotMonthly] = useState(null);
+  const [snapshotCompare, setSnapshotCompare] = useState(null);
+  const [snapshotCompareBusy, setSnapshotCompareBusy] = useState(false);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [appSettingsBusy, setAppSettingsBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -61,11 +97,15 @@ export default function AdminUserApproval() {
     setLoading(true);
     setError("");
 
-    const [pendingRes, usersRes, updatesRes, allRes] = await Promise.all([
+    const [pendingRes, usersRes, updatesRes, allRes, snapshotStatusRes, snapshotMonthlyRes, appSettingsRes, purchaseOrdersRes] = await Promise.all([
       getPendingUsers(),
       getAdminUsers(),
       getAdminSportUpdates(),
       getAdminAllSportsUpdateStatus(),
+      getAdminTeamSnapshotStatus(snapshotMonth),
+      getAdminTeamSnapshotMonthly(snapshotMonth),
+      getAdminAppSettings(),
+      getAdminPurchaseOrders({ limit: 300 }),
     ]);
 
     if (!pendingRes.ok) {
@@ -101,8 +141,14 @@ export default function AdminUserApproval() {
 
     setSportUpdates(updatesRes?.ok ? (updatesRes.sports || []) : []);
     setAllSportsUpdate(allRes?.ok ? allRes : null);
+    setSnapshotStatus(snapshotStatusRes?.ok ? snapshotStatusRes : null);
+    setSnapshotMonthly(snapshotMonthlyRes?.ok ? snapshotMonthlyRes : null);
+    setPurchaseOrders(purchaseOrdersRes?.ok ? (purchaseOrdersRes.orders || []) : []);
+    if (appSettingsRes?.ok) {
+      setSocialMode(Boolean(appSettingsRes.social_mode));
+    }
     setLoading(false);
-  }, []);
+  }, [setSocialMode, snapshotMonth]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -235,6 +281,99 @@ export default function AdminUserApproval() {
     }
   }
 
+  async function handleToggleSocialMode() {
+    setAppSettingsBusy(true);
+    setError("");
+    setSuccess("");
+    const res = await updateAdminAppSettings({ socialMode: !socialMode });
+    if (res?.ok) {
+      setSocialMode(Boolean(res.social_mode));
+      setSuccess(res.social_mode ? "Modo redes activado." : "Modo redes desactivado.");
+    } else {
+      setError(res?.error || "No se pudo actualizar el modo redes.");
+    }
+    setAppSettingsBusy(false);
+  }
+
+  async function handleCaptureSnapshot() {
+    setSnapshotBusy(true);
+    setError("");
+    setSuccess("");
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+
+    const res = await adminCaptureTeamSnapshot({ date: dateStr, windowGames: 8 });
+    if (res?.ok) {
+      setSuccess(res?.message || `Snapshot guardado para ${dateStr}.`);
+      await fetchAdminData();
+    } else {
+      setError(res?.error || "No se pudo guardar el snapshot.");
+    }
+    setSnapshotBusy(false);
+  }
+
+  async function handleCaptureSnapshotYesterday() {
+    setSnapshotBusy(true);
+    setError("");
+    setSuccess("");
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const y = yesterday.getFullYear();
+    const m = String(yesterday.getMonth() + 1).padStart(2, "0");
+    const d = String(yesterday.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+
+    const res = await adminCaptureTeamSnapshot({ date: dateStr, windowGames: 8 });
+    if (res?.ok) {
+      setSuccess(res?.message || `Snapshot guardado para ${dateStr}.`);
+      await fetchAdminData();
+    } else {
+      setError(res?.error || "No se pudo guardar el snapshot de ayer.");
+    }
+    setSnapshotBusy(false);
+  }
+
+  async function handleUpdateOrderStatus(orderId, nextStatus) {
+    setSavingId(`order:${orderId}:${nextStatus}`);
+    setError("");
+    setSuccess("");
+    const res = await updateAdminPurchaseOrderStatus({
+      orderId,
+      status: nextStatus,
+      accessDays: 30,
+    });
+    if (res?.ok) {
+      const code = res?.order?.order_code ? ` (${res.order.order_code})` : "";
+      const activated = res?.activated_user ? " y acceso activado" : "";
+      setSuccess(`Orden actualizada${code}: ${nextStatus}${activated}.`);
+      await fetchAdminData();
+    } else {
+      setError(res?.error || "No se pudo actualizar la orden.");
+    }
+    setSavingId("");
+  }
+
+  useEffect(() => {
+    async function loadCompare() {
+      const dates = snapshotStatus?.snapshots_dates || [];
+      if (!Array.isArray(dates) || dates.length < 2) {
+        setSnapshotCompare(null);
+        return;
+      }
+      const targetDate = dates[dates.length - 1];
+      const baseDate = dates[dates.length - 2];
+      setSnapshotCompareBusy(true);
+      const res = await getAdminTeamSnapshotCompare({ baseDate, targetDate });
+      if (res?.ok) setSnapshotCompare(res);
+      else setSnapshotCompare(null);
+      setSnapshotCompareBusy(false);
+    }
+    loadCompare();
+  }, [snapshotStatus?.snapshots_dates]);
+
   return (
     <div className="mx-auto mt-8 max-w-6xl rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(28,32,42,0.96),rgba(18,21,29,0.98))] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -254,6 +393,31 @@ export default function AdminUserApproval() {
         </button>
       </div>
 
+      <div className="mt-6 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2">
+        {[
+          { key: "overview", label: "Resumen" },
+          { key: "sports", label: "Deportes" },
+          { key: "snapshots", label: "Snapshots" },
+          { key: "orders", label: "Ordenes" },
+          { key: "pending", label: "Pendientes" },
+          { key: "users", label: "Usuarios" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveSection(tab.key)}
+            className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+              activeSection === tab.key
+                ? "border-amber-300/60 bg-amber-300/12 text-amber-100"
+                : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20 hover:text-white"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSection === "overview" && (
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
           <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Pendientes</p>
@@ -268,7 +432,34 @@ export default function AdminUserApproval() {
           <p className="mt-2 text-3xl font-semibold text-cyan-100">{stats.approved_count}</p>
         </div>
       </div>
+      )}
 
+      {activeSection === "overview" && (
+      <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Modo redes</p>
+            <p className="mt-2 text-sm text-white/68">
+              Activa una version mas safe del producto para posts, screenshots y demos: cambia copy sensible de apuestas por lenguaje de analitica.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleSocialMode}
+            disabled={appSettingsBusy}
+            className={`rounded-2xl px-5 py-3 text-sm font-bold transition ${
+              socialMode
+                ? "border border-emerald-400/30 bg-emerald-400/12 text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.18)]"
+                : "bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#131821] shadow-[0_12px_28px_rgba(246,196,83,0.2)]"
+            } disabled:opacity-60`}
+          >
+            {appSettingsBusy ? "Guardando..." : socialMode ? "LIVE · Modo redes activado" : "Activar modo redes"}
+          </button>
+        </div>
+      </div>
+      )}
+
+      {activeSection === "overview" && (
       <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -307,6 +498,7 @@ export default function AdminUserApproval() {
         </div>
         <p className="mt-3 text-sm text-white/70">{allSportsUpdate?.current_sport_label ? `Trabajando en ${allSportsUpdate.current_sport_label}.` : (allSportsUpdate?.message || "Listo para iniciar la actualizacion global.")}</p>
       </div>
+      )}
 
       <div className="mt-6 space-y-3">
         {loading && <p className="text-white/70">Cargando usuarios...</p>}
@@ -314,6 +506,7 @@ export default function AdminUserApproval() {
         {success && <p className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">{success}</p>}
       </div>
 
+      {activeSection === "sports" && (
       <section className="mt-10">
         <div className="mb-4">
           <h3 className="text-xl font-semibold">Actualizacion y fuentes por deporte</h3>
@@ -412,7 +605,194 @@ export default function AdminUserApproval() {
           })}
         </div>
       </section>
+      )}
 
+      {activeSection === "snapshots" && (
+      <section className="mt-10">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold">Snapshots de rendimiento por equipo</h3>
+            <p className="mt-1 text-sm text-white/60">
+              Guarda fotos diarias y analiza al cierre de mes cuántas predicciones acertó cada equipo.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="month"
+              value={snapshotMonth}
+              onChange={(e) => setSnapshotMonth(e.target.value)}
+              className="rounded-xl border border-white/12 bg-black/18 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/50"
+            />
+            <button
+              type="button"
+              onClick={handleCaptureSnapshot}
+              disabled={snapshotBusy}
+              className="rounded-xl border border-emerald-300/35 bg-emerald-300/12 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-300/20 disabled:opacity-60"
+            >
+              {snapshotBusy ? "Guardando..." : "Capturar snapshot hoy"}
+            </button>
+            <button
+              type="button"
+              onClick={handleCaptureSnapshotYesterday}
+              disabled={snapshotBusy}
+              className="rounded-xl border border-cyan-300/35 bg-cyan-300/12 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20 disabled:opacity-60"
+            >
+              {snapshotBusy ? "Guardando..." : "Capturar snapshot ayer"}
+            </button>
+            <button
+              type="button"
+              onClick={fetchAdminData}
+              className="rounded-xl border border-white/12 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-white/[0.08]"
+            >
+              Refrescar
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Mes</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{snapshotMonth || "-"}</p>
+          </div>
+          <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Snapshots</p>
+            <p className="mt-2 text-2xl font-semibold text-cyan-100">{snapshotStatus?.snapshots_count ?? 0}</p>
+          </div>
+          <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Ultimo snapshot</p>
+            <p className="mt-2 text-lg font-semibold text-emerald-200">{snapshotStatus?.latest_snapshot_date || "N/A"}</p>
+          </div>
+          <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Equipos en reporte</p>
+            <p className="mt-2 text-2xl font-semibold text-amber-200">{snapshotMonthly?.teams?.length ?? 0}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Comparativo ultimo snapshot vs anterior</p>
+          {snapshotCompareBusy ? (
+            <p className="mt-3 text-sm text-white/65">Cargando comparativo...</p>
+          ) : !snapshotCompare ? (
+            <p className="mt-3 text-sm text-white/65">Necesitas al menos 2 snapshots en el mes para comparar.</p>
+          ) : (
+            <>
+              <div className="mt-3 grid gap-3 md:grid-cols-5">
+                <div className="rounded-xl border border-white/10 bg-black/18 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Base</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{snapshotCompare.base_date}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/18 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Objetivo</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{snapshotCompare.target_date}</p>
+                </div>
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-200/75">Mejoraron</p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-200">{snapshotCompare.improved_count}</p>
+                </div>
+                <div className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-rose-200/75">Empeoraron</p>
+                  <p className="mt-1 text-sm font-semibold text-rose-200">{snapshotCompare.declined_count}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/18 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Equipos comparables</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{snapshotCompare.teams_comparable ?? snapshotCompare.teams_compared}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/18 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Equipos totales</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{snapshotCompare.teams_compared}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200/80">Top mejora (hit rate o forma)</p>
+                  <div className="mt-2 space-y-2">
+                    {(snapshotCompare.top_improved || []).slice(0, 8).map((row) => (
+                      <div key={`imp-${row.sport}-${row.team}`} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/18 px-2 py-1.5 text-sm">
+                        <span className="text-white/85">{getTeamDisplayName(row.sport, row.team)} <span className="text-white/50">({row.sport_label})</span></span>
+                        <span className="font-semibold text-emerald-200">
+                          {row.delta_hit_rate !== null && row.delta_hit_rate !== undefined
+                            ? `+${((Number(row.delta_hit_rate) || 0) * 100).toFixed(1)}% HR`
+                            : `+${Number(row.delta_form_score_pct || 0).toFixed(1)} pts forma`}
+                        </span>
+                      </div>
+                    ))}
+                    {(!snapshotCompare.top_improved || snapshotCompare.top_improved.length === 0) && (
+                      <p className="text-sm text-emerald-100/70">Sin mejoras registradas.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-200/80">Top caida (hit rate o forma)</p>
+                  <div className="mt-2 space-y-2">
+                    {(snapshotCompare.top_declined || []).slice(0, 8).map((row) => (
+                      <div key={`dec-${row.sport}-${row.team}`} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/18 px-2 py-1.5 text-sm">
+                        <span className="text-white/85">{getTeamDisplayName(row.sport, row.team)} <span className="text-white/50">({row.sport_label})</span></span>
+                        <span className="font-semibold text-rose-200">
+                          {row.delta_hit_rate !== null && row.delta_hit_rate !== undefined
+                            ? `${((Number(row.delta_hit_rate) || 0) * 100).toFixed(1)}% HR`
+                            : `${Number(row.delta_form_score_pct || 0).toFixed(1)} pts forma`}
+                        </span>
+                      </div>
+                    ))}
+                    {(!snapshotCompare.top_declined || snapshotCompare.top_declined.length === 0) && (
+                      <p className="text-sm text-rose-100/70">Sin caidas registradas.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+          <p className="mb-3 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs text-amber-100/90">
+            Nota: si capturas el snapshot antes de terminar los juegos, veras muchos picks en pendiente y el hit rate aparecera como "-".
+          </p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Top rendimiento mensual por equipo (FG)</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-white/55">
+                <tr>
+                  <th className="pb-2">Equipo</th>
+                  <th className="pb-2">Deporte</th>
+                  <th className="pb-2">Dias</th>
+                  <th className="pb-2">Picks</th>
+                  <th className="pb-2">Aciertos</th>
+                  <th className="pb-2">Pendientes</th>
+                  <th className="pb-2">Hit rate</th>
+                  <th className="pb-2">Forma prom.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(snapshotMonthly?.top_teams || []).slice(0, 30).map((row) => (
+                  <tr key={`${row.sport}-${row.team}`} className="border-t border-white/10">
+                    <td className="py-2 font-semibold text-white">{getTeamDisplayName(row.sport, row.team)}</td>
+                    <td className="py-2 text-white/75">{row.sport_label || row.sport}</td>
+                    <td className="py-2 text-white/75">{row.days}</td>
+                    <td className="py-2 text-white/75">{row.picks}</td>
+                    <td className="py-2 text-emerald-200">{row.hits}</td>
+                    <td className="py-2 text-white/70">{row.pending}</td>
+                    <td className="py-2 text-cyan-100">{Number(row.settled || 0) > 0 ? `${((Number(row.hit_rate) || 0) * 100).toFixed(1)}%` : "-"}</td>
+                    <td className="py-2 text-amber-200">{row.avg_form_score_pct ?? "-"}</td>
+                  </tr>
+                ))}
+                {(!snapshotMonthly?.top_teams || snapshotMonthly.top_teams.length === 0) && (
+                  <tr>
+                    <td colSpan={8} className="py-4 text-center text-white/60">
+                      Aun no hay snapshots para este mes.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      )}
+
+      {activeSection === "pending" && (
       <section className="mt-8">
         <div className="mb-4">
           <h3 className="text-xl font-semibold">Usuarios pendientes</h3>
@@ -482,7 +862,90 @@ export default function AdminUserApproval() {
           })}
         </div>
       </section>
+      )}
 
+      {activeSection === "orders" && (
+      <section className="mt-8">
+        <div className="mb-4">
+          <h3 className="text-xl font-semibold">Ordenes de compra por Telegram</h3>
+          <p className="mt-1 text-sm text-white/60">
+            Gestiona el flujo manual: contacto, pago y activacion de acceso por orden.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {!loading && !error && purchaseOrders.length === 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-5 text-sm text-white/68">
+              Aun no hay ordenes registradas.
+            </div>
+          )}
+
+          {purchaseOrders.map((order) => (
+            <div
+              key={order.id}
+              className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]"
+            >
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_150px_130px_190px] xl:items-center">
+                <div>
+                  <p className="text-lg font-semibold">{order.order_code}</p>
+                  <p className="mt-1 text-sm text-white/68">{order.name} · {order.email}</p>
+                  <p className="mt-2 text-xs text-white/45">
+                    Plan: <span className="font-semibold text-white/80">{String(order.plan_key || "").toUpperCase()}</span> · ${order.plan_price_mxn} MXN
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Estado</p>
+                  <p className="mt-2 text-sm font-semibold text-amber-100">{order.status || "N/A"}</p>
+                </div>
+
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Creada</p>
+                  <p className="mt-2 text-sm text-white/80">{formatDate(order.created_at)}</p>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateOrderStatus(order.id, "contacted")}
+                    disabled={savingId === `order:${order.id}:contacted`}
+                    className="rounded-xl border border-cyan-300/30 bg-cyan-300/12 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20 disabled:opacity-60"
+                  >
+                    Contactado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateOrderStatus(order.id, "paid")}
+                    disabled={savingId === `order:${order.id}:paid`}
+                    className="rounded-xl border border-emerald-300/30 bg-emerald-300/12 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/20 disabled:opacity-60"
+                  >
+                    Pago recibido
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateOrderStatus(order.id, "approved")}
+                    disabled={savingId === `order:${order.id}:approved`}
+                    className="rounded-xl bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] px-3 py-2 text-xs font-bold text-[#131821] transition hover:brightness-105 disabled:opacity-60"
+                  >
+                    Aprobar y activar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateOrderStatus(order.id, "cancelled")}
+                    disabled={savingId === `order:${order.id}:cancelled`}
+                    className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/16 disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      )}
+
+      {activeSection === "users" && (
       <section className="mt-10">
         <div className="mb-4">
           <h3 className="text-xl font-semibold">Usuarios activos y aprobados</h3>
@@ -567,6 +1030,7 @@ export default function AdminUserApproval() {
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }

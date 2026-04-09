@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import EventCard from "../components/EventCard.jsx";
 import DetailModal from "../components/DetailModal.jsx";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { resolveEventTier } from "../utils/picks.js";
 import {
   fetchAvailableDates,
@@ -47,6 +48,7 @@ function normalizeSearchText(value) {
 }
 
 export default function LeaguePage({ sportKey, sportLabel }) {
+  const { socialMode } = useAppSettings();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
@@ -344,10 +346,10 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     ? averageOddsSource.reduce((sum, value) => sum + value, 0) / averageOddsSource.length
     : null;
   const summaryCards = [
-    { label: "Total", value: String(totalTracked), accent: "text-cyan-200" },
-    { label: "Ganadas", value: String(wins), accent: "text-emerald-300" },
-    { label: "% Acierto", value: `${hitRate.toFixed(1)}%`, accent: "text-amber-200" },
-    { label: "Cuota media", value: averageOdds ? averageOdds.toFixed(2) : "-", accent: "text-fuchsia-200" },
+    { label: socialMode ? "Total analizado" : "Total", value: String(totalTracked), accent: "text-cyan-200" },
+    { label: socialMode ? "Correctas" : "Ganadas", value: String(wins), accent: "text-emerald-300" },
+    { label: socialMode ? "% correcto" : "% Acierto", value: `${hitRate.toFixed(1)}%`, accent: "text-amber-200" },
+    { label: socialMode ? "Referencia media" : "Cuota media", value: averageOdds ? averageOdds.toFixed(2) : "-", accent: "text-fuchsia-200" },
   ];
   const upcomingCount = events.filter((event) => event.result_available !== true).length;
   const premiumCount = events.filter((event) => {
@@ -389,7 +391,9 @@ export default function LeaguePage({ sportKey, sportLabel }) {
               <div>
                 <h2 className="text-2xl font-semibold">Eventos {sportLabel}</h2>
                 <p className="text-sm text-white/60">
-                  Haz click en un juego para abrir su detalle completo.
+                  {socialMode
+                    ? "Abre cada evento para ver la lectura completa del modelo."
+                    : "Haz click en un juego para abrir su detalle completo."}
                 </p>
               </div>
 
@@ -402,7 +406,9 @@ export default function LeaguePage({ sportKey, sportLabel }) {
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/70">
                 {showNcaaSearch && normalizedEventSearch
                   ? `No encontramos eventos de NCAA Baseball para "${eventSearch}" en esta fecha.`
-                  : `No hay predicciones disponibles para ${sportLabel} en esta fecha.`}
+                  : socialMode
+                    ? `No hay proyecciones disponibles para ${sportLabel} en esta fecha.`
+                    : `No hay predicciones disponibles para ${sportLabel} en esta fecha.`}
               </div>
             ) : (
               <>
@@ -434,10 +440,10 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                 <div className="mt-8">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/55">
-                      Resumen del dia
+                      {socialMode ? "Resumen del modelo" : "Resumen del dia"}
                     </h3>
                     <span className="text-xs text-white/45">
-                      Basado en resultados del pick principal
+                      {socialMode ? "Basado en el resultado de la proyeccion principal" : "Basado en resultados del pick principal"}
                     </span>
                   </div>
 
@@ -476,7 +482,9 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                         <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Claridad</p>
                           <p className="mt-3 text-sm leading-6 text-white/72">
-                            El usuario entiende el pick, la confianza y el contexto sin esfuerzo.
+                            {socialMode
+                              ? "La lectura del modelo se entiende rapido, sin lenguaje agresivo de apuestas."
+                              : "El usuario entiende el pick, la confianza y el contexto sin esfuerzo."}
                           </p>
                         </div>
                         <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-4">
@@ -507,8 +515,8 @@ export default function LeaguePage({ sportKey, sportLabel }) {
               </div>
 
               <h3 className="mt-4 text-2xl font-semibold leading-tight text-white">
-                Resumen General del Dia
-                (Mercado MonyLine).
+                {socialMode ? "Resumen General del Modelo" : "Resumen General del Dia"}
+                {!socialMode && "(Mercado MonyLine)."}
               </h3>
 
               <div className="mt-6 grid gap-3">
@@ -518,14 +526,28 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                   <p className="mt-2 text-sm text-white/55">Slate disponible para {selectedDate || "hoy"}</p>
                 </div>
                 <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Premium / Elite</p>
+                  <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/45">
+                    Premium / Elite
+                    <span className="group relative inline-flex">
+                      <button
+                        type="button"
+                        aria-label="Info de calculo Premium/Elite"
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[10px] font-bold text-white/75 transition hover:border-cyan-300/40 hover:bg-cyan-300/12 hover:text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-300/40"
+                      >
+                        i
+                      </button>
+                      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-xl border border-cyan-300/28 bg-[linear-gradient(180deg,rgba(12,19,30,0.98),rgba(8,13,22,0.98))] px-3 py-2 text-[11px] normal-case tracking-normal text-cyan-100/95 opacity-0 shadow-[0_16px_32px_rgba(0,0,0,0.3)] transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+                        Conteo conectado al mismo tier de las cards via <span className="font-semibold">resolveEventTier(event)</span>. Incluye solo picks <span className="font-semibold">ELITE</span> y <span className="font-semibold">PREMIUM</span> con fallback por score/confianza.
+                      </span>
+                    </span>
+                  </p>
                   <p className="mt-3 text-4xl font-semibold text-amber-200">{premiumCount}</p>
-                  <p className="mt-2 text-sm text-white/55">Picks con narrativa de mayor valor</p>
+                  <p className="mt-2 text-sm text-white/55">{socialMode ? "Proyecciones con narrativa de mayor valor" : "Picks con narrativa de mayor valor"}</p>
                 </div>
                 <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">% acierto</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">{socialMode ? "% correcto" : "% acierto"}</p>
                   <p className="mt-3 text-4xl font-semibold text-emerald-300">{hitRate.toFixed(1)}%</p>
-                  <p className="mt-2 text-sm text-white/55">Prueba social basada en resultado real</p>
+                  <p className="mt-2 text-sm text-white/55">{socialMode ? "Referencia social basada en resultados del modelo" : "Prueba social basada en resultado real"}</p>
                 </div>
                 <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-4">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Pendientes</p>

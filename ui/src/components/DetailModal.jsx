@@ -1,7 +1,8 @@
-import { resolveEventTier, tierClasses, tierLabel } from "../utils/picks.js";
+import { resolveEventTier, resolveMarketTier, tierClasses, tierLabel } from "../utils/picks.js";
 import { getTeamLogoUrl } from "../utils/teamLogos.js";
 import { resolveEventTeams, resolveSidePick } from "../utils/teams.js";
 import { expandTeamCodeInText, getTeamDisplayName } from "../utils/teamNames.js";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 
 function toHitValue(value) {
   if (value === true || value === false) return value;
@@ -354,6 +355,18 @@ function buildBestRecommendedPick({
   return candidates[0];
 }
 
+function marketKeyFromBestPickLabel(label) {
+  const normalized = String(label || "").trim().toLowerCase();
+  if (normalized === "full game") return "full_game";
+  if (normalized === "handicap") return "spread";
+  if (normalized === "over/under") return "total";
+  if (normalized === "primer cuarto") return "q1";
+  if (normalized === "primera mitad") return "h1";
+  if (normalized === "btts") return "btts";
+  if (normalized === "corners") return "corners";
+  return "full_game";
+}
+
 function TeamBadge({ sportKey, abbr }) {
   const logoUrl = getTeamLogoUrl(sportKey, abbr);
   const fullName = getTeamDisplayName(sportKey, abbr);
@@ -376,7 +389,22 @@ function TeamBadge({ sportKey, abbr }) {
   );
 }
 
+function MarketTierBadge({ tier }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.16em] ${tierClasses(tier)}`}>
+      {tierLabel(tier).replace(" PICK", "")}
+    </span>
+  );
+}
+
+function outcomeLabel(hit, socialMode) {
+  if (hit === true) return socialMode ? "Correcto" : "ACIERTO";
+  if (hit === false) return socialMode ? "Incorrecto" : "FALLO";
+  return "N/A";
+}
+
 export default function DetailModal({ event, onClose, sportKey }) {
+  const { socialMode } = useAppSettings();
   if (!event) return null;
   const teams = resolveEventTeams(event);
   const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
@@ -430,11 +458,15 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const q1ConfidenceDisplay = secondaryLabel === "Primer Cuarto" ? secondaryConfidence : "-";
   const q1ActionDisplay = secondaryLabel === "Primer Cuarto" ? normalizeBetAction(secondaryAction) : "No apostar";
   const q1Hit = secondaryLabel === "Primer Cuarto" ? secondaryHit : null;
+  const q1Tier = resolveMarketTier(event, "q1");
   const h1PickDisplay = firstHalfCard?.pick || "N/A";
   const h1ConfidenceDisplay = firstHalfCard?.confidence ?? "-";
   const h1ActionDisplay = firstHalfCard?.action || "No apostar";
   const h1Hit = firstHalfCard?.hit ?? null;
+  const h1Tier = resolveMarketTier(event, "h1");
   const handicapPickDisplay = spreadPick || "N/A";
+  const spreadTier = resolveMarketTier(event, "spread");
+  const totalTier = resolveMarketTier(event, "total");
   const cornersOdds = resolveOddsValue(event, ODDS_KEYS.corners);
   const secondaryResultBorderClass = marketBorderClass(q1Hit);
   const resultBorderClass =
@@ -465,7 +497,20 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const propConfidence = propBest.confidence;
   const hasCorners = Boolean(event.corners_pick);
   const propHit = toHitValue(event.correct_f5 ?? event.correct_home_win_f5);
+  const propTier = resolveMarketTier(event, marketKeyFromBestPickLabel(propBest.market));
   const cornersHit = toHitValue(event.correct_corners_adjusted ?? event.correct_corners_base ?? event.correct_corners);
+  const cornersTier = resolveMarketTier(event, "corners");
+  const fullGameLabel = socialMode ? "Proyeccion principal" : "Ganador del partido";
+  const q1Label = socialMode ? "Proyeccion de arranque" : "Primer Cuarto";
+  const h1Label = socialMode ? "Proyeccion primera mitad" : "Primera Mitad";
+  const spreadLabel = socialMode ? "Proyeccion de margen" : "Handicap";
+  const totalLabel = socialMode ? "Proyeccion total" : "Over/Under";
+  const propLabelText = socialMode ? "Proyeccion recomendada" : propLabel;
+  const cornersLabel = socialMode ? "Proyeccion de corners" : "Corners O/U";
+  const lineLabel = socialMode ? "Referencia" : "Linea";
+  const oddsLabel = socialMode ? "Valor modelo" : "Cuota";
+  const resultLabel = socialMode ? "Resultado del modelo" : "Resultado";
+  const finalLabel = socialMode ? "Cierre del evento" : "Resultado real del juego";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -574,7 +619,7 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl bg-black/15 p-5">
-              <p className="text-sm text-white/50">Ganador del partido</p>
+              <p className="text-sm text-white/50">{fullGameLabel}</p>
               <p className="mt-1 text-2xl font-semibold">{fullGamePick}</p>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -584,14 +629,17 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">Cuota ML</p>
+                  <p className="text-white/50">{oddsLabel}</p>
                   <p className="mt-1 font-semibold">{mainOdds || "N/A"}</p>
                 </div>
               </div>
             </div>
 
             <div className={`rounded-2xl border bg-black/15 p-5 ${secondaryResultBorderClass}`}>
-              <p className="text-sm text-white/50">Primer Cuarto</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-white/50">{q1Label}</p>
+                <MarketTierBadge tier={q1Tier} />
+              </div>
               <p className="mt-1 text-2xl font-semibold">{q1PickDisplay}</p>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -603,16 +651,16 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">Cuota</p>
+                  <p className="text-white/50">{oddsLabel}</p>
                   <p className="mt-1 font-semibold">{q1ActionDisplay}</p>
                 </div>
               </div>
 
-              <p className="mt-2 text-xs text-white/60">Cuota decimal: {secondaryOdds || "N/A"}</p>
+              <p className="mt-2 text-xs text-white/60">{oddsLabel} decimal: {secondaryOdds || "N/A"}</p>
 
               {hasResult && q1Hit !== undefined && q1Hit !== null && (
                 <p className="mt-3 text-sm font-semibold text-white/85">
-                  Resultado: {q1Hit === true ? "ACIERTO" : "FALLO"}
+                  {resultLabel}: {outcomeLabel(q1Hit, socialMode)}
                 </p>
               )}
             </div>
@@ -620,21 +668,21 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
           {hasResult && (
             <div className={`rounded-2xl border bg-black/20 p-5 ${resultBorderClass}`}>
-              <p className="text-sm text-white/50">Resultado real del juego</p>
+              <p className="text-sm text-white/50">{finalLabel}</p>
               <p className="mt-1 text-lg font-semibold">{event.final_score_text}</p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm">
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">Full Game</p>
+                  <p className="text-white/50">{fullGameLabel}</p>
                   <p className="mt-1 font-semibold">
-                    {event.full_game_hit === true ? "ACIERTO" : event.full_game_hit === false ? "FALLO" : "N/A"}
+                    {outcomeLabel(event.full_game_hit, socialMode)}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">Primer Cuarto</p>
+                  <p className="text-white/50">{q1Label}</p>
                   <p className="mt-1 font-semibold">
-                    {q1Hit === true ? "ACIERTO" : q1Hit === false ? "FALLO" : "N/A"}
+                    {outcomeLabel(q1Hit, socialMode)}
                   </p>
                 </div>
               </div>
@@ -644,70 +692,85 @@ export default function DetailModal({ event, onClose, sportKey }) {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {firstHalfCard && (
               <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(h1Hit)}`}>
-                <p className="text-sm text-white/50">Primera Mitad</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-white/50">{h1Label}</p>
+                  <MarketTierBadge tier={h1Tier} />
+                </div>
                 <p className="mt-1 text-lg font-semibold">{h1PickDisplay}</p>
                 <p className="mt-2 text-sm text-white/65">Confianza: {h1ConfidenceDisplay === "-" ? "-" : `${h1ConfidenceDisplay}%`}</p>
-                <p className="mt-1 text-sm text-white/65">Accion: {h1ActionDisplay}</p>
+                <p className="mt-1 text-sm text-white/65">{socialMode ? "Accion del modelo" : "Accion"}: {h1ActionDisplay}</p>
                 {hasResult && h1Hit !== undefined && h1Hit !== null && (
                   <p className="mt-2 text-sm font-semibold text-white/85">
-                    Resultado: {h1Hit === true ? "ACIERTO" : "FALLO"}
+                    {resultLabel}: {outcomeLabel(h1Hit, socialMode)}
                   </p>
                 )}
               </div>
             )}
 
             <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(spreadHit)}`}>
-              <p className="text-sm text-white/50">Handicap</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-white/50">{spreadLabel}</p>
+                <MarketTierBadge tier={spreadTier} />
+              </div>
               <p className="mt-1 text-lg font-semibold">Pick: {handicapPickDisplay}</p>
-              <p className="mt-2 text-sm text-white/65">Linea: {signedSpreadLineDisplay}</p>
-              <p className="mt-1 text-sm text-white/65">Cuota: {spreadOddsDisplay}</p>
+              <p className="mt-2 text-sm text-white/65">{lineLabel}: {signedSpreadLineDisplay}</p>
+              <p className="mt-1 text-sm text-white/65">{oddsLabel}: {spreadOddsDisplay}</p>
               {hasResult && spreadHit !== undefined && spreadHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
-                  Resultado: {spreadHit === true ? "ACIERTO" : "FALLO"}
+                  {resultLabel}: {outcomeLabel(spreadHit, socialMode)}
                 </p>
               )}
             </div>
 
             <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(totalHit)}`}>
-              <p className="text-sm text-white/50">Over/Under</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-white/50">{totalLabel}</p>
+                <MarketTierBadge tier={totalTier} />
+              </div>
               <p className="mt-1 text-lg font-semibold">Pick: {totalPickDisplay}</p>
               <p className="mt-2 text-sm text-white/65">Línea: {totalLineDisplay}</p>
-              <p className="mt-1 text-sm text-white/65">Cuota: {totalOddsDisplay}</p>
+              <p className="mt-1 text-sm text-white/65">{oddsLabel}: {totalOddsDisplay}</p>
               {hasResult && totalHit !== undefined && totalHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
-                  Resultado: {totalHit === true ? "ACIERTO" : "FALLO"}
+                  {resultLabel}: {outcomeLabel(totalHit, socialMode)}
                 </p>
               )}
             </div>
 
             <div className={`rounded-2xl border bg-black/15 p-5 md:col-span-2 xl:col-span-1 ${marketBorderClass(propHit)}`}>
-              <p className="text-sm text-white/50">{propLabel}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-white/50">{propLabelText}</p>
+                <MarketTierBadge tier={propTier} />
+              </div>
               <p className="mt-1 text-lg font-semibold leading-snug">{propPick}</p>
-              <p className="mt-2 text-sm text-white/65">Mercado: {propBest.market}</p>
+              <p className="mt-2 text-sm text-white/65">{socialMode ? "Modelo base" : "Mercado"}: {propBest.market}</p>
               {propConfidence && (
                 <p className="mt-2 text-sm text-white/65">Confianza: {propConfidence}%</p>
               )}
               {hasResult && propHit !== undefined && propHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
-                  Resultado: {propHit === true ? "ACIERTO" : "FALLO"}
+                  {resultLabel}: {outcomeLabel(propHit, socialMode)}
                 </p>
               )}
             </div>
 
             {hasCorners && (
               <div className={`rounded-2xl border bg-cyan-500/10 p-5 md:col-span-2 xl:col-span-3 ${marketBorderClass(cornersHit, "border-cyan-400/40")}`}>
-                <p className="text-sm text-cyan-100">Corners O/U</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-cyan-100">{cornersLabel}</p>
+                  <MarketTierBadge tier={cornersTier} />
+                </div>
                 <p className="mt-1 text-lg font-semibold text-cyan-50">{event.corners_pick}</p>
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-cyan-100/90">
                   <span>Línea: {event.corners_line ?? 9.5}</span>
-                  <span>Cuota: {cornersOdds || "N/A"}</span>
+                  <span>{oddsLabel}: {cornersOdds || "N/A"}</span>
                   <span>Confianza: {event.corners_confidence ?? "-"}%</span>
                   <span>Score: {event.corners_recommended_score ?? "-"}</span>
                   <span>Acción: {event.corners_action || "N/A"}</span>
                 </div>
                 {hasResult && cornersHit !== undefined && cornersHit !== null && (
                   <p className="mt-2 text-sm font-semibold text-cyan-50">
-                    Resultado: {cornersHit === true ? "ACIERTO" : "FALLO"}
+                    {resultLabel}: {outcomeLabel(cornersHit, socialMode)}
                   </p>
                 )}
               </div>

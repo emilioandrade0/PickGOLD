@@ -231,3 +231,131 @@ export async function getAdminUsers() {
     headers: withAuthHeaders(session.token),
   });
 }
+
+export async function getPublicAppSettings() {
+  return rawFetchAuth("/public/app-settings");
+}
+
+export async function getAdminAppSettings() {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/app-settings", {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function updateAdminAppSettings({ socialMode }) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/app-settings", {
+    method: "POST",
+    headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({ social_mode: Boolean(socialMode) }),
+  });
+}
+
+export async function getAdminTeamSnapshotStatus(month = "") {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  const params = new URLSearchParams();
+  if (month) params.set("month", String(month));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return rawFetchAuth(`/admin/team-form-snapshots/status${query}`, {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function getAdminTeamSnapshotMonthly(month = "") {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  const params = new URLSearchParams();
+  if (month) params.set("month", String(month));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return rawFetchAuth(`/admin/team-form-snapshots/monthly${query}`, {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function adminCaptureTeamSnapshot({ date, windowGames = 8 } = {}) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/team-form-snapshots/capture", {
+    method: "POST",
+    headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      date,
+      window_games: Number(windowGames) || 8,
+    }),
+  });
+}
+
+export async function getAdminTeamSnapshotCompare({ baseDate, targetDate }) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  const params = new URLSearchParams({
+    base_date: String(baseDate || ""),
+    target_date: String(targetDate || ""),
+  });
+  return rawFetchAuth(`/admin/team-form-snapshots/compare?${params.toString()}`, {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function createPurchaseOrder({ name, email, planKey, telegramUsername = "", notes = "" }) {
+  return rawFetchAuth("/purchase-orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      email,
+      plan_key: planKey,
+      telegram_username: telegramUsername,
+      notes,
+    }),
+  });
+}
+
+export async function getAdminPurchaseOrders({ status = "", limit = 200 } = {}) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  const params = new URLSearchParams();
+  if (status) params.set("status", String(status));
+  if (limit) params.set("limit", String(limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return rawFetchAuth(`/admin/purchase-orders${query}`, {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
+export async function updateAdminPurchaseOrderStatus({ orderId, status, adminNotes = "", paymentReference = "", accessDays = 30, role = "" }) {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/purchase-orders/status", {
+    method: "POST",
+    headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      order_id: orderId,
+      status,
+      admin_notes: adminNotes,
+      payment_reference: paymentReference,
+      access_days: Number(accessDays) || 30,
+      role,
+    }),
+  });
+}

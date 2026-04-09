@@ -31,6 +31,52 @@ export function resolveEventTier(event) {
   return inferTierFromScore(score);
 }
 
+export function resolveMarketTier(event, market) {
+  const normalizedMarket = String(market || "").trim().toLowerCase();
+  const tierKeysByMarket = {
+    full_game: ["full_game_tier", "moneyline_tier"],
+    spread: ["spread_tier"],
+    total: ["total_tier"],
+    q1: ["q1_tier"],
+    h1: ["h1_tier"],
+    btts: ["btts_tier"],
+    f5: ["f5_tier"],
+    home_over: ["home_over_tier"],
+    corners: ["corners_tier"],
+  };
+  const scoreKeysByMarket = {
+    full_game: [
+      "full_game_recommended_score",
+      "moneyline_recommended_score",
+      "recommended_score",
+      "full_game_confidence",
+      "recommended_confidence",
+    ],
+    spread: ["spread_recommended_score", "spread_confidence"],
+    total: ["total_recommended_score", "total_confidence"],
+    q1: ["q1_recommended_score", "q1_confidence"],
+    h1: ["h1_recommended_score", "h1_confidence"],
+    btts: ["btts_recommended_score", "btts_confidence"],
+    f5: ["extra_f5_recommended_score", "extra_f5_confidence"],
+    home_over: ["home_over_recommended_score", "home_over_confidence"],
+    corners: ["corners_recommended_score", "corners_confidence"],
+  };
+
+  for (const key of tierKeysByMarket[normalizedMarket] || []) {
+    const normalized = normalizeTier(event?.[key]);
+    if (normalized) return normalized;
+  }
+
+  for (const key of scoreKeysByMarket[normalizedMarket] || []) {
+    const value = event?.[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return inferTierFromScore(value);
+    }
+  }
+
+  return "NORMAL";
+}
+
 export function tierClasses(tier) {
   switch (normalizeTier(tier)) {
     case "ELITE":
