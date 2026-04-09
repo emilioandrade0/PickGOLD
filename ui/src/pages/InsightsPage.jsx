@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { fetchInsightsSummary, fetchTierPerformanceInsights } from "../services/api.js";
 import { getTeamDisplayName } from "../utils/teamNames.js";
 
@@ -8,6 +9,7 @@ function pct(value) {
 }
 
 export default function InsightsPage() {
+  const { socialMode } = useAppSettings();
   const [data, setData] = useState(null);
   const [tierData, setTierData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export default function InsightsPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
       <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-2xl font-semibold">Performance Insights</h2>
+        <h2 className="text-2xl font-semibold">{socialMode ? "Insights del modelo" : "Performance Insights"}</h2>
         <p className="mt-2 text-sm text-white/70">
           Equipos con mayor precisión en pick de ganador y mercados con mejor acertividad por deporte.
         </p>
@@ -52,7 +54,7 @@ export default function InsightsPage() {
 
       {loading && (
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/75">
-          Cargando insights...
+          {socialMode ? "Cargando insights del modelo..." : "Cargando insights..."}
         </div>
       )}
 
@@ -66,7 +68,7 @@ export default function InsightsPage() {
         <div className="space-y-6">
           <article className="rounded-3xl border border-white/10 bg-black/20 p-5">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h3 className="text-xl font-semibold">Performance por Tier (Full Game)</h3>
+              <h3 className="text-xl font-semibold">{socialMode ? "Performance por nivel del modelo" : "Performance por Tier (Full Game)"}</h3>
               {tierData?.generated_at && (
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs text-white/75">
                   Actualizado: {tierData.generated_at}
@@ -82,9 +84,9 @@ export default function InsightsPage() {
                 >
                   <h4 className="mb-3 text-base font-semibold text-yellow-300">{row.tier}</h4>
                   <div className="space-y-1 text-sm text-white/80">
-                    <p>Muestra: {row.sample_size}</p>
-                    <p>Acierto: {pct(row.accuracy)}</p>
-                    <p>Error: {pct(row.error_rate)}</p>
+                    <p>{socialMode ? `Casos: ${row.sample_size}` : `Muestra: ${row.sample_size}`}</p>
+                    <p>{socialMode ? `Correcto: ${pct(row.accuracy)}` : `Acierto: ${pct(row.accuracy)}`}</p>
+                    <p>{socialMode ? `Error modelo: ${pct(row.error_rate)}` : `Error: ${pct(row.error_rate)}`}</p>
                     <p>IC 95%: {pct(row.ci95_low)} - {pct(row.ci95_high)}</p>
                   </div>
                 </section>
@@ -99,7 +101,7 @@ export default function InsightsPage() {
                       <th className="pb-2">Tier</th>
                       <th className="pb-2">Deporte</th>
                       <th className="pb-2">Muestra</th>
-                      <th className="pb-2">Accuracy</th>
+                      <th className="pb-2">{socialMode ? "Correcto" : "Accuracy"}</th>
                       <th className="pb-2">Error</th>
                     </tr>
                   </thead>
@@ -130,7 +132,7 @@ export default function InsightsPage() {
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h4 className="mb-3 text-sm font-semibold text-white/85">Top Equipos Mejor Predichos</h4>
+                  <h4 className="mb-3 text-sm font-semibold text-white/85">{socialMode ? "Top equipos mejor modelados" : "Top Equipos Mejor Predichos"}</h4>
                   {sport.team_insights?.length ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
@@ -138,8 +140,8 @@ export default function InsightsPage() {
                           <tr>
                             <th className="pb-2">Equipo</th>
                             <th className="pb-2">Picks</th>
-                            <th className="pb-2">Aciertos</th>
-                            <th className="pb-2">Accuracy</th>
+                            <th className="pb-2">{socialMode ? "Correctos" : "Aciertos"}</th>
+                            <th className="pb-2">{socialMode ? "Correcto" : "Accuracy"}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -160,7 +162,7 @@ export default function InsightsPage() {
                 </section>
 
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h4 className="mb-3 text-sm font-semibold text-white/85">Mercados con Mejor Acertividad</h4>
+                  <h4 className="mb-3 text-sm font-semibold text-white/85">{socialMode ? "Mercados con mejor consistencia" : "Mercados con Mejor Acertividad"}</h4>
                   {sport.market_insights?.length ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
@@ -168,8 +170,8 @@ export default function InsightsPage() {
                           <tr>
                             <th className="pb-2">Mercado</th>
                             <th className="pb-2">Picks</th>
-                            <th className="pb-2">Aciertos</th>
-                            <th className="pb-2">Accuracy</th>
+                            <th className="pb-2">{socialMode ? "Correctos" : "Aciertos"}</th>
+                            <th className="pb-2">{socialMode ? "Correcto" : "Accuracy"}</th>
                           </tr>
                         </thead>
                         <tbody>

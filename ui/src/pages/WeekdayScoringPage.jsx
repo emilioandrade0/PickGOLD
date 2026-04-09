@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { fetchWeekdayScoringInsights } from "../services/api.js";
 
 function fmt(value, digits = 2) {
@@ -12,6 +13,7 @@ function pct(value) {
 }
 
 export default function WeekdayScoringPage() {
+  const { socialMode } = useAppSettings();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,9 +42,9 @@ export default function WeekdayScoringPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-6">
       <section className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-2xl font-semibold">Scoring por dia</h2>
+        <h2 className="text-2xl font-semibold">{socialMode ? "Ritmo por dia" : "Scoring por dia"}</h2>
         <p className="mt-2 text-sm text-white/70">
-          Detecta que dias de la semana suelen producir marcadores mas altos o mas bajos por deporte.
+          {socialMode ? "Detecta que dias suelen producir modelos mas altos o mas bajos por deporte." : "Detecta que dias de la semana suelen producir marcadores mas altos o mas bajos por deporte."}
         </p>
         {data?.generated_at && (
           <p className="mt-2 text-xs text-white/50">Actualizado: {data.generated_at}</p>
@@ -51,7 +53,7 @@ export default function WeekdayScoringPage() {
 
       {loading && (
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/75">
-          Cargando scoring por dia...
+          {socialMode ? "Cargando ritmo por dia..." : "Cargando scoring por dia..."}
         </div>
       )}
 
@@ -71,13 +73,13 @@ export default function WeekdayScoringPage() {
                   <p className="text-xs text-white/60">Metrica: {sport.metric_label}</p>
                 </div>
                 <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm">
-                  <div className="text-white/70">Dia mas alto</div>
+                  <div className="text-white/70">{socialMode ? "Dia mas alto" : "Dia mas alto"}</div>
                   <div className="text-base font-semibold text-emerald-200">
                     {sport.highest_day ? `${sport.highest_day.weekday} (${fmt(sport.highest_day.avg_total)})` : "-"}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-sky-400/30 bg-sky-500/10 px-4 py-3 text-sm">
-                  <div className="text-white/70">Dia mas bajo</div>
+                  <div className="text-white/70">{socialMode ? "Dia mas bajo" : "Dia mas bajo"}</div>
                   <div className="text-base font-semibold text-sky-200">
                     {sport.lowest_day ? `${sport.lowest_day.weekday} (${fmt(sport.lowest_day.avg_total)})` : "-"}
                   </div>
@@ -89,10 +91,10 @@ export default function WeekdayScoringPage() {
                   Juegos: {sport.total_games}
                 </span>
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
-                  Promedio global: {fmt(sport.overall_avg_total)}
+                  {socialMode ? "Promedio modelo:" : "Promedio global:"} {fmt(sport.overall_avg_total)}
                 </span>
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
-                  Mediana global: {fmt(sport.overall_median_total)}
+                  {socialMode ? "Mediana modelo:" : "Mediana global:"} {fmt(sport.overall_median_total)}
                 </span>
               </div>
 
@@ -105,8 +107,8 @@ export default function WeekdayScoringPage() {
                         <th className="pb-2">Juegos</th>
                         <th className="pb-2">Promedio</th>
                         <th className="pb-2">Mediana</th>
-                        <th className="pb-2">Alta %</th>
-                        <th className="pb-2">Baja %</th>
+                        <th className="pb-2">{socialMode ? "Alta %" : "Alta %"}</th>
+                        <th className="pb-2">{socialMode ? "Baja %" : "Baja %"}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -125,7 +127,7 @@ export default function WeekdayScoringPage() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
-                  No hay datos suficientes para este deporte.
+                  {socialMode ? "No hay datos suficientes del modelo para este deporte." : "No hay datos suficientes para este deporte."}
                 </div>
               )}
             </article>

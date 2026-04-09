@@ -447,7 +447,7 @@ export default function AdminUserApproval() {
             type="button"
             onClick={handleToggleSocialMode}
             disabled={appSettingsBusy}
-            className={`rounded-2xl px-5 py-3 text-sm font-bold transition ${
+            className={`w-full rounded-2xl px-5 py-3 text-sm font-bold transition sm:w-auto ${
               socialMode
                 ? "border border-emerald-400/30 bg-emerald-400/12 text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.18)]"
                 : "bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#131821] shadow-[0_12px_28px_rgba(246,196,83,0.2)]"
