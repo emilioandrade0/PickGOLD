@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 
 const SPORTS = [
   { key: "nba", label: "NBA", path: "/nba" },
@@ -20,9 +21,20 @@ const SPORTS = [
 ];
 
 export default function SportTabs() {
+  const { socialMode } = useAppSettings();
+  const sports = SPORTS.map((sport) => {
+    if (!socialMode) return sport;
+    if (sport.key === "best_picks") return { ...sport, label: "Radar" };
+    if (sport.key === "weekday_scoring") return { ...sport, label: "Ritmo" };
+    if (sport.key === "insights") return { ...sport, label: "Modelo" };
+    if (sport.key === "resumen_dia") return { ...sport, label: "Resumen" };
+    if (sport.key === "estadisticas") return { ...sport, label: "Metricas" };
+    return sport;
+  });
+
   return (
     <div className="flex flex-wrap gap-2">
-      {SPORTS.map((sport) => (
+      {sports.map((sport) => (
         <NavLink
           key={sport.key}
           to={sport.path}

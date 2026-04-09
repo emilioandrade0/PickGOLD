@@ -160,6 +160,14 @@ function normalizeBetAction(actionValue) {
   return txt;
 }
 
+function formatSocialAction(actionValue) {
+  const txt = String(actionValue || "").trim().toUpperCase();
+  if (!txt || ["NO APOSTAR", "PASS", "PASAR", "NO BET", "NO_APUESTA", "SKIP", "N/A"].includes(txt)) {
+    return "Seguimiento";
+  }
+  return "Alta prioridad";
+}
+
 function normalizeTotalDirection(rawPick) {
   const txt = String(rawPick || "").toUpperCase();
   if (txt.includes("OVER")) return "Over";
@@ -406,16 +414,16 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const spreadLabel = socialMode ? "Proyeccion de margen" : "Handicap";
   const totalLabel = socialMode ? "Proyeccion total" : "Over/Under";
   const q1Label = socialMode ? "Proyeccion de arranque" : "Primer Cuarto";
-  const homeOverLabel = socialMode ? "Proyeccion local" : "Goles Local O/U 2.5";
-  const bttsLabel = socialMode ? "Anotan ambos" : "BTTS";
-  const f5Label = socialMode ? "Proyeccion F5" : "F5 / Props";
+  const homeOverLabel = socialMode ? "Rendimiento local" : "Goles Local O/U 2.5";
+  const bttsLabel = socialMode ? "Coincidencia ofensiva" : "BTTS";
+  const f5Label = socialMode ? "Ventaja inicial" : "F5 / Props";
   const h1Label = socialMode ? "Proyeccion primera mitad" : "Primera Mitad";
-  const cornersLabel = socialMode ? "Proyeccion de corners" : "Corners O/U";
+  const cornersLabel = socialMode ? "Actividad ofensiva" : "Corners O/U";
   const lineLabel = socialMode ? "Referencia" : "Linea";
   const oddsLabel = socialMode ? "Valor modelo" : "Cuota";
   const resultLabel = socialMode ? "Resultado del modelo" : "Resultado";
-  const finalLabel = socialMode ? "Cierre" : "Final";
-  const finalPickLabel = socialMode ? "Resultado del modelo" : "Resultado pick";
+  const finalLabel = socialMode ? "Marcador" : "Final";
+  const finalPickLabel = socialMode ? "Validacion del modelo" : "Resultado pick";
 
   return (
     <button
@@ -470,7 +478,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
           <div>
             <p className="text-sm text-white/70">{mainPickLabel}</p>
             <p className="mt-1 text-base font-semibold">{fullGamePick}</p>
-            <p className="mt-1 text-xs text-white/70">{mlLabel}: {mainOdds || (sportKey === "ncaa_baseball" ? "Sin linea" : "N/A")}</p>
+            {!socialMode && <p className="mt-1 text-xs text-white/70">{mlLabel}: {mainOdds || (sportKey === "ncaa_baseball" ? "Sin linea" : "N/A")}</p>}
           </div>
 
           <div className="rounded-2xl border border-white/18 bg-white/[0.03] px-3 py-2 text-xs text-white/90">
@@ -490,7 +498,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
             {tierLabel(eventTier)}
           </span>
           <span className="text-xs text-white/55 transition-colors duration-300 lg:group-hover:text-white/75">
-            Abrir detalle
+            {socialMode ? "Ver analisis" : "Abrir detalle"}
           </span>
         </div>
 
@@ -503,9 +511,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                   <p className="text-white/60">{spreadLabel}</p>
                   <MarketTierBadge tier={spreadTier} />
                 </div>
-                <p className="mt-1">Pick: {spreadPredictionLabel}</p>
-                <p className="mt-1">{lineLabel}: {signedSpreadLineDisplay}</p>
-                <p className="mt-1">{oddsLabel}: {spreadOddsDisplay}</p>
+                <p className="mt-1">{socialMode ? "Lectura" : "Pick"}: {spreadPredictionLabel}</p>
+                {!socialMode && <p className="mt-1">{lineLabel}: {signedSpreadLineDisplay}</p>}
+                {!socialMode && <p className="mt-1">{oddsLabel}: {spreadOddsDisplay}</p>}
                 {hasResult && spreadHit !== undefined && spreadHit !== null && (
                   <p className="mt-1 font-semibold text-white/90">
                     {resultLabel}: {outcomeLabel(spreadHit, socialMode)}
@@ -517,9 +525,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                   <p className="text-white/60">{totalLabel}</p>
                   <MarketTierBadge tier={totalTier} />
                 </div>
-                <p className="mt-1">Pick: {totalPickDisplay}</p>
-                <p className="mt-1">{lineLabel}: {totalLineDisplay}</p>
-                <p className="mt-1">{oddsLabel}: {totalOddsDisplay}</p>
+                <p className="mt-1">{socialMode ? "Lectura" : "Pick"}: {totalPickDisplay}</p>
+                {!socialMode && <p className="mt-1">{lineLabel}: {totalLineDisplay}</p>}
+                {!socialMode && <p className="mt-1">{oddsLabel}: {totalOddsDisplay}</p>}
                 {hasResult && totalHit !== undefined && totalHit !== null && (
                   <p className="mt-1 font-semibold text-white/90">
                     {resultLabel}: {outcomeLabel(totalHit, socialMode)}
@@ -536,10 +544,10 @@ export default function EventCard({ event, onOpen, sportKey }) {
                 </div>
                 <p className="mt-1 text-sm font-semibold text-white">{q1Pick}</p>
                 {q1Confidence !== undefined && q1Confidence !== null && (
-                  <p className="mt-1 text-xs text-white/70">Confianza: {q1Confidence}%</p>
+                  <p className="mt-1 text-xs text-white/70">{socialMode ? "Intensidad" : "Confianza"}: {q1Confidence}%</p>
                 )}
-                <p className="mt-1 text-xs text-white/70">Accion: {q1Action}</p>
-                <p className="mt-1 text-xs text-white/70">{oddsLabel}: {q1Odds || "N/A"}</p>
+                <p className="mt-1 text-xs text-white/70">{socialMode ? "Enfoque" : "Accion"}: {socialMode ? formatSocialAction(q1Action) : q1Action}</p>
+                {!socialMode && <p className="mt-1 text-xs text-white/70">{oddsLabel}: {q1Odds || "N/A"}</p>}
                 {hasResult && q1Hit !== undefined && q1Hit !== null && (
                   <p className="mt-1 text-xs font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(q1Hit, socialMode)}
@@ -556,9 +564,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                 </div>
                 <p className="mt-1 text-sm font-semibold text-white">{homeOverPick}</p>
                 {homeOverConfidence !== undefined && homeOverConfidence !== null && (
-                  <p className="mt-1 text-xs text-white/70">Confianza: {homeOverConfidence}%</p>
+                  <p className="mt-1 text-xs text-white/70">{socialMode ? "Intensidad" : "Confianza"}: {homeOverConfidence}%</p>
                 )}
-                <p className="mt-1 text-xs text-white/70">{oddsLabel}: {homeOverOdds || "N/A"}</p>
+                {!socialMode && <p className="mt-1 text-xs text-white/70">{oddsLabel}: {homeOverOdds || "N/A"}</p>}
                 {hasResult && homeOverHit !== undefined && homeOverHit !== null && (
                   <p className="mt-1 text-xs font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(homeOverHit, socialMode)}
@@ -575,9 +583,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                 </div>
                 <p className="mt-1 text-sm font-semibold text-white">{bttsPick}</p>
                 {bttsConfidence !== undefined && bttsConfidence !== null && (
-                  <p className="mt-1 text-xs text-white/70">Confianza: {bttsConfidence}%</p>
+                  <p className="mt-1 text-xs text-white/70">{socialMode ? "Intensidad" : "Confianza"}: {bttsConfidence}%</p>
                 )}
-                <p className="mt-1 text-xs text-white/70">{oddsLabel}: {bttsOdds || "N/A"}</p>
+                {!socialMode && <p className="mt-1 text-xs text-white/70">{oddsLabel}: {bttsOdds || "N/A"}</p>}
                 {hasResult && bttsHit !== undefined && bttsHit !== null && (
                   <p className="mt-1 text-xs font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(bttsHit, socialMode)}
@@ -594,9 +602,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                 </div>
                 <p className="mt-1 text-sm font-semibold text-white">{f5Pick}</p>
                 {f5Confidence !== undefined && f5Confidence !== null && (
-                  <p className="mt-1 text-xs text-white/70">Confianza: {f5Confidence}%</p>
+                  <p className="mt-1 text-xs text-white/70">{socialMode ? "Intensidad" : "Confianza"}: {f5Confidence}%</p>
                 )}
-                <p className="mt-1 text-xs text-white/70">{oddsLabel}: {f5Odds || "N/A"}</p>
+                {!socialMode && <p className="mt-1 text-xs text-white/70">{oddsLabel}: {f5Odds || "N/A"}</p>}
                 {hasResult && f5Hit !== undefined && f5Hit !== null && (
                   <p className="mt-1 text-xs font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(f5Hit, socialMode)}
@@ -613,9 +621,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                 </div>
                 <p className="mt-1 text-sm font-semibold text-white">{firstHalfCard.pick}</p>
                 {firstHalfCard.confidence !== undefined && firstHalfCard.confidence !== null && (
-                  <p className="mt-1 text-xs text-white/70">Confianza: {firstHalfCard.confidence}%</p>
+                  <p className="mt-1 text-xs text-white/70">{socialMode ? "Intensidad" : "Confianza"}: {firstHalfCard.confidence}%</p>
                 )}
-                <p className="mt-1 text-xs text-white/70">Accion: {firstHalfCard.action}</p>
+                <p className="mt-1 text-xs text-white/70">{socialMode ? "Enfoque" : "Accion"}: {socialMode ? formatSocialAction(firstHalfCard.action) : firstHalfCard.action}</p>
                 {hasResult && firstHalfCard.hit !== undefined && firstHalfCard.hit !== null && (
                   <p className="mt-1 text-xs font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(firstHalfCard.hit, socialMode)}
@@ -632,9 +640,9 @@ export default function EventCard({ event, onOpen, sportKey }) {
                 </div>
                 <p className="mt-1 text-sm font-semibold text-cyan-50">{cornersPick}</p>
                 <p className="mt-1 text-xs text-cyan-100/80">
-                  Confianza: {cornersConfidence ?? "-"}% | Accion: {cornersAction || "N/A"}
+                  {socialMode ? "Intensidad" : "Confianza"}: {cornersConfidence ?? "-"}% | {socialMode ? "Enfoque" : "Accion"}: {socialMode ? formatSocialAction(cornersAction) : (cornersAction || "N/A")}
                 </p>
-                <p className="mt-1 text-xs text-cyan-100/80">{oddsLabel}: {cornersOdds || "N/A"}</p>
+                {!socialMode && <p className="mt-1 text-xs text-cyan-100/80">{oddsLabel}: {cornersOdds || "N/A"}</p>}
                 {hasResult && cornersHit !== undefined && cornersHit !== null && (
                   <p className="mt-1 text-xs font-semibold text-cyan-50">
                     {resultLabel}: {outcomeLabel(cornersHit, socialMode)}

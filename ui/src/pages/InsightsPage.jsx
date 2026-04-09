@@ -139,7 +139,7 @@ export default function InsightsPage() {
                         <thead className="text-white/60">
                           <tr>
                             <th className="pb-2">Equipo</th>
-                            <th className="pb-2">Picks</th>
+                            <th className="pb-2">{socialMode ? "Casos" : "Picks"}</th>
                             <th className="pb-2">{socialMode ? "Correctos" : "Aciertos"}</th>
                             <th className="pb-2">{socialMode ? "Correcto" : "Accuracy"}</th>
                           </tr>
@@ -168,8 +168,8 @@ export default function InsightsPage() {
                       <table className="w-full text-left text-sm">
                         <thead className="text-white/60">
                           <tr>
-                            <th className="pb-2">Mercado</th>
-                            <th className="pb-2">Picks</th>
+                            <th className="pb-2">{socialMode ? "Modelo" : "Mercado"}</th>
+                            <th className="pb-2">{socialMode ? "Casos" : "Picks"}</th>
                             <th className="pb-2">{socialMode ? "Correctos" : "Aciertos"}</th>
                             <th className="pb-2">{socialMode ? "Correcto" : "Accuracy"}</th>
                           </tr>

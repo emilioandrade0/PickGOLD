@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import SportTabs from "./SportTabs.jsx";
 import { getActiveSession } from "../services/auth.js";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 
-function getSportTitle(pathname) {
-  if (pathname.startsWith("/best-picks")) return "Best Picks";
-  if (pathname.startsWith("/weekday-scoring")) return "Weekday Scoring";
-  if (pathname.startsWith("/insights")) return "Insights";
+function getSportTitle(pathname, socialMode) {
+  if (pathname.startsWith("/best-picks")) return socialMode ? "Radar" : "Best Picks";
+  if (pathname.startsWith("/weekday-scoring")) return socialMode ? "Ritmo" : "Weekday Scoring";
+  if (pathname.startsWith("/insights")) return socialMode ? "Modelo" : "Insights";
   if (pathname.startsWith("/triple-a")) return "Triple-A";
   if (pathname.startsWith("/tennis")) return "Tennis";
   if (pathname.startsWith("/kbo")) return "KBO";
@@ -22,9 +23,10 @@ function getSportTitle(pathname) {
 }
 
 export default function Header({ onLogout, userName }) {
+  const { socialMode } = useAppSettings();
   const location = useLocation();
   const navigate = useNavigate();
-  const sportTitle = getSportTitle(location.pathname);
+  const sportTitle = getSportTitle(location.pathname, socialMode);
   const userRole = getActiveSession()?.role || null;
 
   return (
@@ -48,7 +50,7 @@ export default function Header({ onLogout, userName }) {
                   <span className="font-semibold text-amber-300"> GOLD</span>
                 </h1>
                 <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/58">
-                  Board en vivo
+                  {socialMode ? "Panel en vivo" : "Board en vivo"}
                 </span>
               </div>
             </div>
@@ -86,10 +88,10 @@ export default function Header({ onLogout, userName }) {
             <div className="mb-3 flex items-center justify-between gap-4 px-1">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/40">
-                  Deportes y modulos
+                  {socialMode ? "Ligas y modulos" : "Deportes y modulos"}
                 </p>
               </div>
-              <span className="text-xs text-white/42">Cambia de board sin salir del flujo</span>
+              <span className="text-xs text-white/42">{socialMode ? "Cambia de panel sin salir del flujo" : "Cambia de board sin salir del flujo"}</span>
             </div>
             <SportTabs />
           </div>

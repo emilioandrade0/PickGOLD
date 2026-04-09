@@ -231,6 +231,14 @@ function normalizeBetAction(actionValue) {
   return txt;
 }
 
+function formatSocialAction(actionValue) {
+  const txt = String(actionValue || "").trim().toUpperCase();
+  if (!txt || ["NO APOSTAR", "PASS", "PASAR", "NO BET", "NO_APUESTA", "SKIP", "N/A"].includes(txt)) {
+    return "Seguimiento";
+  }
+  return "Alta prioridad";
+}
+
 function normalizeTotalDirection(rawPick) {
   const txt = String(rawPick || "").toUpperCase();
   if (txt.includes("OVER")) return "Over";
@@ -506,11 +514,11 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const spreadLabel = socialMode ? "Proyeccion de margen" : "Handicap";
   const totalLabel = socialMode ? "Proyeccion total" : "Over/Under";
   const propLabelText = socialMode ? "Proyeccion recomendada" : propLabel;
-  const cornersLabel = socialMode ? "Proyeccion de corners" : "Corners O/U";
+  const cornersLabel = socialMode ? "Actividad ofensiva" : "Corners O/U";
   const lineLabel = socialMode ? "Referencia" : "Linea";
   const oddsLabel = socialMode ? "Valor modelo" : "Cuota";
   const resultLabel = socialMode ? "Resultado del modelo" : "Resultado";
-  const finalLabel = socialMode ? "Cierre del evento" : "Resultado real del juego";
+  const finalLabel = socialMode ? "Marcador final" : "Resultado real del juego";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -624,14 +632,16 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">Confianza</p>
+                  <p className="text-white/50">{socialMode ? "Intensidad" : "Confianza"}</p>
                   <p className="mt-1 font-semibold">{event.full_game_confidence}%</p>
                 </div>
 
-                <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">{oddsLabel}</p>
-                  <p className="mt-1 font-semibold">{mainOdds || "N/A"}</p>
-                </div>
+                {!socialMode && (
+                  <div className="rounded-xl bg-white/5 p-3">
+                    <p className="text-white/50">{oddsLabel}</p>
+                    <p className="mt-1 font-semibold">{mainOdds || "N/A"}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -644,19 +654,19 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">Confianza</p>
+                  <p className="text-white/50">{socialMode ? "Intensidad" : "Confianza"}</p>
                   <p className="mt-1 font-semibold">
                     {q1ConfidenceDisplay === "-" ? "-" : `${q1ConfidenceDisplay}%`}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">{oddsLabel}</p>
-                  <p className="mt-1 font-semibold">{q1ActionDisplay}</p>
+                  <p className="text-white/50">{socialMode ? "Enfoque" : oddsLabel}</p>
+                  <p className="mt-1 font-semibold">{socialMode ? formatSocialAction(q1ActionDisplay) : q1ActionDisplay}</p>
                 </div>
               </div>
 
-              <p className="mt-2 text-xs text-white/60">{oddsLabel} decimal: {secondaryOdds || "N/A"}</p>
+              {!socialMode && <p className="mt-2 text-xs text-white/60">{oddsLabel} decimal: {secondaryOdds || "N/A"}</p>}
 
               {hasResult && q1Hit !== undefined && q1Hit !== null && (
                 <p className="mt-3 text-sm font-semibold text-white/85">
@@ -697,8 +707,8 @@ export default function DetailModal({ event, onClose, sportKey }) {
                   <MarketTierBadge tier={h1Tier} />
                 </div>
                 <p className="mt-1 text-lg font-semibold">{h1PickDisplay}</p>
-                <p className="mt-2 text-sm text-white/65">Confianza: {h1ConfidenceDisplay === "-" ? "-" : `${h1ConfidenceDisplay}%`}</p>
-                <p className="mt-1 text-sm text-white/65">{socialMode ? "Accion del modelo" : "Accion"}: {h1ActionDisplay}</p>
+                <p className="mt-2 text-sm text-white/65">{socialMode ? "Intensidad" : "Confianza"}: {h1ConfidenceDisplay === "-" ? "-" : `${h1ConfidenceDisplay}%`}</p>
+                <p className="mt-1 text-sm text-white/65">{socialMode ? "Enfoque" : "Accion"}: {socialMode ? formatSocialAction(h1ActionDisplay) : h1ActionDisplay}</p>
                 {hasResult && h1Hit !== undefined && h1Hit !== null && (
                   <p className="mt-2 text-sm font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(h1Hit, socialMode)}
@@ -712,9 +722,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 <p className="text-sm text-white/50">{spreadLabel}</p>
                 <MarketTierBadge tier={spreadTier} />
               </div>
-              <p className="mt-1 text-lg font-semibold">Pick: {handicapPickDisplay}</p>
-              <p className="mt-2 text-sm text-white/65">{lineLabel}: {signedSpreadLineDisplay}</p>
-              <p className="mt-1 text-sm text-white/65">{oddsLabel}: {spreadOddsDisplay}</p>
+              <p className="mt-1 text-lg font-semibold">{socialMode ? "Lectura" : "Pick"}: {handicapPickDisplay}</p>
+              {!socialMode && <p className="mt-2 text-sm text-white/65">{lineLabel}: {signedSpreadLineDisplay}</p>}
+              {!socialMode && <p className="mt-1 text-sm text-white/65">{oddsLabel}: {spreadOddsDisplay}</p>}
               {hasResult && spreadHit !== undefined && spreadHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
                   {resultLabel}: {outcomeLabel(spreadHit, socialMode)}
@@ -727,9 +737,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 <p className="text-sm text-white/50">{totalLabel}</p>
                 <MarketTierBadge tier={totalTier} />
               </div>
-              <p className="mt-1 text-lg font-semibold">Pick: {totalPickDisplay}</p>
-              <p className="mt-2 text-sm text-white/65">Línea: {totalLineDisplay}</p>
-              <p className="mt-1 text-sm text-white/65">{oddsLabel}: {totalOddsDisplay}</p>
+              <p className="mt-1 text-lg font-semibold">{socialMode ? "Lectura" : "Pick"}: {totalPickDisplay}</p>
+              {!socialMode && <p className="mt-2 text-sm text-white/65">Linea: {totalLineDisplay}</p>}
+              {!socialMode && <p className="mt-1 text-sm text-white/65">{oddsLabel}: {totalOddsDisplay}</p>}
               {hasResult && totalHit !== undefined && totalHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
                   {resultLabel}: {outcomeLabel(totalHit, socialMode)}
@@ -743,9 +753,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 <MarketTierBadge tier={propTier} />
               </div>
               <p className="mt-1 text-lg font-semibold leading-snug">{propPick}</p>
-              <p className="mt-2 text-sm text-white/65">{socialMode ? "Modelo base" : "Mercado"}: {propBest.market}</p>
+              <p className="mt-2 text-sm text-white/65">{socialMode ? "Base del modelo" : "Mercado"}: {propBest.market}</p>
               {propConfidence && (
-                <p className="mt-2 text-sm text-white/65">Confianza: {propConfidence}%</p>
+                <p className="mt-2 text-sm text-white/65">{socialMode ? "Intensidad" : "Confianza"}: {propConfidence}%</p>
               )}
               {hasResult && propHit !== undefined && propHit !== null && (
                 <p className="mt-2 text-sm font-semibold text-white/85">
@@ -762,11 +772,11 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 </div>
                 <p className="mt-1 text-lg font-semibold text-cyan-50">{event.corners_pick}</p>
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-cyan-100/90">
-                  <span>Línea: {event.corners_line ?? 9.5}</span>
-                  <span>{oddsLabel}: {cornersOdds || "N/A"}</span>
-                  <span>Confianza: {event.corners_confidence ?? "-"}%</span>
+                  {!socialMode && <span>Linea: {event.corners_line ?? 9.5}</span>}
+                  {!socialMode && <span>{oddsLabel}: {cornersOdds || "N/A"}</span>}
+                  <span>{socialMode ? "Intensidad" : "Confianza"}: {event.corners_confidence ?? "-"}%</span>
                   <span>Score: {event.corners_recommended_score ?? "-"}</span>
-                  <span>Acción: {event.corners_action || "N/A"}</span>
+                  <span>{socialMode ? "Enfoque" : "Accion"}: {socialMode ? formatSocialAction(event.corners_action) : (event.corners_action || "N/A")}</span>
                 </div>
                 {hasResult && cornersHit !== undefined && cornersHit !== null && (
                   <p className="mt-2 text-sm font-semibold text-cyan-50">
