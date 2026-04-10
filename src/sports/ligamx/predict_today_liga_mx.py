@@ -120,13 +120,12 @@ def load_market_assets(market_key: str, market_sources: dict):
 
 
 def predict_market(df: pd.DataFrame, market_key: str, market_sources: dict):
-    """Predice probabilidades usando ensemble: XGB + LGBM Primary + LGBM Secondary + CatBoost."""
+    """Predice probabilidades usando ensemble: XGB + LGBM Primary + LGBM Secondary + CatBoost (Dinámico)."""
     xgb, lgbm, lgbm_secondary, catboost, feature_columns, metadata, threshold = load_market_assets(
         market_key,
         market_sources,
     )
 
-    # feature_columns puede ser dict o list
     if isinstance(feature_columns, dict):
         feat_list = feature_columns.get("features", [])
     else:
@@ -136,45 +135,90 @@ def predict_market(df: pd.DataFrame, market_key: str, market_sources: dict):
     weights = _resolve_ensemble_weights(metadata, catboost_available=(catboost is not None))
 
     if market_key == "full_game":
-        # Multiclass weighted ensemble.
+        # 1. Obtener predicciones base
         xgb_probs = _model_predict_proba(xgb, X, market_key)
         lgbm_probs = _model_predict_proba(lgbm, X, market_key)
         lgbm_sec_probs = _model_predict_proba(lgbm_secondary, X, market_key)
-        probs = (
-            weights["xgboost"] * xgb_probs
-            + weights["lightgbm_primary"] * lgbm_probs
-            + weights["lightgbm_secondary"] * lgbm_sec_probs
-        )
+        
+        # 2. Pesos por defecto
+        w_xgb = weights.get("xgboost", 0.33)
+        w_lgbm = weights.get("lightgbm_primary", 0.33)
+        w_lgbm_sec = weights.get("lightgbm_secondary", 0.33)
+        w_cat = weights.get("catboost", 0.0) if catboost is not None else 0.0
+
+        # 3. STACKING HEURÍSTICO DINÁMICO (Contexto Liga MX V3)
+        cat_probs = None
         if catboost is not None:
             cat_cols = metadata.get("catboost_feature_columns") or feat_list
             cat_cols = [c for c in cat_cols if c in df.columns]
             X_cat = df[cat_cols].copy()
             for c in ["season", "home_team", "away_team"]:
                 if c in X_cat.columns:
-                    X_cat[c] = X_cat[c].astype(str)
-            for c in X_cat.columns:
-                if X_cat[c].dtype == object:
-                    X_cat[c] = X_cat[c].fillna("UNK")
+                    X_cat[c] = X_cat[c].astype(str).fillna("UNK")
             X_cat = X_cat.replace([np.inf, -np.inf], np.nan).fillna(0)
-            probs = probs + weights["catboost"] * np.asarray(catboost.predict_proba(X_cat), dtype=float)
+            
+            cat_probs = np.asarray(catboost.predict_proba(X_cat), dtype=float)
+
+            # Lógica de transferencia de cargas (Iteramos por si hay más de 1 fila, aunque usualmente es df_day)
+            # Para simplificar, tomamos el valor promedio o el primero del batch
+            diff_alt = abs(df.get("diff_altitude_visitor", pd.Series([0.0])).mean())
+            is_closing = df.get("is_tournament_closing", pd.Series([0])).max()
+
+            # Si hay un salto físico drástico (> 1000m) o estamos en cierre de torneo
+            if diff_alt >= 1000 or is_closing == 1:
+                # Damos más peso a CatBoost para manejar el contexto atípico
+                w_cat = min(w_cat + 0.25, 0.40)
+                w_xgb = max(w_xgb - 0.10, 0.10)
+                w_lgbm = max(w_lgbm - 0.10, 0.10)
+                w_lgbm_sec = max(w_lgbm_sec - 0.05, 0.10)
+
+        # 4. Normalizar pesos
+        total_weight = max(1e-9, w_xgb + w_lgbm + w_lgbm_sec + w_cat)
+        w_xgb /= total_weight
+        w_lgbm /= total_weight
+        w_lgbm_sec /= total_weight
+        w_cat /= total_weight
+
+        # 5. Ensamblar
+        probs = (w_xgb * xgb_probs) + (w_lgbm * lgbm_probs) + (w_lgbm_sec * lgbm_sec_probs)
+        if cat_probs is not None:
+            probs += (w_cat * cat_probs)
+
+        # 6. Escalar el Empate
         draw_scale = float((metadata.get("ensemble_weights", {}) or {}).get("draw_scale", 1.0))
         probs[:, 2] = probs[:, 2] * draw_scale
         probs = np.clip(probs, 1e-9, None)
         probs = probs / probs.sum(axis=1, keepdims=True)
         preds = np.argmax(probs, axis=1)
+        
         return probs, preds, threshold, metadata
 
-    # Binary weighted ensemble.
+    # ---------------------------------------------------------
+    # Binary weighted ensemble (Over 2.5, BTTS, Corners)
+    # ---------------------------------------------------------
     xgb_probs = _model_predict_proba(xgb, X, market_key)[:, 1]
     lgbm_probs = _model_predict_proba(lgbm, X, market_key)[:, 1]
     lgbm_sec_probs = _model_predict_proba(lgbm_secondary, X, market_key)[:, 1]
-    probs = (
-        weights["xgboost"] * xgb_probs
-        + weights["lightgbm_primary"] * lgbm_probs
-        + weights["lightgbm_secondary"] * lgbm_sec_probs
-    )
+    
+    # Pesos estáticos para binarios
+    w_xgb = weights.get("xgboost", 0.33)
+    w_lgbm = weights.get("lightgbm_primary", 0.33)
+    w_lgbm_sec = weights.get("lightgbm_secondary", 0.33)
+    w_cat = weights.get("catboost", 0.0) if catboost is not None else 0.0
+    
+    probs = (w_xgb * xgb_probs) + (w_lgbm * lgbm_probs) + (w_lgbm_sec * lgbm_sec_probs)
+    
     if catboost is not None:
-        probs = probs + weights["catboost"] * catboost.predict_proba(X)[:, 1]
+        cat_cols = metadata.get("catboost_feature_columns") or feat_list
+        cat_cols = [c for c in cat_cols if c in df.columns]
+        X_cat = df[cat_cols].copy()
+        for c in ["season", "home_team", "away_team"]:
+            if c in X_cat.columns:
+                X_cat[c] = X_cat[c].astype(str).fillna("UNK")
+        X_cat = X_cat.replace([np.inf, -np.inf], np.nan).fillna(0)
+        
+        probs = probs + (w_cat * catboost.predict_proba(X_cat)[:, 1])
+        
     preds = (probs >= threshold).astype(int)
     return probs, preds, threshold, metadata
 

@@ -16,6 +16,7 @@ CRITICAL_STEPS = {
     "sports/nhl/data_ingest_nhl.py",
     "sports/ligamx/data_ingest_liga_mx.py",
     "sports/laliga/data_ingest_laliga.py",
+    "sports/bundesliga/data_ingest_bundesliga.py",
     "sports/euroleague/data_ingest_euroleague.py",
     "sports/ncaa baseball/data_ingest_ncaa_baseball.py",
     "sports/triple_a/data_ingest_triple_a.py",
@@ -86,6 +87,8 @@ STEPS = [
     "sports/ligamx/data_ingest_liga_mx.py",
     # LaLiga
     "sports/laliga/data_ingest_laliga.py",
+    # Bundesliga
+    "sports/bundesliga/data_ingest_bundesliga.py",
     # EuroLeague
     "sports/euroleague/data_ingest_euroleague.py",
     # NCAA Baseball
@@ -101,6 +104,7 @@ STEPS = [
     "sports/nhl/predict_today_nhl.py",
     "sports/ligamx/predict_today_liga_mx.py",
     "sports/laliga/predict_today_laliga.py",
+    "sports/bundesliga/predict_today_bundesliga.py",
     "sports/euroleague/predict_today_euroleague.py",
     "sports/ncaa baseball/predict_today_ncaa_baseball.py",
     "sports/triple_a/predict_today_triple_a.py",

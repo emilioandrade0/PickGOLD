@@ -12,6 +12,7 @@ import NCAABaseballPage from "./pages/NCAABaseballPage.jsx";
 import EuroLeaguePage from "./pages/EuroLeaguePage.jsx";
 import LigaMXPage from "./pages/LigaMXPage.jsx";
 import LaLigaPage from "./pages/LaLigaPage.jsx";
+import BundesligaPage from "./pages/BundesligaPage.jsx";
 import InsightsPage from "./pages/InsightsPage.jsx";
 import WeekdayScoringPage from "./pages/WeekdayScoringPage.jsx";
 import BestPicksPage from "./pages/BestPicksPage.jsx";
@@ -148,6 +149,7 @@ export default function App() {
         <Route path="/euroleague" element={<EuroLeaguePage />} />
         <Route path="/liga-mx" element={<LigaMXPage />} />
         <Route path="/laliga" element={<LaLigaPage />} />
+        <Route path="/bundesliga" element={<BundesligaPage />} />
         <Route path="/insights" element={<InsightsPage />} />
         <Route path="/weekday-scoring" element={<WeekdayScoringPage />} />
         <Route path="/best-picks" element={<BestPicksPage />} />

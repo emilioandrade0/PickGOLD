@@ -54,7 +54,31 @@ def add_v3_features(df: pd.DataFrame) -> pd.DataFrame:
     )
     out["diff_xga_proxy_l10"] = out["home_xga_proxy_l10"] - out["away_xga_proxy_l10"]
 
+    # LA CREAMOS AQUÍ:
     out["xg_balance_index"] = out["diff_xg_proxy_l10"] - 0.75 * out["diff_xga_proxy_l10"]
+
+    # ==========================================================
+    # NUEVAS VARIABLES: ALTITUD Y CIERRE DE TORNEO
+    # ==========================================================
+    ALTITUDES = {
+        "TOL": 2660, "PUM": 2240, "AME": 2240, "CAZ": 2240, "PAC": 2400,
+        "PUE": 2135, "QRO": 1820, "GDL": 1566, "LEO": 1815, "SAN": 1120,
+        "MTY": 540, "TIG": 540, "JUA": 1137, "NEC": 1880, "SLP": 1860,
+        "MAZ": 5, "TIJ": 20, "ATS": 1566
+    }
+    
+    out['home_alt'] = out['home_team'].map(ALTITUDES).fillna(1000)
+    out['away_alt'] = out['away_team'].map(ALTITUDES).fillna(1000)
+    
+    # Impacto físico: El visitante sube o baja drásticamente de altura
+    out['diff_altitude_visitor'] = out['home_alt'] - out['away_alt']
+    
+    # Motivación por Fase de Torneo (Jornadas Finales)
+    if 'date' in out.columns:
+        date_series = pd.to_datetime(out['date'])
+        # Proxy de "presión de cierre": Abril/Mayo o Noviembre/Diciembre
+        out['is_tournament_closing'] = date_series.dt.month.isin([4, 5, 11, 12]).astype(int)
+    # ==========================================================
 
     # Rest and locality-context proxies.
     out["home_locality_proxy"] = (
@@ -133,7 +157,6 @@ def add_v3_features(df: pd.DataFrame) -> pd.DataFrame:
     for c, series in preserved.items():
         out[c] = series
     return out
-
 
 def main() -> None:
     print("=" * 72)

@@ -146,6 +146,14 @@ const TEAM_NAMES = {
     GET: "Getafe", ALA: "Alaves", MLL: "Mallorca", RAY: "Rayo Vallecano",
     ESP: "Espanyol", VLL: "Real Valladolid", LEG: "Leganes", LPA: "Las Palmas",
   },
+  bundesliga: {
+    FCB: "Bayern Munich", BAY: "Bayern Munich", BVB: "Borussia Dortmund", DOR: "Borussia Dortmund",
+    B04: "Bayer Leverkusen", LEV: "Bayer Leverkusen", RBL: "RB Leipzig", SGE: "Eintracht Frankfurt",
+    SCF: "SC Freiburg", M05: "Mainz 05", WOB: "Wolfsburg", VFB: "Stuttgart",
+    TSG: "Hoffenheim", FCA: "Augsburg", UBE: "Union Berlin", FCU: "Union Berlin",
+    SVW: "Werder Bremen", BMG: "Borussia Monchengladbach", BOC: "Bochum", HDH: "Heidenheim",
+    STP: "St. Pauli", KIE: "Holstein Kiel",
+  },
   euroleague: {
     ALB: "ALBA Berlin", ASM: "AS Monaco", BAS: "Baskonia", BAR: "FC Barcelona", BBN: "Bayern Munich",
     BER: "ALBA Berlin", BOL: "Virtus Bologna", DUB: "Dubai BC", CZV: "Crvena Zvezda",

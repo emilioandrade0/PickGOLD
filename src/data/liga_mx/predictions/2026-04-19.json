@@ -1,7 +1,7 @@
 {
   "date": "2026-04-19",
   "sport": "liga_mx",
-  "generated_at": "2026-04-08T21:05:25.152968",
+  "generated_at": "2026-04-10T01:24:32.512422",
   "games": [
     {
       "game_id": "401840949",
@@ -10,8 +10,8 @@
       "game_name": "ATS @ SAN",
       "home_team": "SAN",
       "away_team": "ATS",
-      "full_game_pick": "ATS",
-      "full_game_confidence": 57,
+      "full_game_pick": "SAN",
+      "full_game_confidence": 56,
       "full_game_tier": "NORMAL",
       "ht_pick": "DRAW",
       "ht_confidence": 100,
@@ -20,16 +20,16 @@
       "ht_prob_home": 0.0,
       "ht_prob_draw": 1.0,
       "ht_model_available": false,
-      "base_probability": 0.434706,
-      "adjusted_probability": 0.434706,
+      "base_probability": 0.439358,
+      "adjusted_probability": 0.439358,
       "adjustment_amount": 0.0,
       "adjustment_breakdown": [
         {
           "event_name": "away_team_cold_attack",
           "direction": "negative",
           "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.018000000000000002,
+          "sign": 1.0,
+          "contribution": 0.018000000000000002,
           "explanation": "Ataque visitante en baja.",
           "category": "attack_defense"
         },
@@ -37,8 +37,8 @@
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.018000000000000002,
+          "sign": -1.0,
+          "contribution": -0.018000000000000002,
           "explanation": "Defensa local vulnerable.",
           "category": "attack_defense"
         },
@@ -93,17 +93,17 @@
         }
       ],
       "pattern_edge": 0.049,
-      "recommended_pick": "ATS",
-      "recommended_confidence": 57,
-      "recommended_score": 56.9,
+      "recommended_pick": "SAN",
+      "recommended_confidence": 56,
+      "recommended_score": 56.5,
       "recommended": true,
-      "spread_pick": "DNB ATS",
+      "spread_pick": "DNB SAN",
       "spread_market": "DNB / 1X",
       "total_pick": "OVER 2.5",
-      "total_confidence": 78,
+      "total_confidence": 75,
       "total_action": "JUGAR",
-      "total_base_probability": 0.783242,
-      "total_adjusted_probability": 0.813242,
+      "total_base_probability": 0.753978,
+      "total_adjusted_probability": 0.783978,
       "total_adjustment_amount": 0.03,
       "total_adjustment_breakdown": [
         {
@@ -135,7 +135,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 81.7,
+      "total_recommended_score": 78.8,
       "odds_over_under": 2.5,
       "closing_moneyline_odds": NaN,
       "home_moneyline_odds": NaN,
@@ -143,12 +143,12 @@
       "closing_spread_odds": NaN,
       "closing_total_odds": NaN,
       "odds_data_quality": "fallback",
-      "btts_pick": "BTTS YES",
-      "btts_confidence": 52,
-      "btts_tier": "PASS",
-      "btts_base_probability": 0.482476,
-      "btts_adjusted_probability": 0.498644,
-      "btts_adjustment_amount": 0.016168,
+      "btts_pick": "BTTS NO",
+      "btts_confidence": 63,
+      "btts_tier": "STRONG",
+      "btts_base_probability": 0.370454,
+      "btts_adjusted_probability": 0.39409,
+      "btts_adjustment_amount": 0.023636,
       "btts_adjustment_breakdown": [
         {
           "event_name": "away_team_cold_attack",
@@ -179,7 +179,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 50.5,
+      "btts_recommended_score": 61.0,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",

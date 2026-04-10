@@ -1,78 +1,203 @@
 {
   "full_game": {
-    "market": "full_game",
+    "market_key": "full_game",
+    "target_col": "TARGET_full_game",
+    "problem_type": "multiclass",
+    "threshold": null,
+    "xgb_metrics": {
+      "accuracy": 0.4780701754385965,
+      "logloss": 1.1198175956569225,
+      "roc_auc": 0.6060353410748291
+    },
+    "lgbm_metrics": {
+      "accuracy": 0.5131578947368421,
+      "logloss": 1.2554020431303312,
+      "roc_auc": 0.596536828932965
+    },
+    "ensemble_metrics": {
+      "accuracy": 0.5526315789473685,
+      "logloss": 1.028085702514991,
+      "roc_auc": 0.6448501056442044
+    },
+    "top_features": [
+      {
+        "feature": "home_elo_pre",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_elo_pre",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_elo",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_rest_days",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "away_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "diff_is_b2b",
+        "importance": 0.0
+      },
+      {
+        "feature": "home_games_last_3_days",
+        "importance": 0.0
+      }
+    ],
+    "source": "v3_train",
+    "features_file": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\processed\\model_ready_features_liga_mx_v3.csv"
+  },
+  "ht_result": {
+    "market": "ht_result",
     "source": "baseline_copy",
-    "path": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\models_selective\\full_game"
+    "path": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\models_selective\\ht_result"
   },
   "over_25": {
     "market_key": "over_25",
     "target_col": "TARGET_over_25",
     "problem_type": "binary",
-    "threshold": 0.35,
+    "threshold": 0.52,
     "xgb_metrics": {
-      "accuracy": 0.5454545454545454,
-      "logloss": 0.8611846720576714,
-      "roc_auc": 0.5069444444444444
+      "accuracy": 0.5151515151515151,
+      "logloss": 0.7483495029663482,
+      "roc_auc": 0.5187334930286838
     },
     "lgbm_metrics": {
-      "accuracy": 0.5681818181818182,
-      "logloss": 0.897681525642893,
-      "roc_auc": 0.5363247863247863
+      "accuracy": 0.5482093663911846,
+      "logloss": 0.8292666588961924,
+      "roc_auc": 0.5204839997543148
     },
     "ensemble_metrics": {
-      "accuracy": 0.5795454545454546,
-      "logloss": 0.8511142697804388,
-      "roc_auc": 0.5251068376068376
+      "accuracy": 0.559228650137741,
+      "logloss": 0.8125681859348715,
+      "roc_auc": 0.5212824765063571
     },
     "top_features": [
       {
-        "feature": "draw_tension_v3",
-        "importance": 113.338114971295
-      },
-      {
-        "feature": "diff_cards_pressure_proxy",
-        "importance": 107.67036173337449
-      },
-      {
         "feature": "match_parity_elo",
-        "importance": 78.66962412837893
+        "importance": 195.33683120024702
       },
       {
-        "feature": "away_corners_proxy",
-        "importance": 75.33706477377564
-      },
-      {
-        "feature": "btts_proxy",
-        "importance": 72.66938740791132
-      },
-      {
-        "feature": "away_surface_edge",
-        "importance": 71.67115293287982
-      },
-      {
-        "feature": "diff_locality_proxy",
-        "importance": 69.33642097252111
-      },
-      {
-        "feature": "home_cards_pressure_proxy",
-        "importance": 68.66937876461695
-      },
-      {
-        "feature": "away_away_only_over_25_rate_L10",
-        "importance": 67.66988860908896
+        "feature": "diff_altitude_visitor",
+        "importance": 149.67002113536
       },
       {
         "feature": "away_cards_pressure_proxy",
-        "importance": 65.33584978245199
+        "importance": 146.3366894905145
+      },
+      {
+        "feature": "home_cards_pressure_proxy",
+        "importance": 144.67010529028872
+      },
+      {
+        "feature": "btts_proxy",
+        "importance": 129.67131932235012
+      },
+      {
+        "feature": "draw_tension_v3",
+        "importance": 125.67011902978022
+      },
+      {
+        "feature": "diff_corners_proxy",
+        "importance": 124.33702887004863
+      },
+      {
+        "feature": "diff_locality_proxy",
+        "importance": 123.00363598639767
+      },
+      {
+        "feature": "away_elo_pre",
+        "importance": 120.66953509456168
+      },
+      {
+        "feature": "away_corners_proxy",
+        "importance": 120.33705852894734
       }
     ],
     "source": "v3_train",
     "features_file": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\processed\\model_ready_features_liga_mx_v3.csv"
   },
   "btts": {
-    "market": "btts",
-    "source": "baseline_copy",
-    "path": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\models_selective\\btts"
+    "market_key": "btts",
+    "target_col": "TARGET_btts",
+    "problem_type": "binary",
+    "threshold": 0.38,
+    "xgb_metrics": {
+      "accuracy": 0.5206611570247934,
+      "logloss": 0.7559256836927982,
+      "roc_auc": 0.5265795206971677
+    },
+    "lgbm_metrics": {
+      "accuracy": 0.5730027548209367,
+      "logloss": 0.8229319300980028,
+      "roc_auc": 0.5373171490818549
+    },
+    "ensemble_metrics": {
+      "accuracy": 0.5840220385674931,
+      "logloss": 0.815596430883854,
+      "roc_auc": 0.5319638966697791
+    },
+    "top_features": [
+      {
+        "feature": "draw_tension_v3",
+        "importance": 173.33630932774395
+      },
+      {
+        "feature": "away_cards_pressure_proxy",
+        "importance": 154.33625141127655
+      },
+      {
+        "feature": "match_parity_elo",
+        "importance": 150.33668606852493
+      },
+      {
+        "feature": "away_elo_pre",
+        "importance": 145.6698617277046
+      },
+      {
+        "feature": "diff_altitude_visitor",
+        "importance": 145.00313451420516
+      },
+      {
+        "feature": "diff_cards_pressure_proxy",
+        "importance": 136.6699606484423
+      },
+      {
+        "feature": "home_cards_pressure_proxy",
+        "importance": 129.3364389554287
+      },
+      {
+        "feature": "home_elo_pre",
+        "importance": 125.00301817028473
+      },
+      {
+        "feature": "away_corners_proxy",
+        "importance": 124.00359091504167
+      },
+      {
+        "feature": "diff_locality_proxy",
+        "importance": 119.00349098754425
+      }
+    ],
+    "source": "v3_train",
+    "features_file": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\liga_mx\\processed\\model_ready_features_liga_mx_v3.csv"
   },
   "corners_over_95": {
     "market": "corners_over_95",

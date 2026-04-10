@@ -103,6 +103,16 @@ SPORT_CONFIG = {
             "src/data/triple_a/predictions",
         ],
     },
+    "bundesliga": {
+        "label": "Bundesliga",
+        "raw_candidates": [
+            "src/data/bundesliga/raw/bundesliga_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/bundesliga/historical_predictions",
+            "src/data/bundesliga/predictions",
+        ],
+    },
 }
 
 

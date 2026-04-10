@@ -92,6 +92,7 @@ MLB_RAW_HISTORY = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
 NHL_RAW_HISTORY = BASE_DIR / "data" / "nhl" / "raw" / "nhl_advanced_history.csv"
 LIGA_MX_RAW_HISTORY = BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_advanced_history.csv"
 LALIGA_RAW_HISTORY = BASE_DIR / "data" / "laliga" / "raw" / "laliga_advanced_history.csv"
+BUNDESLIGA_RAW_HISTORY = BASE_DIR / "data" / "bundesliga" / "raw" / "bundesliga_advanced_history.csv"
 KBO_RAW_HISTORY = BASE_DIR / "data" / "kbo" / "raw" / "kbo_advanced_history.csv"
 EUROLEAGUE_RAW_HISTORY = BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_advanced_history.csv"
 NCAA_BASEBALL_RAW_HISTORY = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_advanced_history.csv"
@@ -124,6 +125,10 @@ SPORT_RAW_FILES = {
         "raw_history": LALIGA_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "laliga" / "raw" / "laliga_upcoming_schedule.csv",
     },
+    "bundesliga": {
+        "raw_history": BUNDESLIGA_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "bundesliga" / "raw" / "bundesliga_upcoming_schedule.csv",
+    },
     "euroleague": {
         "raw_history": EUROLEAGUE_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_upcoming_schedule.csv",
@@ -154,6 +159,7 @@ ESPN_SCOREBOARD_URLS = {
     "nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
     "liga_mx": "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard",
     "laliga": "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard",
+    "bundesliga": "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard",
 }
 
 SPORTS_CONFIG = {
@@ -186,6 +192,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "laliga" / "predictions",
         "historical_dir": BASE_DIR / "data" / "laliga" / "historical_predictions",
         "label": "LaLiga EA Sports",
+    },
+    "bundesliga": {
+        "predictions_dir": BASE_DIR / "data" / "bundesliga" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "bundesliga" / "historical_predictions",
+        "label": "Bundesliga",
     },
     "euroleague": {
         "predictions_dir": BASE_DIR / "data" / "euroleague" / "predictions",
@@ -305,6 +316,17 @@ SPORT_UPDATE_PIPELINES = {
             {"key": "train", "label": "Entrenamiento LaLiga", "script": BASE_DIR / "sports" / "laliga" / "train_models_laliga.py"},
             {"key": "historical", "label": "Hist?ricas LaLiga", "script": BASE_DIR / "sports" / "laliga" / "historical_predictions_laliga.py"},
             {"key": "today", "label": "Predicciones de hoy LaLiga", "script": BASE_DIR / "sports" / "laliga" / "predict_today_laliga.py"},
+        ],
+        "env": {},
+    },
+    "bundesliga": {
+        "label": "Bundesliga",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "data_ingest_bundesliga.py"},
+            {"key": "features", "label": "Features Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "feature_engineering_bundesliga.py"},
+            {"key": "train", "label": "Entrenamiento Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "train_models_bundesliga.py"},
+            {"key": "historical", "label": "Historicas Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "historical_predictions_bundesliga.py"},
+            {"key": "today", "label": "Predicciones de hoy Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "predict_today_bundesliga.py"},
         ],
         "env": {},
     },
@@ -1604,6 +1626,11 @@ def build_results_lookup_for_sport(sport: str):
         use_cols = [
             "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
         ]
+    elif sport == "bundesliga":
+        file_path = BUNDESLIGA_RAW_HISTORY
+        use_cols = [
+            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
+        ]
     elif sport == "euroleague":
         file_path = EUROLEAGUE_RAW_HISTORY
         use_cols = [
@@ -2367,12 +2394,46 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     item["full_game_recommended_score"] = val
                     break
 
+        if item.get("home_score") in (None, "", "nan"):
+            for key in ("actual_home_score", "home_final_score"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["home_score"] = val
+                    break
+
+        if item.get("away_score") in (None, "", "nan"):
+            for key in ("actual_away_score", "away_final_score"):
+                val = item.get(key)
+                if val not in (None, "", "nan"):
+                    item["away_score"] = val
+                    break
+
         if item.get("full_game_result_winner") in (None, "", "nan"):
             for key in ("moneyline_actual", "actual_winner"):
                 val = item.get(key)
                 if val not in (None, "", "nan"):
                     item["full_game_result_winner"] = val
                     break
+
+        home_score = _to_int_or_none(item.get("home_score"))
+        away_score = _to_int_or_none(item.get("away_score"))
+        if item.get("full_game_result_winner") in (None, "", "nan") and home_score is not None and away_score is not None:
+            item["full_game_result_winner"] = _winner_from_score(
+                str(item.get("home_team") or ""),
+                str(item.get("away_team") or ""),
+                home_score,
+                away_score,
+            )
+
+        if home_score is not None and away_score is not None:
+            item["home_score"] = home_score
+            item["away_score"] = away_score
+            if item.get("final_score_text") in (None, "", "N/A"):
+                item["final_score_text"] = f"{item.get('away_team')} {away_score} - {item.get('home_team')} {home_score}"
+            item["result_available"] = True
+            item["status_state"] = "post"
+            item["status_description"] = item.get("status_description") or "Final"
+            item["status_completed"] = 1
 
         if _to_bool_or_none(item.get("full_game_hit")) is None:
             for key in ("moneyline_correct", "correct_full_game_adjusted", "correct_full_game", "correct"):
@@ -2795,7 +2856,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "triple_a"}:
+    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "euroleague", "ncaa_baseball", "triple_a"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -5446,6 +5507,14 @@ def get_weekday_scoring_insights():
             key="laliga",
             label="LaLiga EA Sports",
             raw_file=LALIGA_RAW_HISTORY,
+            home_col="home_score",
+            away_col="away_score",
+            metric_label="Goles Totales",
+        ),
+        SportScoringConfig(
+            key="bundesliga",
+            label="Bundesliga",
+            raw_file=BUNDESLIGA_RAW_HISTORY,
             home_col="home_score",
             away_col="away_score",
             metric_label="Goles Totales",

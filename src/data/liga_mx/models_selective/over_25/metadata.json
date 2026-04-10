@@ -2,137 +2,145 @@
   "market_key": "over_25",
   "target_col": "TARGET_over_25",
   "problem_type": "binary",
-  "train_rows": 349,
-  "valid_rows": 88,
-  "feature_count": 106,
-  "ensemble_threshold": 0.35,
+  "train_rows": 1449,
+  "valid_rows": 363,
+  "feature_count": 120,
+  "catboost_feature_count": 0,
+  "ensemble_threshold": 0.52,
   "ensemble_weights": {
-    "xgboost": 0.333,
-    "lightgbm_primary": 0.333,
-    "lightgbm_secondary": 0.334
+    "xgboost": 0.1,
+    "lightgbm_primary": 0.9,
+    "lightgbm_secondary": 0.0
   },
+  "catboost_feature_columns": [],
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.5454545454545454,
-      "logloss": 0.8611846720576714,
-      "roc_auc": 0.5069444444444444
+      "accuracy": 0.5151515151515151,
+      "logloss": 0.7483495029663482,
+      "roc_auc": 0.5187334930286838
     },
     "lightgbm_valid": {
-      "accuracy": 0.5681818181818182,
-      "logloss": 0.897681525642893,
-      "roc_auc": 0.5363247863247863
+      "accuracy": 0.5482093663911846,
+      "logloss": 0.8292666588961924,
+      "roc_auc": 0.5204839997543148
     },
     "lightgbm_secondary_valid": {
-      "accuracy": 0.5568181818181818,
-      "logloss": 0.8806042599898611,
-      "roc_auc": 0.5438034188034189
+      "accuracy": 0.5179063360881543,
+      "logloss": 0.8277822893189316,
+      "roc_auc": 0.5184570972299
     },
     "ensemble_valid": {
-      "accuracy": 0.5795454545454546,
-      "logloss": 0.8511142697804388,
-      "roc_auc": 0.5251068376068376
+      "accuracy": 0.559228650137741,
+      "logloss": 0.8125681859348715,
+      "roc_auc": 0.5212824765063571
     }
+  },
+  "confidence_profile": {
+    "acc_conf_055": 0.531986531986532,
+    "acc_conf_060": 0.5294117647058824,
+    "acc_conf_065": 0.5336538461538461,
+    "acc_conf_070": 0.5235294117647059
   },
   "top_features": [
     {
-      "feature": "draw_tension_v3",
-      "importance": 113.338114971295
-    },
-    {
-      "feature": "diff_cards_pressure_proxy",
-      "importance": 107.67036173337449
-    },
-    {
       "feature": "match_parity_elo",
-      "importance": 78.66962412837893
+      "importance": 195.33683120024702
     },
     {
-      "feature": "away_corners_proxy",
-      "importance": 75.33706477377564
-    },
-    {
-      "feature": "btts_proxy",
-      "importance": 72.66938740791132
-    },
-    {
-      "feature": "away_surface_edge",
-      "importance": 71.67115293287982
-    },
-    {
-      "feature": "diff_locality_proxy",
-      "importance": 69.33642097252111
-    },
-    {
-      "feature": "home_cards_pressure_proxy",
-      "importance": 68.66937876461695
-    },
-    {
-      "feature": "away_away_only_over_25_rate_L10",
-      "importance": 67.66988860908896
+      "feature": "diff_altitude_visitor",
+      "importance": 149.67002113536
     },
     {
       "feature": "away_cards_pressure_proxy",
-      "importance": 65.33584978245199
+      "importance": 146.3366894905145
     },
     {
-      "feature": "away_momentum_goal_diff",
-      "importance": 65.00558316893876
+      "feature": "home_cards_pressure_proxy",
+      "importance": 144.67010529028872
     },
     {
-      "feature": "diff_over_25_rate_L10",
-      "importance": 62.33814297243953
+      "feature": "btts_proxy",
+      "importance": 129.67131932235012
     },
     {
-      "feature": "home_home_only_over_25_rate_L10",
-      "importance": 62.33707456694295
-    },
-    {
-      "feature": "home_xg_proxy_l10",
-      "importance": 60.003310998901725
-    },
-    {
-      "feature": "away_locality_proxy",
-      "importance": 55.669905407975115
-    },
-    {
-      "feature": "diff_btts_rate_L10",
-      "importance": 51.003427302775286
+      "feature": "draw_tension_v3",
+      "importance": 125.67011902978022
     },
     {
       "feature": "diff_corners_proxy",
-      "importance": 50.67050560625891
+      "importance": 124.33702887004863
     },
     {
-      "feature": "match_parity_goal_diff",
-      "importance": 49.00313050020486
+      "feature": "diff_locality_proxy",
+      "importance": 123.00363598639767
     },
     {
       "feature": "away_elo_pre",
-      "importance": 48.669019162189215
+      "importance": 120.66953509456168
+    },
+    {
+      "feature": "away_corners_proxy",
+      "importance": 120.33705852894734
+    },
+    {
+      "feature": "diff_surface_goal_diff_L5",
+      "importance": 113.0035186537231
     },
     {
       "feature": "diff_elo",
-      "importance": 48.00425402292361
+      "importance": 110.67039254431923
     },
     {
-      "feature": "home_xga_proxy_l10",
-      "importance": 47.670116663600005
+      "feature": "home_elo_pre",
+      "importance": 107.33686588611454
     },
     {
-      "feature": "away_xga_proxy_l10",
-      "importance": 47.33697551613053
+      "feature": "diff_cards_pressure_proxy",
+      "importance": 106.66980696717899
+    },
+    {
+      "feature": "diff_goals_allowed_L5",
+      "importance": 104.00399275155117
+    },
+    {
+      "feature": "away_away_only_over_25_rate_L10",
+      "importance": 96.33756631085028
+    },
+    {
+      "feature": "diff_momentum_goal_diff",
+      "importance": 95.66977805985759
+    },
+    {
+      "feature": "diff_surface_edge",
+      "importance": 94.3371713925153
+    },
+    {
+      "feature": "diff_over_25_rate_L10",
+      "importance": 93.0034672593077
+    },
+    {
+      "feature": "home_corners_proxy",
+      "importance": 88.66970502709349
+    },
+    {
+      "feature": "away_alt",
+      "importance": 88.3366232952103
     },
     {
       "feature": "total_corners_proxy",
-      "importance": 40.66927360122403
+      "importance": 87.336942042845
     },
     {
-      "feature": "home_btts_rate_L10",
-      "importance": 39.67046195423851
+      "feature": "diff_btts_rate_L10",
+      "importance": 85.67021327124287
     },
     {
-      "feature": "diff_surface_over_25_rate_L10",
-      "importance": 38.33626882607738
+      "feature": "home_xga_proxy_l10",
+      "importance": 81.00347305710117
+    },
+    {
+      "feature": "away_momentum_goal_diff",
+      "importance": 80.33682105597109
     }
   ]
 }

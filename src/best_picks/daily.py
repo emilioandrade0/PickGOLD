@@ -14,6 +14,7 @@ SPORT_LABELS = {
     "nhl": "NHL",
     "liga_mx": "Liga MX",
     "laliga": "LaLiga EA Sports",
+    "bundesliga": "Bundesliga",
     "euroleague": "EuroLeague",
     "ncaa_baseball": "NCAA Baseball",
     "tennis": "Tennis",

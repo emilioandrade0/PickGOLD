@@ -31,9 +31,12 @@ BASE_DIR = SRC_ROOT
 
 RAW_DATA_DIR = BASE_DIR / "data" / "mlb" / "raw"
 RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_DIR = BASE_DIR / "data" / "mlb" / "cache"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 FILE_PATH_ADVANCED = RAW_DATA_DIR / "mlb_advanced_history.csv"
 FILE_PATH_UPCOMING = RAW_DATA_DIR / "mlb_upcoming_schedule.csv"
+LINE_MOVEMENT_CACHE = CACHE_DIR / "line_movement.csv"
 
 PITCHER_CACHE_DIR = BASE_DIR / "data" / "mlb" / "cache" / "pitchers"
 PITCHER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -142,6 +145,102 @@ def is_recent_market_refresh_candidate(row: dict, recent_days: int = RECENT_MARK
         return False
     cutoff_dt = datetime.strptime(TARGET_DATE_LIMIT, "%Y-%m-%d") - timedelta(days=max(int(recent_days), 0))
     return row_dt >= cutoff_dt
+
+
+def _coerce_float_series(series: pd.Series) -> pd.Series:
+    return pd.to_numeric(series, errors="coerce")
+
+
+def apply_theodds_line_backfill(df: pd.DataFrame, label: str = "dataset") -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+    if "game_id" not in df.columns:
+        return df
+    if not LINE_MOVEMENT_CACHE.exists():
+        return df
+
+    try:
+        lm = pd.read_csv(LINE_MOVEMENT_CACHE, low_memory=False)
+    except Exception as exc:
+        print(f"⚠️ No se pudo leer line_movement cache para {label}: {exc}")
+        return df
+
+    required = {
+        "game_id",
+        "current_home_moneyline",
+        "current_away_moneyline",
+        "current_total_line",
+    }
+    if not required.issubset(set(lm.columns)):
+        return df
+
+    tmp = df.copy()
+    tmp["game_id"] = tmp["game_id"].astype(str)
+
+    keep_cols = [c for c in [
+        "game_id",
+        "current_home_moneyline",
+        "current_away_moneyline",
+        "current_total_line",
+        "market_source",
+        "last_snapshot_utc",
+    ] if c in lm.columns]
+    lm = lm[keep_cols].copy()
+    lm["game_id"] = lm["game_id"].astype(str)
+    lm = lm.drop_duplicates(subset=["game_id"], keep="last")
+
+    merged = tmp.merge(lm, on="game_id", how="left", suffixes=("", "_theodds"))
+
+    for col in ["home_moneyline_odds", "away_moneyline_odds", "closing_moneyline_odds", "odds_over_under"]:
+        if col not in merged.columns:
+            merged[col] = np.nan
+
+    before_real = int((merged.get("odds_data_quality", pd.Series(dtype=str)).astype(str).str.lower() == "real").sum()) if "odds_data_quality" in merged.columns else 0
+
+    cur_home = _coerce_float_series(merged.get("current_home_moneyline", np.nan))
+    cur_away = _coerce_float_series(merged.get("current_away_moneyline", np.nan))
+    cur_total = _coerce_float_series(merged.get("current_total_line", np.nan))
+
+    home_ml = _coerce_float_series(merged["home_moneyline_odds"])
+    away_ml = _coerce_float_series(merged["away_moneyline_odds"])
+    close_ml = _coerce_float_series(merged["closing_moneyline_odds"])
+    ou_line = _coerce_float_series(merged["odds_over_under"])
+
+    merged["home_moneyline_odds"] = home_ml.where(home_ml.notna(), cur_home)
+    merged["away_moneyline_odds"] = away_ml.where(away_ml.notna(), cur_away)
+
+    best_close_from_raw = _coerce_float_series(merged["closing_moneyline_odds"])
+    close_from_theodds = pd.concat([cur_home, cur_away], axis=1).apply(
+        lambda row: np.nan if row.isna().all() else (row.min() if (row.dropna() > 0).all() else row.max()),
+        axis=1,
+    )
+    merged["closing_moneyline_odds"] = best_close_from_raw.where(best_close_from_raw.notna(), close_from_theodds)
+
+    merged["odds_over_under"] = ou_line.where((ou_line.notna()) & (ou_line > 0), cur_total)
+
+    if "odds_data_quality" in merged.columns:
+        have_ml = _coerce_float_series(merged["home_moneyline_odds"]).notna() & _coerce_float_series(merged["away_moneyline_odds"]).notna()
+        merged.loc[have_ml, "odds_data_quality"] = "real"
+
+    if "market_source" in merged.columns:
+        market_source_raw = merged["market_source"].astype(str).str.strip()
+        market_source_theodds = merged.get("market_source_theodds", pd.Series([""] * len(merged))).astype(str).str.strip()
+        have_theodds_ml = cur_home.notna() & cur_away.notna()
+        merged["market_source"] = np.where(
+            have_theodds_ml & (market_source_raw == ""),
+            market_source_theodds.replace("", "theoddsapi_current"),
+            market_source_raw,
+        )
+        merged.loc[have_theodds_ml & merged["market_source"].eq(""), "market_source"] = "theoddsapi_current"
+
+    drop_cols = [c for c in ["current_home_moneyline", "current_away_moneyline", "current_total_line", "market_source_theodds", "last_snapshot_utc"] if c in merged.columns]
+    merged = merged.drop(columns=drop_cols)
+
+    after_real = int((merged.get("odds_data_quality", pd.Series(dtype=str)).astype(str).str.lower() == "real").sum()) if "odds_data_quality" in merged.columns else 0
+    if after_real > before_real:
+        print(f"✅ Backfill TheOdds aplicado en {label}: +{after_real - before_real} filas con odds_data_quality=real")
+
+    return merged
 
 
 # =========================
@@ -1425,6 +1524,7 @@ def extract_advanced_espn_data():
             final_df = final_df.drop(columns=["date_dt"])
 
         final_df = final_df.sort_values(["date", "game_id"], ascending=[False, False]).reset_index(drop=True)
+        final_df = apply_theodds_line_backfill(final_df, label="mlb_advanced_history")
         final_df.to_csv(FILE_PATH_ADVANCED, index=False)
     else:
         dedup_removed = 0
@@ -1468,6 +1568,7 @@ def extract_advanced_espn_data():
     df_upcoming = fetch_upcoming_schedule_for_range(today_str)
 
     if not df_upcoming.empty:
+        df_upcoming = apply_theodds_line_backfill(df_upcoming, label="mlb_upcoming_schedule")
         df_upcoming.to_csv(FILE_PATH_UPCOMING, index=False)
         print(f"🗓️ Agenda rolling guardada en: {FILE_PATH_UPCOMING}")
         print(f"   Juegos totales agenda: {len(df_upcoming)}")

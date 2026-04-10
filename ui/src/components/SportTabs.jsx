@@ -12,10 +12,11 @@ const SPORTS = [
   { key: "euroleague", label: "EuroLeague", path: "/euroleague" },
   { key: "liga_mx", label: "Liga MX", path: "/liga-mx" },
   { key: "laliga", label: "LaLiga", path: "/laliga" },
+  { key: "bundesliga", label: "Bundesliga", path: "/bundesliga" },
   { key: "live", label: "En Vivo", path: "/live" },
   { key: "resumen_dia", label: "Resumen del dia", path: "/resumen-dia" },
   { key: "estadisticas", label: "Estadisticas", path: "/estadisticas" },
-  { key: "insights", label: "Insights", path: "/insights" },
+  { key: "metricas", label: "Insights", path: "/insights" },
   { key: "weekday_scoring", label: "Weekday Scoring", path: "/weekday-scoring" },
   { key: "best_picks", label: "Best Picks", path: "/best-picks" },
 ];

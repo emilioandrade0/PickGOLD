@@ -16,6 +16,7 @@ function getSportTitle(pathname, socialMode) {
   if (pathname.startsWith("/euroleague")) return "EuroLeague";
   if (pathname.startsWith("/liga-mx")) return "Liga MX";
   if (pathname.startsWith("/laliga")) return "LaLiga";
+  if (pathname.startsWith("/bundesliga")) return "Bundesliga";
   if (pathname.startsWith("/live")) return "En Vivo";
   if (pathname.startsWith("/resumen-dia")) return "Resumen del dia";
   if (pathname.startsWith("/estadisticas")) return "Estadisticas";
@@ -40,7 +41,7 @@ export default function Header({ onLogout, userName }) {
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/85">
+              <div className="">
                 
               </div>
 
@@ -49,9 +50,6 @@ export default function Header({ onLogout, userName }) {
                   {sportTitle}
                   <span className="font-semibold text-amber-300"> GOLD</span>
                 </h1>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-white/58">
-                  {socialMode ? "Panel en vivo" : "Board en vivo"}
-                </span>
               </div>
             </div>
 
@@ -68,7 +66,7 @@ export default function Header({ onLogout, userName }) {
                   onClick={() => navigate("/admin/approve-users")}
                   className="rounded-xl border border-green-400/35 bg-green-400/10 px-3.5 py-2 text-sm font-semibold text-green-200 transition hover:bg-green-400/16"
                 >
-                  Admin: Autorizar usuarios
+                  CONFIGURACION ADMIN
                 </button>
               )}
 
@@ -91,7 +89,7 @@ export default function Header({ onLogout, userName }) {
                   {socialMode ? "Ligas y modulos" : "Deportes y modulos"}
                 </p>
               </div>
-              <span className="text-xs text-white/42">{socialMode ? "Cambia de panel sin salir del flujo" : "Cambia de board sin salir del flujo"}</span>
+              <span className="text-xs text-white/42">{socialMode ? "Deportes" : "Deportes"}</span>
             </div>
             <SportTabs />
           </div>
