@@ -113,6 +113,16 @@ SPORT_CONFIG = {
             "src/data/bundesliga/predictions",
         ],
     },
+    "ligue1": {
+        "label": "Ligue 1",
+        "raw_candidates": [
+            "src/data/ligue1/raw/ligue1_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/ligue1/historical_predictions",
+            "src/data/ligue1/predictions",
+        ],
+    },
 }
 
 

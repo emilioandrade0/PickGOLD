@@ -808,8 +808,14 @@ def build_features() -> pd.DataFrame:
     df = pd.read_csv(RAW_DATA)
 
 # --- NUEVO: Limpieza de columnas de lesiones ---
-    df["home_injuries_count"] = pd.to_numeric(df["home_injuries_count"], errors="coerce").fillna(0)
-    df["away_injuries_count"] = pd.to_numeric(df["away_injuries_count"], errors="coerce").fillna(0)
+    if "home_injuries_count" in df.columns:
+        df["home_injuries_count"] = pd.to_numeric(df["home_injuries_count"], errors="coerce").fillna(0)
+    else:
+        df["home_injuries_count"] = 0
+    if "away_injuries_count" in df.columns:
+        df["away_injuries_count"] = pd.to_numeric(df["away_injuries_count"], errors="coerce").fillna(0)
+    else:
+        df["away_injuries_count"] = 0
     # -----------------------------------------------
 
     df["date_dt"] = pd.to_datetime(df["date"])

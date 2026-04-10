@@ -40,6 +40,28 @@ TARGET_DATE_LIMIT = datetime.now().strftime("%Y-%m-%d")
 BACKFILL_DAYS = 5
 LOCAL_UTC_OFFSET_HOURS = 6
 UPCOMING_DAYS_AHEAD = 14
+EXTERNAL_ODDS_FILE = Path(r"C:\Users\andra\Desktop\Historical\data\exports\historical-odds-liga-mx.csv")
+
+CSV_TEAM_NAME_TO_CODE = {
+    "AMERICA": "AME",
+    "ATLAS": "ATS",
+    "ATLETICO SAN LUIS": "ASL",
+    "CRUZ AZUL": "CAZ",
+    "FC JUAREZ": "JUA",
+    "GUADALAJARA": "GDL",
+    "LEON": "LEO",
+    "MAZATLAN FC": "MAZ",
+    "MONTERREY": "MTY",
+    "NECAXA": "NEC",
+    "PACHUCA": "PAC",
+    "PUEBLA": "PUE",
+    "PUMAS": "PUM",
+    "QUERETARO": "QRO",
+    "SANTOS LAGUNA": "SAN",
+    "TIGRES": "UANL",
+    "TIJUANA": "TIJ",
+    "TOLUCA": "TOL",
+}
 
 ESPN_SCOREBOARD_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard"
@@ -522,6 +544,90 @@ def preserve_odds_within_duplicates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # -----------------------------
+# External Odds
+# -----------------------------
+
+def _normalize_csv_team_name(name: str) -> str:
+    norm = normalize_text(name)
+    return CSV_TEAM_NAME_TO_CODE.get(norm, norm)
+
+
+def load_external_historical_odds() -> pd.DataFrame:
+    if not EXTERNAL_ODDS_FILE.exists():
+        return pd.DataFrame()
+
+    try:
+        odds_df = pd.read_csv(EXTERNAL_ODDS_FILE)
+    except Exception as exc:
+        print(f"[WARN] No se pudo leer CSV de odds Liga MX: {exc}")
+        return pd.DataFrame()
+
+    required = {"event_date", "snapshot_date", "home_team", "away_team", "home_price", "draw_price", "away_price"}
+    if not required.issubset(set(odds_df.columns)):
+        return pd.DataFrame()
+
+    odds_df = odds_df.copy()
+    odds_df["event_dt"] = pd.to_datetime(odds_df["event_date"], utc=True, errors="coerce")
+    odds_df["snapshot_dt"] = pd.to_datetime(odds_df["snapshot_date"], utc=True, errors="coerce")
+    odds_df = odds_df.dropna(subset=["event_dt", "home_team", "away_team"])
+    if odds_df.empty:
+        return pd.DataFrame()
+
+    try:
+        local_events = odds_df["event_dt"].dt.tz_convert("America/Mexico_City")
+    except Exception:
+        local_events = odds_df["event_dt"]
+    odds_df["date"] = local_events.dt.strftime("%Y-%m-%d")
+    odds_df["home_team"] = odds_df["home_team"].map(_normalize_csv_team_name)
+    odds_df["away_team"] = odds_df["away_team"].map(_normalize_csv_team_name)
+
+    for col in ["home_price", "draw_price", "away_price"]:
+        odds_df[col] = pd.to_numeric(odds_df[col], errors="coerce")
+
+    odds_df = odds_df.sort_values(["date", "home_team", "away_team", "snapshot_dt"])
+    odds_df = odds_df.groupby(["date", "home_team", "away_team"], as_index=False).tail(1)
+
+    odds_df["closing_moneyline_odds"] = odds_df[["home_price", "away_price"]].min(axis=1)
+    odds_df["home_moneyline_odds"] = odds_df["home_price"]
+    odds_df["away_moneyline_odds"] = odds_df["away_price"]
+    odds_df["odds_data_quality"] = "historical_csv"
+
+    keep_cols = [
+        "date", "home_team", "away_team", "bookmaker", "region", "snapshot_date",
+        "home_price", "draw_price", "away_price",
+        "home_moneyline_odds", "away_moneyline_odds", "closing_moneyline_odds", "odds_data_quality",
+    ]
+    return odds_df[keep_cols].copy()
+
+
+def enrich_with_external_odds(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    odds_df = load_external_historical_odds()
+    if odds_df.empty:
+        return df
+
+    merged = df.copy().merge(
+        odds_df, on=["date", "home_team", "away_team"], how="left", suffixes=("", "_csv")
+    )
+
+    for col in [
+        "bookmaker", "region", "snapshot_date", "home_price", "draw_price", "away_price",
+        "home_moneyline_odds", "away_moneyline_odds", "closing_moneyline_odds", "odds_data_quality",
+    ]:
+        csv_col = f"{col}_csv"
+        if csv_col not in merged.columns:
+            continue
+        if col not in merged.columns:
+            merged[col] = None
+        merged[col] = merged[col].where(merged[col].notna(), merged[csv_col])
+        merged = merged.drop(columns=[csv_col])
+
+    return merged
+
+
+# -----------------------------
 # Existing Data
 # -----------------------------
 
@@ -894,6 +1000,7 @@ def extract_advanced_espn_data():
 
         final_df = final_df.drop_duplicates(subset=["game_id"], keep="last")
         final_df = backfill_history_odds_from_snapshots(final_df)
+        final_df = enrich_with_external_odds(final_df)
 
         final_df = final_df.sort_values(
             ["date", "time", "game_id"],
@@ -912,6 +1019,7 @@ def extract_advanced_espn_data():
     df_upcoming = fetch_upcoming_schedule_for_range(today_str)
 
     if not df_upcoming.empty:
+        df_upcoming = enrich_with_external_odds(df_upcoming)
         df_upcoming.to_csv(FILE_PATH_UPCOMING, index=False)
         persist_odds_snapshots(df_upcoming)
         print(f"🗓️ Agenda rolling guardada en: {FILE_PATH_UPCOMING}")

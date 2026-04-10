@@ -77,27 +77,28 @@ MARKET_THRESHOLD_CONFIG = {
     "full_game": {
         "min_threshold": 0.56,
         "max_threshold": 0.68,
-        "min_coverage": 0.10,
+        "min_coverage": 0.08,
         "prob_shrink": 0.00,
         "fallback_penalty": 0.01,
         "missing_pitcher_penalty": 0.05,
-        "dead_zones": [(0.59, 0.62)],
+        "dead_zones": [(0.60, 0.62)],
     },
     "yrfi": {
-        "min_threshold": 0.56,
-        "max_threshold": 0.64,
-        "min_coverage": 0.03,
-        "prob_shrink": 0.10,
-        "fallback_penalty": 0.03,
+        "min_threshold": 0.55,
+        "max_threshold": 0.63,
+        "min_coverage": 0.02,
+        "prob_shrink": 0.06,
+        "fallback_penalty": 0.02,
         "missing_pitcher_penalty": 0.08,
     },
     "f5": {
-        "min_threshold": 0.58,
-        "max_threshold": 0.68,
+        "min_threshold": 0.56,
+        "max_threshold": 0.66,
         "min_coverage": 0.02,
         "prob_shrink": 0.00,
-        "fallback_penalty": 0.02,
+        "fallback_penalty": 0.015,
         "missing_pitcher_penalty": 0.08,
+        "dead_zones": [(0.60, 0.65)],
     },
     "totals": {
         "min_edge": 0.75,
@@ -155,6 +156,128 @@ def get_missing_pitcher_flag(df_like: pd.DataFrame) -> np.ndarray:
     return np.zeros(len(df_like), dtype=int)
 
 
+def _safe_numeric_array(df_like: pd.DataFrame, col: str) -> np.ndarray | None:
+    if not isinstance(df_like, pd.DataFrame) or col not in df_like.columns:
+        return None
+    return pd.to_numeric(df_like[col], errors="coerce").to_numpy(dtype=float)
+
+
+def _collect_mean_arrays(arrays: List[np.ndarray]) -> np.ndarray | None:
+    valid = [a for a in arrays if a is not None and len(a) > 0]
+    if not valid:
+        return None
+    stacked = np.vstack(valid)
+    return np.nanmean(stacked, axis=0)
+
+
+def compute_pitcher_momentum_publish_penalty(
+    probs_calibrated: np.ndarray,
+    df_context: pd.DataFrame,
+    market_key: str,
+) -> Tuple[np.ndarray, Dict[str, float]]:
+    n = len(probs_calibrated)
+    penalty = np.zeros(n, dtype=float)
+    meta = {
+        "momentum_penalty_mean": 0.0,
+        "momentum_penalty_max": 0.0,
+        "momentum_penalty_active_rate": 0.0,
+    }
+
+    if n == 0 or not isinstance(df_context, pd.DataFrame) or df_context.empty:
+        return penalty, meta
+
+    pred_home_or_yrfi = probs_calibrated >= 0.5
+
+    if market_key in {"full_game", "f5"}:
+        pred_side = np.where(pred_home_or_yrfi, 1.0, -1.0)
+
+        diff_quality = _safe_numeric_array(df_context, "diff_pitcher_recent_quality_score")
+        if diff_quality is not None:
+            diff_quality = np.nan_to_num(diff_quality, nan=0.0)
+            quality_side = np.sign(diff_quality)
+            quality_conflict = (quality_side * pred_side) < 0
+            abs_quality = np.abs(diff_quality)
+            strong_thr = float(np.nanquantile(abs_quality, 0.65)) if np.any(np.isfinite(abs_quality)) else 0.0
+            strong_conflict = quality_conflict & (abs_quality >= strong_thr) & (abs_quality > 0)
+
+            penalty += quality_conflict.astype(float) * 0.004
+            penalty += strong_conflict.astype(float) * 0.005
+
+        diff_era_trend = _safe_numeric_array(df_context, "diff_pitcher_era_trend")
+        if diff_era_trend is not None:
+            diff_era_trend = np.nan_to_num(diff_era_trend, nan=0.0)
+            era_conflict = (
+                (pred_home_or_yrfi & (diff_era_trend > 0.12))
+                | ((~pred_home_or_yrfi) & (diff_era_trend < -0.12))
+            )
+            penalty += era_conflict.astype(float) * 0.002
+
+        diff_whip_trend = _safe_numeric_array(df_context, "diff_pitcher_whip_trend")
+        if diff_whip_trend is not None:
+            diff_whip_trend = np.nan_to_num(diff_whip_trend, nan=0.0)
+            whip_conflict = (
+                (pred_home_or_yrfi & (diff_whip_trend > 0.025))
+                | ((~pred_home_or_yrfi) & (diff_whip_trend < -0.025))
+            )
+            penalty += whip_conflict.astype(float) * 0.002
+
+    elif market_key == "yrfi":
+        risk_components: List[np.ndarray] = []
+
+        for col in [
+            "home_pitcher_r1_allowed_rate_L10",
+            "away_pitcher_r1_allowed_rate_L10",
+            "home_pitcher_r1_allowed_rate_L5",
+            "away_pitcher_r1_allowed_rate_L5",
+            "home_pitcher_blowup_rate_L10",
+            "away_pitcher_blowup_rate_L10",
+        ]:
+            arr = _safe_numeric_array(df_context, col)
+            if arr is not None:
+                risk_components.append(np.clip(np.nan_to_num(arr, nan=0.0), 0.0, 1.0))
+
+        avg_pitcher_quality = _collect_mean_arrays(
+            [
+                _safe_numeric_array(df_context, "home_pitcher_recent_quality_score"),
+                _safe_numeric_array(df_context, "away_pitcher_recent_quality_score"),
+            ]
+        )
+        if avg_pitcher_quality is not None:
+            q = np.nan_to_num(avg_pitcher_quality, nan=0.0)
+            q10 = float(np.nanquantile(q, 0.10)) if np.any(np.isfinite(q)) else 0.0
+            q90 = float(np.nanquantile(q, 0.90)) if np.any(np.isfinite(q)) else 1.0
+            denom = max(q90 - q10, 1e-6)
+            quality_risk = 1.0 - np.clip((q - q10) / denom, 0.0, 1.0)
+            risk_components.append(quality_risk)
+
+        if risk_components:
+            risk = np.nanmean(np.vstack(risk_components), axis=0)
+            hi_thr = float(np.nanquantile(risk, 0.60))
+            lo_thr = float(np.nanquantile(risk, 0.40))
+
+            pred_yrfi = pred_home_or_yrfi
+            nrfi_conflict = (~pred_yrfi) & (risk >= hi_thr)
+            yrfi_conflict = pred_yrfi & (risk <= lo_thr)
+
+            penalty += nrfi_conflict.astype(float) * 0.008
+            penalty += yrfi_conflict.astype(float) * 0.004
+
+        diff_quality = _safe_numeric_array(df_context, "diff_pitcher_quality_start_rate_L10")
+        if diff_quality is not None:
+            diff_quality = np.nan_to_num(diff_quality, nan=0.0)
+            nrfi_quality_conflict = (~pred_home_or_yrfi) & (diff_quality > 0.10)
+            nrfi_quality_strong_conflict = (~pred_home_or_yrfi) & (diff_quality > 0.25)
+            penalty += nrfi_quality_conflict.astype(float) * 0.010
+            penalty += nrfi_quality_strong_conflict.astype(float) * 0.006
+
+    penalty = np.clip(penalty, 0.0, 0.03)
+    if len(penalty):
+        meta["momentum_penalty_mean"] = float(np.mean(penalty))
+        meta["momentum_penalty_max"] = float(np.max(penalty))
+        meta["momentum_penalty_active_rate"] = float(np.mean(penalty > 1e-8))
+    return penalty, meta
+
+
 def apply_publish_policy(
     probs_calibrated: np.ndarray,
     df_context: pd.DataFrame,
@@ -172,6 +295,21 @@ def apply_publish_policy(
         effective_threshold += float(cfg.get("fallback_penalty", 0.0))
 
     effective_threshold += missing_pitcher_flag * float(cfg.get("missing_pitcher_penalty", 0.0))
+
+    momentum_penalty, momentum_meta = compute_pitcher_momentum_publish_penalty(
+        probs_calibrated=probs_calibrated,
+        df_context=df_context,
+        market_key=market_key,
+    )
+    if int(used_fallback) == 1:
+        momentum_penalty = np.zeros_like(momentum_penalty)
+        momentum_meta = {
+            "momentum_penalty_mean": 0.0,
+            "momentum_penalty_max": 0.0,
+            "momentum_penalty_active_rate": 0.0,
+        }
+    effective_threshold += momentum_penalty
+
     effective_threshold = np.clip(
         effective_threshold,
         float(cfg.get("min_threshold", 0.56)),
@@ -190,6 +328,9 @@ def apply_publish_policy(
         "missing_pitcher_penalty": float(cfg.get("missing_pitcher_penalty", 0.0)),
         "prob_shrink": float(cfg.get("prob_shrink", 0.0)),
         "missing_pitchers_rate": float(missing_pitcher_flag.mean()) if len(missing_pitcher_flag) else 0.0,
+        "momentum_penalty_mean": float(momentum_meta.get("momentum_penalty_mean", 0.0)),
+        "momentum_penalty_max": float(momentum_meta.get("momentum_penalty_max", 0.0)),
+        "momentum_penalty_active_rate": float(momentum_meta.get("momentum_penalty_active_rate", 0.0)),
     }
     return publish_pick, effective_threshold, meta
 
@@ -242,6 +383,56 @@ def summarize_confidence_buckets(detail_df: pd.DataFrame) -> Dict[str, Dict[str,
             "published_rows": int(len(bucket_pub)),
             "published_accuracy": float((bucket_pub["pred_label"].astype(int) == bucket_pub["y_true"].astype(int)).mean()) if len(bucket_pub) else 0.0,
         }
+    return out
+
+
+def _summarize_quantile_buckets(
+    detail_df: pd.DataFrame,
+    value_col: str,
+    q: int = 3,
+) -> Dict[str, Dict[str, float]]:
+    if detail_df.empty or value_col not in detail_df.columns:
+        return {}
+
+    tmp = detail_df.copy()
+    tmp[value_col] = pd.to_numeric(tmp[value_col], errors="coerce")
+    tmp = tmp.dropna(subset=[value_col, "pred_label", "y_true"]).copy()
+    if len(tmp) < 30:
+        return {}
+
+    try:
+        tmp["bucket"] = pd.qcut(tmp[value_col], q=q, duplicates="drop")
+    except Exception:
+        return {}
+
+    out: Dict[str, Dict[str, float]] = {}
+    for bucket_name, grp in tmp.groupby("bucket", dropna=False):
+        if grp.empty:
+            continue
+        pub = grp[grp.get("publish_pick", 0).fillna(0).astype(int) == 1].copy() if "publish_pick" in grp.columns else grp.iloc[0:0].copy()
+        out[str(bucket_name)] = {
+            "rows": int(len(grp)),
+            "accuracy": float((grp["pred_label"].astype(int) == grp["y_true"].astype(int)).mean()) if len(grp) else 0.0,
+            "published_rows": int(len(pub)),
+            "published_accuracy": float((pub["pred_label"].astype(int) == pub["y_true"].astype(int)).mean()) if len(pub) else 0.0,
+        }
+    return out
+
+
+def summarize_pitcher_momentum_analysis(detail_df: pd.DataFrame) -> Dict[str, Dict[str, Dict[str, float]]]:
+    metrics_map = {
+        "diff_pitcher_recent_quality_score": "recent_quality_diff",
+        "diff_pitcher_quality_start_rate_L10": "quality_start_rate_diff",
+        "diff_pitcher_blowup_rate_L10": "blowup_rate_diff",
+        "diff_pitcher_era_trend": "era_trend_diff",
+        "diff_pitcher_whip_trend": "whip_trend_diff",
+    }
+
+    out: Dict[str, Dict[str, Dict[str, float]]] = {}
+    for col, key_name in metrics_map.items():
+        summary = _summarize_quantile_buckets(detail_df, col, q=3)
+        if summary:
+            out[key_name] = summary
     return out
 
 
@@ -430,6 +621,7 @@ def choose_ensemble_and_threshold(
     X_calib: pd.DataFrame,
     y_calib: pd.Series,
     market_key: str,
+    calib_context: pd.DataFrame | None = None,
 ) -> Tuple[WeightedEnsembleModel, LogisticRegression, Dict[str, float], pd.DataFrame]:
     xgb_probs = xgb_model.predict_proba(X_calib)[:, 1]
     lgbm_probs = lgbm_model.predict_proba(X_calib)[:, 1]
@@ -534,7 +726,7 @@ def choose_ensemble_and_threshold(
 
     calib_publish_pick, calib_effective_threshold, calib_policy_meta = apply_publish_policy(
         probs_calibrated=best_calib_probs,
-        df_context=X_calib if isinstance(X_calib, pd.DataFrame) else pd.DataFrame(index=range(len(best_calib_probs))),
+        df_context=calib_context if isinstance(calib_context, pd.DataFrame) else (X_calib if isinstance(X_calib, pd.DataFrame) else pd.DataFrame(index=range(len(best_calib_probs)))),
         base_threshold=float(best["threshold"]),
         market_key=market_key,
         used_fallback=int(best.get("used_fallback", 0)),
@@ -557,6 +749,8 @@ def choose_ensemble_and_threshold(
     best["fallback_penalty"] = float(calib_policy_meta.get("fallback_penalty", 0.0))
     best["missing_pitcher_penalty"] = float(calib_policy_meta.get("missing_pitcher_penalty", 0.0))
     best["missing_pitchers_rate_calib"] = float(calib_policy_meta.get("missing_pitchers_rate", 0.0))
+    best["momentum_penalty_mean_calib"] = float(calib_policy_meta.get("momentum_penalty_mean", 0.0))
+    best["momentum_penalty_active_rate_calib"] = float(calib_policy_meta.get("momentum_penalty_active_rate", 0.0))
 
     return ensemble_model, best_calibrator, best, calib_detail
 
@@ -574,6 +768,11 @@ def build_prediction_rows(
     candidate_cols = [
         "game_id", "date", "home_team", "away_team",
         "both_pitchers_available", "diff_pitcher_data_available",
+        "home_pitcher_quality_start_rate_L10", "away_pitcher_quality_start_rate_L10", "diff_pitcher_quality_start_rate_L10",
+        "home_pitcher_blowup_rate_L10", "away_pitcher_blowup_rate_L10", "diff_pitcher_blowup_rate_L10",
+        "home_pitcher_era_trend", "away_pitcher_era_trend", "diff_pitcher_era_trend",
+        "home_pitcher_whip_trend", "away_pitcher_whip_trend", "diff_pitcher_whip_trend",
+        "home_pitcher_recent_quality_score", "away_pitcher_recent_quality_score", "diff_pitcher_recent_quality_score",
     ]
     present_cols = [c for c in candidate_cols if c in df_test.columns]
 
@@ -675,6 +874,7 @@ def run_market_walkforward(
             X_calib=X_calib,
             y_calib=y_calib,
             market_key=market_key,
+            calib_context=calib_df,
         )
 
         print(
@@ -756,6 +956,8 @@ def run_market_walkforward(
                 "fallback_penalty": float(threshold_info.get("fallback_penalty", 0.0)),
                 "missing_pitcher_penalty": float(threshold_info.get("missing_pitcher_penalty", 0.0)),
                 "missing_pitchers_rate_calib": float(threshold_info.get("missing_pitchers_rate_calib", 0.0)),
+                "momentum_penalty_mean_calib": float(threshold_info.get("momentum_penalty_mean_calib", 0.0)),
+                "momentum_penalty_active_rate_calib": float(threshold_info.get("momentum_penalty_active_rate_calib", 0.0)),
                 "missing_pitchers_rate_test": float(missing_pitchers_rate_test),
                 "test_accuracy_at_050": float(test_metrics["accuracy"]),
                 "test_brier": float(test_metrics["brier"]),
@@ -914,7 +1116,10 @@ def save_market_outputs(market_key: str, detail_df: pd.DataFrame, split_df: pd.D
         metrics["published_coverage"] = compute_published_coverage(detail_df)
         metrics["avg_missing_pitchers_rate_test"] = float(split_df["missing_pitchers_rate_test"].fillna(0).mean()) if (not split_df.empty and "missing_pitchers_rate_test" in split_df.columns) else 0.0
         metrics["avg_prob_shrink"] = float(split_df["prob_shrink"].fillna(0).mean()) if (not split_df.empty and "prob_shrink" in split_df.columns) else 0.0
+        metrics["avg_momentum_penalty_mean_calib"] = float(split_df["momentum_penalty_mean_calib"].fillna(0).mean()) if (not split_df.empty and "momentum_penalty_mean_calib" in split_df.columns) else 0.0
+        metrics["avg_momentum_penalty_active_rate_calib"] = float(split_df["momentum_penalty_active_rate_calib"].fillna(0).mean()) if (not split_df.empty and "momentum_penalty_active_rate_calib" in split_df.columns) else 0.0
         metrics["published_confidence_buckets"] = summarize_confidence_buckets(detail_df)
+        metrics["pitcher_momentum_analysis"] = summarize_pitcher_momentum_analysis(detail_df)
 
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)

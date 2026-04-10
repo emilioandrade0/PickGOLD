@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { startSportUpdateAll } from "../services/api.js";
 import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { getTeamDisplayName } from "../utils/teamNames.js";
@@ -9,6 +9,7 @@ import {
   approveUser,
   getAdminPurchaseOrders,
   getAdminAppSettings,
+  getAdminMarketAccuracyReport,
   getAdminAllSportsUpdateStatus,
   getAdminTeamSnapshotCompare,
   getAdminSportUpdates,
@@ -50,6 +51,13 @@ function formatDate(value) {
   return date.toLocaleString();
 }
 
+function formatPct(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  return `${(n * 100).toFixed(2)}%`;
+}
+
 function currentMonthYmd() {
   const now = new Date();
   const y = now.getFullYear();
@@ -70,10 +78,11 @@ function AccessBadge({ user }) {
 }
 
 export default function AdminUserApproval() {
-  const { socialMode, setSocialMode } = useAppSettings();
+  const { socialMode, setSocialMode, uiTheme, setUiTheme } = useAppSettings();
   const [pending, setPending] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
   const [sportUpdates, setSportUpdates] = useState([]);
+  const [marketAccuracy, setMarketAccuracy] = useState([]);
   const [allSportsUpdate, setAllSportsUpdate] = useState(null);
   const [stats, setStats] = useState({ active_count: 0, approved_count: 0 });
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -97,11 +106,12 @@ export default function AdminUserApproval() {
     setLoading(true);
     setError("");
 
-    const [pendingRes, usersRes, updatesRes, allRes, snapshotStatusRes, snapshotMonthlyRes, appSettingsRes, purchaseOrdersRes] = await Promise.all([
+    const [pendingRes, usersRes, updatesRes, allRes, marketAccuracyRes, snapshotStatusRes, snapshotMonthlyRes, appSettingsRes, purchaseOrdersRes] = await Promise.all([
       getPendingUsers(),
       getAdminUsers(),
       getAdminSportUpdates(),
       getAdminAllSportsUpdateStatus(),
+      getAdminMarketAccuracyReport(),
       getAdminTeamSnapshotStatus(snapshotMonth),
       getAdminTeamSnapshotMonthly(snapshotMonth),
       getAdminAppSettings(),
@@ -112,6 +122,7 @@ export default function AdminUserApproval() {
       setPending([]);
       setActiveUsers([]);
       setSportUpdates([]);
+      setMarketAccuracy([]);
       setAllSportsUpdate(null);
       setAllSportsUpdate(null);
       setStats({ active_count: 0, approved_count: 0 });
@@ -141,14 +152,18 @@ export default function AdminUserApproval() {
 
     setSportUpdates(updatesRes?.ok ? (updatesRes.sports || []) : []);
     setAllSportsUpdate(allRes?.ok ? allRes : null);
+    setMarketAccuracy(marketAccuracyRes?.ok ? (marketAccuracyRes.sports || []) : []);
     setSnapshotStatus(snapshotStatusRes?.ok ? snapshotStatusRes : null);
     setSnapshotMonthly(snapshotMonthlyRes?.ok ? snapshotMonthlyRes : null);
     setPurchaseOrders(purchaseOrdersRes?.ok ? (purchaseOrdersRes.orders || []) : []);
     if (appSettingsRes?.ok) {
       setSocialMode(Boolean(appSettingsRes.social_mode));
+      if (appSettingsRes.ui_theme) {
+        setUiTheme(String(appSettingsRes.ui_theme));
+      }
     }
     setLoading(false);
-  }, [setSocialMode, snapshotMonth]);
+  }, [setSocialMode, setUiTheme, snapshotMonth]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -161,6 +176,15 @@ export default function AdminUserApproval() {
     () => (allSportsUpdate?.status === "running") || sportUpdates.some((sport) => sport?.update_status?.status === "running"),
     [allSportsUpdate?.status, sportUpdates],
   );
+
+  const marketAccuracyBySport = useMemo(() => {
+    const map = {};
+    for (const item of marketAccuracy || []) {
+      if (!item?.sport) continue;
+      map[item.sport] = item;
+    }
+    return map;
+  }, [marketAccuracy]);
 
   useEffect(() => {
     if (!anyUpdateRunning) return undefined;
@@ -285,12 +309,29 @@ export default function AdminUserApproval() {
     setAppSettingsBusy(true);
     setError("");
     setSuccess("");
-    const res = await updateAdminAppSettings({ socialMode: !socialMode });
+    const res = await updateAdminAppSettings({ socialMode: !socialMode, uiTheme });
     if (res?.ok) {
       setSocialMode(Boolean(res.social_mode));
+      if (res.ui_theme) setUiTheme(String(res.ui_theme));
       setSuccess(res.social_mode ? "Modo redes activado." : "Modo redes desactivado.");
     } else {
       setError(res?.error || "No se pudo actualizar el modo redes.");
+    }
+    setAppSettingsBusy(false);
+  }
+
+  async function handleUiThemeChange(nextTheme) {
+    const normalized = String(nextTheme || "").toLowerCase() === "dashboard_pro" ? "dashboard_pro" : "original";
+    setAppSettingsBusy(true);
+    setError("");
+    setSuccess("");
+    const res = await updateAdminAppSettings({ socialMode, uiTheme: normalized });
+    if (res?.ok) {
+      setUiTheme(res.ui_theme ? String(res.ui_theme) : normalized);
+      setSuccess(`Tema UI actualizado a: ${normalized === "dashboard_pro" ? "Dashboard Pro" : "Original"}.`);
+    } else {
+      setUiTheme(normalized);
+      setSuccess(`Tema UI local actualizado a: ${normalized === "dashboard_pro" ? "Dashboard Pro" : "Original"}.`);
     }
     setAppSettingsBusy(false);
   }
@@ -436,67 +477,101 @@ export default function AdminUserApproval() {
 
       {activeSection === "overview" && (
       <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-black/18 p-4">
             <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Modo redes</p>
             <p className="mt-2 text-sm text-white/68">
-              Activa una version mas safe del producto para posts, screenshots y demos: cambia copy sensible de apuestas por lenguaje de analitica.
+              Activa una version mas safe del producto para posts, screenshots y demos.
             </p>
+            <button
+              type="button"
+              onClick={handleToggleSocialMode}
+              disabled={appSettingsBusy}
+              className={`mt-3 w-full rounded-2xl px-5 py-3 text-sm font-bold transition ${
+                socialMode
+                  ? "border border-emerald-400/30 bg-emerald-400/12 text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.18)]"
+                  : "bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#131821] shadow-[0_12px_28px_rgba(246,196,83,0.2)]"
+              } disabled:opacity-60`}
+            >
+              {appSettingsBusy ? "Guardando..." : socialMode ? "LIVE · Modo redes activado" : "Activar modo redes"}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleToggleSocialMode}
-            disabled={appSettingsBusy}
-            className={`w-full rounded-2xl px-5 py-3 text-sm font-bold transition sm:w-auto ${
-              socialMode
-                ? "border border-emerald-400/30 bg-emerald-400/12 text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.18)]"
-                : "bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] text-[#131821] shadow-[0_12px_28px_rgba(246,196,83,0.2)]"
-            } disabled:opacity-60`}
-          >
-            {appSettingsBusy ? "Guardando..." : socialMode ? "LIVE · Modo redes activado" : "Activar modo redes"}
-          </button>
+
+          <div className="rounded-2xl border border-white/10 bg-black/18 p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Estilo de UI</p>
+            <p className="mt-2 text-sm text-white/68">Selecciona el diseño visual de toda la plataforma.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleUiThemeChange("original")}
+                disabled={appSettingsBusy}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                  uiTheme === "original"
+                    ? "border-amber-300/60 bg-amber-300/12 text-amber-100"
+                    : "border-white/12 bg-white/[0.04] text-white/75 hover:border-white/22 hover:text-white"
+                }`}
+              >
+                Original
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUiThemeChange("dashboard_pro")}
+                disabled={appSettingsBusy}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                  uiTheme === "dashboard_pro"
+                    ? "border-cyan-300/60 bg-cyan-300/15 text-cyan-100"
+                    : "border-white/12 bg-white/[0.04] text-white/75 hover:border-white/22 hover:text-white"
+                }`}
+              >
+                Dashboard Pro
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       )}
 
       {activeSection === "overview" && (
-      <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Actualizar todos los deportes</p>
-            <p className="mt-2 text-sm text-white/68">Lanza el pipeline completo de todas las ligas y monitorea el avance desde este panel.</p>
+      <div className="mt-6 space-y-4">
+        <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Actualizar todos los deportes</p>
+              <p className="mt-2 text-sm text-white/68">Lanza el pipeline completo de todas las ligas y monitorea el avance desde este panel.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRunAllSportsUpdate}
+              disabled={allSportsUpdate?.status === "running"}
+              className="rounded-2xl bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] px-5 py-3 text-sm font-bold text-[#131821] shadow-[0_12px_28px_rgba(246,196,83,0.2)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:opacity-60"
+            >
+              {allSportsUpdate?.status === "running" ? "Actualizando todos..." : "Actualizar todos los deportes"}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleRunAllSportsUpdate}
-            disabled={allSportsUpdate?.status === "running"}
-            className="rounded-2xl bg-[linear-gradient(180deg,#ffd95c,#ffbf1f)] px-5 py-3 text-sm font-bold text-[#131821] shadow-[0_12px_28px_rgba(246,196,83,0.2)] transition hover:-translate-y-0.5 hover:brightness-105 disabled:opacity-60"
-          >
-            {allSportsUpdate?.status === "running" ? "Actualizando todos..." : "Actualizar todos los deportes"}
-          </button>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Estado</p>
+              <p className={`mt-2 text-base font-semibold ${allSportsUpdate?.status === "running" ? "text-cyan-100" : allSportsUpdate?.status === "completed" ? "text-emerald-200" : "text-white"}`}>{allSportsUpdate?.status === "running" ? "En progreso" : allSportsUpdate?.status === "completed" ? "Completado" : "Disponible"}</p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Avance</p>
+              <p className="mt-2 text-base font-semibold text-white">{Number(allSportsUpdate?.percent || 0)}%</p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Deportes completados</p>
+              <p className="mt-2 text-base font-semibold text-white">{allSportsUpdate?.completed_sports || 0} / {allSportsUpdate?.total_sports || sportUpdates.length}</p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">ETA</p>
+              <p className="mt-2 text-base font-semibold text-white">{formatEta(allSportsUpdate?.eta_seconds)}</p>
+            </div>
+          </div>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
+            <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-amber-300 transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, Number(allSportsUpdate?.percent || 0)))}%` }} />
+          </div>
+          <p className="mt-3 text-sm text-white/70">{allSportsUpdate?.current_sport_label ? `Trabajando en ${allSportsUpdate.current_sport_label}.` : (allSportsUpdate?.message || "Listo para iniciar la actualizacion global.")}</p>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Estado</p>
-            <p className={`mt-2 text-base font-semibold ${allSportsUpdate?.status === "running" ? "text-cyan-100" : allSportsUpdate?.status === "completed" ? "text-emerald-200" : "text-white"}`}>{allSportsUpdate?.status === "running" ? "En progreso" : allSportsUpdate?.status === "completed" ? "Completado" : "Disponible"}</p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Avance</p>
-            <p className="mt-2 text-base font-semibold text-white">{Number(allSportsUpdate?.percent || 0)}%</p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Deportes completados</p>
-            <p className="mt-2 text-base font-semibold text-white">{allSportsUpdate?.completed_sports || 0} / {allSportsUpdate?.total_sports || sportUpdates.length}</p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-black/18 p-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">ETA</p>
-            <p className="mt-2 text-base font-semibold text-white">{formatEta(allSportsUpdate?.eta_seconds)}</p>
-          </div>
-        </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
-          <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-amber-300 transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, Number(allSportsUpdate?.percent || 0)))}%` }} />
-        </div>
-        <p className="mt-3 text-sm text-white/70">{allSportsUpdate?.current_sport_label ? `Trabajando en ${allSportsUpdate.current_sport_label}.` : (allSportsUpdate?.message || "Listo para iniciar la actualizacion global.")}</p>
+
       </div>
       )}
 
@@ -516,10 +591,18 @@ export default function AdminUserApproval() {
         </div>
 
         <div className="space-y-4">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Accuracy por mercado (validacion vs historico)</p>
+            <p className="mt-2 text-sm text-white/65">
+              Validacion = accuracy de entrenamiento (ensemble). Historico = desempeno sobre JSON historico (base/adjusted).
+            </p>
+          </div>
           {sportUpdates.map((sport) => {
             const updateState = sport.update_status || {};
             const isRunning = updateState.status === "running";
             const steps = Array.isArray(sport.steps) ? sport.steps : [];
+            const accuracyRow = marketAccuracyBySport[sport.sport] || null;
+            const markets = Array.isArray(accuracyRow?.markets) ? accuracyRow.markets : [];
             return (
               <div key={sport.sport} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -578,6 +661,36 @@ export default function AdminUserApproval() {
                         ))}
                       </div>
                     </div>
+
+                    <div className="mt-4 rounded-2xl border border-white/8 bg-black/18 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Accuracy por mercado</p>
+                      {markets.length === 0 ? (
+                        <p className="mt-2 text-sm text-white/60">Sin reportes aun para este deporte.</p>
+                      ) : (
+                        <div className="mt-3 overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="text-white/45">
+                              <tr>
+                                <th className="pb-2 pr-3">Mercado</th>
+                                <th className="pb-2 pr-3">Validacion</th>
+                                <th className="pb-2 pr-3">Historico base</th>
+                                <th className="pb-2 pr-3">Historico adj.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {markets.map((mkt) => (
+                                <tr key={`${sport.sport}-${mkt.market_key}`} className="border-t border-white/10 text-white/80">
+                                  <td className="py-2 pr-3 font-semibold text-white/90">{mkt.market_label || mkt.market_key}</td>
+                                  <td className="py-2 pr-3">{formatPct(mkt.validation_accuracy)}</td>
+                                  <td className="py-2 pr-3">{formatPct(mkt.historical_base_accuracy)}</td>
+                                  <td className="py-2 pr-3">{formatPct(mkt.historical_adjusted_accuracy)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="w-full max-w-[260px] rounded-[24px] border border-white/10 bg-black/18 p-4">
@@ -613,7 +726,7 @@ export default function AdminUserApproval() {
           <div>
             <h3 className="text-xl font-semibold">Snapshots de rendimiento por equipo</h3>
             <p className="mt-1 text-sm text-white/60">
-              Guarda fotos diarias y analiza al cierre de mes cuántas predicciones acertó cada equipo.
+              Guarda fotos diarias y analiza al cierre de mes cuÃ¡ntas predicciones acertÃ³ cada equipo.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -888,9 +1001,9 @@ export default function AdminUserApproval() {
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_150px_130px_190px] xl:items-center">
                 <div>
                   <p className="text-lg font-semibold">{order.order_code}</p>
-                  <p className="mt-1 text-sm text-white/68">{order.name} · {order.email}</p>
+                  <p className="mt-1 text-sm text-white/68">{order.name} Â· {order.email}</p>
                   <p className="mt-2 text-xs text-white/45">
-                    Plan: <span className="font-semibold text-white/80">{String(order.plan_key || "").toUpperCase()}</span> · ${order.plan_price_mxn} MXN
+                    Plan: <span className="font-semibold text-white/80">{String(order.plan_key || "").toUpperCase()}</span> Â· ${order.plan_price_mxn} MXN
                   </p>
                 </div>
 

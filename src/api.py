@@ -93,6 +93,7 @@ NHL_RAW_HISTORY = BASE_DIR / "data" / "nhl" / "raw" / "nhl_advanced_history.csv"
 LIGA_MX_RAW_HISTORY = BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_advanced_history.csv"
 LALIGA_RAW_HISTORY = BASE_DIR / "data" / "laliga" / "raw" / "laliga_advanced_history.csv"
 BUNDESLIGA_RAW_HISTORY = BASE_DIR / "data" / "bundesliga" / "raw" / "bundesliga_advanced_history.csv"
+LIGUE1_RAW_HISTORY = BASE_DIR / "data" / "ligue1" / "raw" / "ligue1_advanced_history.csv"
 KBO_RAW_HISTORY = BASE_DIR / "data" / "kbo" / "raw" / "kbo_advanced_history.csv"
 EUROLEAGUE_RAW_HISTORY = BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_advanced_history.csv"
 NCAA_BASEBALL_RAW_HISTORY = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa_baseball_advanced_history.csv"
@@ -129,6 +130,10 @@ SPORT_RAW_FILES = {
         "raw_history": BUNDESLIGA_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "bundesliga" / "raw" / "bundesliga_upcoming_schedule.csv",
     },
+    "ligue1": {
+        "raw_history": LIGUE1_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "ligue1" / "raw" / "ligue1_upcoming_schedule.csv",
+    },
     "euroleague": {
         "raw_history": EUROLEAGUE_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_upcoming_schedule.csv",
@@ -160,6 +165,7 @@ ESPN_SCOREBOARD_URLS = {
     "liga_mx": "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard",
     "laliga": "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard",
     "bundesliga": "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard",
+    "ligue1": "https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/scoreboard",
 }
 
 SPORTS_CONFIG = {
@@ -197,6 +203,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "bundesliga" / "predictions",
         "historical_dir": BASE_DIR / "data" / "bundesliga" / "historical_predictions",
         "label": "Bundesliga",
+    },
+    "ligue1": {
+        "predictions_dir": BASE_DIR / "data" / "ligue1" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "ligue1" / "historical_predictions",
+        "label": "Ligue 1",
     },
     "euroleague": {
         "predictions_dir": BASE_DIR / "data" / "euroleague" / "predictions",
@@ -288,7 +299,6 @@ SPORT_UPDATE_PIPELINES = {
         "steps": [
             {"key": "ingest", "label": "Ingesta NHL", "script": BASE_DIR / "sports" / "nhl" / "data_ingest_nhl.py"},
             {"key": "features_core", "label": "Features NHL", "script": BASE_DIR / "sports" / "nhl" / "feature_engineering_nhl.py"},
-            {"key": "features_goalies", "label": "Features goalies NHL", "script": BASE_DIR / "sports" / "nhl" / "feature_engineering_nhl_goalies.py"},
             {"key": "train", "label": "Entrenamiento NHL", "script": BASE_DIR / "sports" / "nhl" / "train_models_nhl.py"},
             {"key": "historical", "label": "Hist?ricas NHL", "script": BASE_DIR / "sports" / "nhl" / "historical_predictions_nhl.py"},
             {"key": "today", "label": "Predicciones de hoy NHL", "script": BASE_DIR / "sports" / "nhl" / "predict_today_nhl.py"},
@@ -327,6 +337,17 @@ SPORT_UPDATE_PIPELINES = {
             {"key": "train", "label": "Entrenamiento Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "train_models_bundesliga.py"},
             {"key": "historical", "label": "Historicas Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "historical_predictions_bundesliga.py"},
             {"key": "today", "label": "Predicciones de hoy Bundesliga", "script": BASE_DIR / "sports" / "bundesliga" / "predict_today_bundesliga.py"},
+        ],
+        "env": {},
+    },
+    "ligue1": {
+        "label": "Ligue 1",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta Ligue 1", "script": BASE_DIR / "sports" / "ligue1" / "data_ingest_ligue1.py"},
+            {"key": "features", "label": "Features Ligue 1", "script": BASE_DIR / "sports" / "ligue1" / "feature_engineering_ligue1.py"},
+            {"key": "train", "label": "Entrenamiento Ligue 1", "script": BASE_DIR / "sports" / "ligue1" / "train_models_ligue1.py"},
+            {"key": "historical", "label": "Historicas Ligue 1", "script": BASE_DIR / "sports" / "ligue1" / "historical_predictions_ligue1.py"},
+            {"key": "today", "label": "Predicciones de hoy Ligue 1", "script": BASE_DIR / "sports" / "ligue1" / "predict_today_ligue1.py"},
         ],
         "env": {},
     },
@@ -553,6 +574,263 @@ def _build_admin_sport_pipeline_snapshot(sport: str) -> dict:
     }
     snapshot["board_status"] = _build_public_board_status(sport, snapshot=snapshot)
     return snapshot
+
+
+def _admin_market_label(market_key: str) -> str:
+    labels = {
+        "full_game": "Full Game",
+        "over_25": "Over 2.5",
+        "btts": "BTTS",
+        "corners_over_95": "Corners O/U 9.5",
+        "ht_result": "Half Time Result",
+    }
+    return labels.get(str(market_key or "").lower(), str(market_key or "").replace("_", " ").title())
+
+
+def _safe_read_json_object(file_path: Path):
+    try:
+        with open(file_path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception:
+        return None
+
+
+def _coerce_hit_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        if value in (0, 1):
+            return bool(int(value))
+        return None
+    if isinstance(value, str):
+        txt = value.strip().lower()
+        if txt in {"1", "true", "yes", "si", "acierto", "win", "won"}:
+            return True
+        if txt in {"0", "false", "no", "fallo", "lose", "lost"}:
+            return False
+    return None
+
+
+def _extract_prediction_rows(payload):
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        games = payload.get("games")
+        if isinstance(games, list):
+            return games
+    return []
+
+
+def _historical_market_accuracy_fallback(sport: str, max_files: int = 180) -> dict:
+    config = SPORTS_CONFIG.get(sport) or {}
+    historical_dir = config.get("historical_dir")
+    if not isinstance(historical_dir, Path) or not historical_dir.exists():
+        return {}
+
+    json_files = sorted(historical_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if max_files > 0:
+        json_files = json_files[:max_files]
+    if not json_files:
+        return {}
+
+    # Candidate hit flags by market across legacy/current schemas.
+    market_hit_candidates = {
+        "full_game": ["correct_full_game_adjusted", "correct_full_game", "full_game_hit", "moneyline_hit", "pick_hit"],
+        "over_25": ["correct_total_adjusted", "correct_total", "totals_hit", "over_under_hit"],
+        "btts": ["correct_btts_adjusted", "correct_btts", "btts_hit"],
+        "corners_over_95": ["correct_corners_adjusted", "correct_corners", "corners_hit"],
+        "ht_result": ["correct_ht_adjusted", "correct_ht", "first_half_hit", "ht_result_hit"],
+    }
+    counters = {
+        market: {"hits": 0, "total": 0}
+        for market in market_hit_candidates.keys()
+    }
+
+    for file_path in json_files:
+        payload = _safe_read_json_object(file_path)
+        for row in _extract_prediction_rows(payload):
+            if not isinstance(row, dict):
+                continue
+            for market, keys in market_hit_candidates.items():
+                hit = None
+                for key in keys:
+                    hit = _coerce_hit_bool(row.get(key))
+                    if hit is not None:
+                        break
+                if hit is None:
+                    continue
+                counters[market]["total"] += 1
+                if hit:
+                    counters[market]["hits"] += 1
+
+    result = {}
+    for market, data in counters.items():
+        total = int(data["total"])
+        if total <= 0:
+            continue
+        result[market] = {
+            "accuracy": float(data["hits"] / total),
+            "samples": total,
+        }
+    return result
+
+
+def _walkforward_market_accuracy_fallback(sport: str) -> dict:
+    candidates = [
+        BASE_DIR / "data" / sport / "walkforward" / f"walkforward_summary_{sport}.json",
+        BASE_DIR / "data" / sport / "walkforward" / "walkforward_summary_mlb.json",
+        BASE_DIR / "data" / sport / "reports" / f"walkforward_summary_{sport}.json",
+    ]
+    payload = None
+    for path in candidates:
+        if path.exists():
+            payload = _safe_read_json_object(path)
+            if isinstance(payload, dict):
+                break
+    if not isinstance(payload, dict):
+        return {}
+
+    # Tennis summary format (single-market at root).
+    if "accuracy" in payload and "rows" in payload and any(k in payload for k in ("status", "tiers", "resolved_rows")):
+        acc = _safe_float(payload.get("accuracy"))
+        if acc is not None:
+            return {"full_game": {"accuracy": acc, "samples": _safe_int(payload.get("resolved_rows") or payload.get("rows"))}}
+
+    result = {}
+    for market_key, row in payload.items():
+        if not isinstance(row, dict):
+            continue
+        acc = _safe_float(row.get("published_accuracy"))
+        if acc is None:
+            acc = _safe_float(row.get("accuracy"))
+        if acc is None:
+            continue
+        samples = _safe_int(row.get("published_rows"))
+        if samples is None or samples <= 0:
+            samples = _safe_int(row.get("rows"))
+        result[str(market_key)] = {"accuracy": acc, "samples": samples}
+    return result
+
+
+def _load_admin_market_accuracy_report_for_sport(sport: str) -> dict:
+    reports_dir = BASE_DIR / "data" / sport / "reports"
+    if not reports_dir.exists():
+        return {"sport": sport, "label": SPORTS_CONFIG[sport]["label"], "markets": [], "has_data": False}
+
+    summary_candidates = sorted(reports_dir.glob("training_summary*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    comparison_candidates = sorted(
+        reports_dir.glob("historical_adjustment_comparison*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+
+    summary_payload = _safe_read_json_object(summary_candidates[0]) if summary_candidates else None
+    comparison_payload = _safe_read_json_object(comparison_candidates[0]) if comparison_candidates else None
+
+    markets: dict[str, dict] = {}
+
+    if isinstance(summary_payload, dict):
+        # Generic single-market summary (e.g. tennis).
+        if "accuracy" in summary_payload and isinstance(summary_payload.get("accuracy"), (int, float, str)):
+            markets["full_game"] = {
+                "market_key": "full_game",
+                "market_label": _admin_market_label("full_game"),
+                "validation_accuracy": _safe_float(summary_payload.get("accuracy")),
+                "validation_log_loss": _safe_float(summary_payload.get("logloss")),
+                "historical_base_accuracy": None,
+                "historical_adjusted_accuracy": None,
+                "historical_base_log_loss": None,
+                "historical_adjusted_log_loss": None,
+            }
+
+        for market_key, market_data in summary_payload.items():
+            if not isinstance(market_data, dict):
+                continue
+            ensemble_metrics = market_data.get("ensemble_metrics") or {}
+            if not isinstance(ensemble_metrics, dict):
+                ensemble_metrics = {}
+
+            validation_accuracy = _safe_float(ensemble_metrics.get("accuracy"))
+            validation_log_loss = _safe_float(ensemble_metrics.get("logloss"))
+
+            # Some sports persist validation stats directly.
+            if validation_accuracy is None:
+                validation_accuracy = _safe_float(market_data.get("valid_accuracy"))
+            if validation_log_loss is None:
+                validation_log_loss = _safe_float(market_data.get("valid_logloss"))
+
+            markets[str(market_key)] = {
+                "market_key": str(market_key),
+                "market_label": _admin_market_label(str(market_key)),
+                "validation_accuracy": validation_accuracy,
+                "validation_log_loss": validation_log_loss,
+                "historical_base_accuracy": None,
+                "historical_adjusted_accuracy": None,
+                "historical_base_log_loss": None,
+                "historical_adjusted_log_loss": None,
+            }
+
+    if isinstance(comparison_payload, dict):
+        metrics_block = comparison_payload.get("metrics")
+        if isinstance(metrics_block, dict):
+            for market_key, metric_data in metrics_block.items():
+                if not isinstance(metric_data, dict):
+                    continue
+                market_key = str(market_key)
+                if market_key not in markets:
+                    markets[market_key] = {
+                        "market_key": market_key,
+                        "market_label": _admin_market_label(market_key),
+                        "validation_accuracy": None,
+                        "validation_log_loss": None,
+                        "historical_base_accuracy": None,
+                        "historical_adjusted_accuracy": None,
+                        "historical_base_log_loss": None,
+                        "historical_adjusted_log_loss": None,
+                    }
+                markets[market_key]["historical_base_accuracy"] = _safe_float(metric_data.get("base_accuracy"))
+                markets[market_key]["historical_adjusted_accuracy"] = _safe_float(metric_data.get("adjusted_accuracy"))
+                markets[market_key]["historical_base_log_loss"] = _safe_float(metric_data.get("base_log_loss"))
+                markets[market_key]["historical_adjusted_log_loss"] = _safe_float(metric_data.get("adjusted_log_loss"))
+
+    fallback_metrics = _historical_market_accuracy_fallback(sport)
+    if not fallback_metrics:
+        fallback_metrics = _walkforward_market_accuracy_fallback(sport)
+    for market_key, metric_data in fallback_metrics.items():
+        if market_key not in markets:
+            markets[market_key] = {
+                "market_key": market_key,
+                "market_label": _admin_market_label(market_key),
+                "validation_accuracy": None,
+                "validation_log_loss": None,
+                "historical_base_accuracy": None,
+                "historical_adjusted_accuracy": None,
+                "historical_base_log_loss": None,
+                "historical_adjusted_log_loss": None,
+            }
+
+        if markets[market_key].get("historical_base_accuracy") is None:
+            markets[market_key]["historical_base_accuracy"] = _safe_float(metric_data.get("accuracy"))
+        if markets[market_key].get("historical_adjusted_accuracy") is None:
+            markets[market_key]["historical_adjusted_accuracy"] = _safe_float(metric_data.get("accuracy"))
+
+    ordered = sorted(
+        markets.values(),
+        key=lambda item: (
+            0 if item["market_key"] == "full_game" else 1,
+            item["market_key"],
+        ),
+    )
+
+    return {
+        "sport": sport,
+        "label": SPORTS_CONFIG[sport]["label"],
+        "reports_dir": str(reports_dir),
+        "training_summary_file": str(summary_candidates[0].name) if summary_candidates else None,
+        "historical_comparison_file": str(comparison_candidates[0].name) if comparison_candidates else None,
+        "markets": ordered,
+        "has_data": len(ordered) > 0,
+    }
 
 
 def _build_public_board_status(sport: str, target_date: Optional[str] = None, snapshot: Optional[dict] = None) -> dict:
@@ -1628,6 +1906,11 @@ def build_results_lookup_for_sport(sport: str):
         ]
     elif sport == "bundesliga":
         file_path = BUNDESLIGA_RAW_HISTORY
+        use_cols = [
+            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
+        ]
+    elif sport == "ligue1":
+        file_path = LIGUE1_RAW_HISTORY
         use_cols = [
             "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
         ]
@@ -2856,7 +3139,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "euroleague", "ncaa_baseball", "triple_a"}:
+    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -3360,7 +3643,7 @@ def _admin_capture_team_form_snapshot(date_str: str, window_games: int = 8, forc
     if (not force) and existing is not None and (not _snapshot_has_pending(existing)):
         return existing
 
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
 
     form_payload = build_team_form_summary(
         sports=sports,
@@ -3929,7 +4212,7 @@ def build_sport_insights_summary(sport: str):
 
 
 def build_tier_performance_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "triple_a"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
     tracked_tiers = ["ELITE", "PREMIUM", "STRONG"]
     rows = []
 
@@ -4286,7 +4569,7 @@ def _log_loss(probs: list[float], outcomes: list[int]):
 
 
 def build_probability_calibration_profiles():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "triple_a"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
     markets = ["full_game", "q1_yrfi", "spread", "total", "btts", "f5", "home_over", "corners"]
 
     grouped = {}
@@ -4489,6 +4772,8 @@ def _best_picks_sports():
         "nhl",
         "liga_mx",
         "laliga",
+        "bundesliga",
+        "ligue1",
         "euroleague",
         "ncaa_baseball",
         "tennis",
@@ -5185,7 +5470,7 @@ def admin_sport_updates(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
     sports = [
         _build_admin_sport_pipeline_snapshot(sport)
-        for sport in ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "triple_a"]
+        for sport in ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
     ]
     return {"ok": True, "sports": sports}
 
@@ -5194,6 +5479,30 @@ def admin_sport_updates(authorization: Optional[str] = Header(default=None)):
 def admin_all_sports_update_status(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
     return {"ok": True, **_copy_all_sports_update_state()}
+
+
+@app.get("/api/admin/market-accuracy-report")
+def admin_market_accuracy_report(authorization: Optional[str] = Header(default=None)):
+    _require_admin_session(authorization)
+    sports = []
+    for sport in [
+        "nba",
+        "mlb",
+        "tennis",
+        "kbo",
+        "nhl",
+        "liga_mx",
+        "laliga",
+        "bundesliga",
+        "ligue1",
+        "euroleague",
+        "ncaa_baseball",
+        "triple_a",
+    ]:
+        if sport not in SPORTS_CONFIG:
+            continue
+        sports.append(_load_admin_market_accuracy_report_for_sport(sport))
+    return {"ok": True, "sports": sports}
 
 
 @app.get("/api/admin/team-form-snapshots/status")
@@ -5356,7 +5665,7 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
 
 @app.get("/api/insights/summary")
 def get_insights_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "triple_a"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
     summaries = [build_sport_insights_summary(s) for s in sports]
 
     return {
@@ -5371,7 +5680,7 @@ def get_team_form_insights(
     min_games: int = 3,
     force_refresh: bool = False,
 ):
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
     window = max(3, min(int(window_games), 20))
     min_sample = max(2, min(int(min_games), window))
     fingerprint = _team_form_sources_fingerprint(sports)
@@ -5515,6 +5824,14 @@ def get_weekday_scoring_insights():
             key="bundesliga",
             label="Bundesliga",
             raw_file=BUNDESLIGA_RAW_HISTORY,
+            home_col="home_score",
+            away_col="away_score",
+            metric_label="Goles Totales",
+        ),
+        SportScoringConfig(
+            key="ligue1",
+            label="Ligue 1",
+            raw_file=LIGUE1_RAW_HISTORY,
             home_col="home_score",
             away_col="away_score",
             metric_label="Goles Totales",

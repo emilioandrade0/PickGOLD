@@ -1,24 +1,32 @@
 {
   "snapshot_date": "2026-04-10",
-  "created_at": "2026-04-10T01:21:07.620435",
-  "updated_at": "2026-04-10T01:21:07.620435",
+  "created_at": "2026-04-10T17:43:24.124596",
+  "updated_at": "2026-04-10T17:43:24.124596",
   "is_partial": true,
   "window_games": 8,
   "sports": [
     {
+      "sport": "euroleague",
+      "sport_label": "EuroLeague",
+      "picks": 5,
+      "hits": 1,
+      "pending": 0,
+      "hit_rate": 0.2
+    },
+    {
       "sport": "kbo",
       "sport_label": "KBO",
       "picks": 5,
-      "hits": 0,
+      "hits": 2,
       "pending": 0,
-      "hit_rate": 0.0
+      "hit_rate": 0.4
     },
     {
       "sport": "laliga",
       "sport_label": "LaLiga EA Sports",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
+      "pending": 0,
       "hit_rate": 0.0
     },
     {
@@ -30,12 +38,20 @@
       "hit_rate": 0.0
     },
     {
+      "sport": "ligue1",
+      "sport_label": "Ligue 1",
+      "picks": 2,
+      "hits": 2,
+      "pending": 0,
+      "hit_rate": 1.0
+    },
+    {
       "sport": "mlb",
       "sport_label": "MLB",
       "picks": 15,
-      "hits": 0,
-      "pending": 15,
-      "hit_rate": 0.0
+      "hits": 1,
+      "pending": 14,
+      "hit_rate": 0.0667
     },
     {
       "sport": "nba",
@@ -49,17 +65,17 @@
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
       "picks": 148,
-      "hits": 0,
-      "pending": 148,
-      "hit_rate": 0.0
+      "hits": 26,
+      "pending": 105,
+      "hit_rate": 0.1757
     },
     {
       "sport": "triple_a",
       "sport_label": "Triple-A",
-      "picks": 16,
-      "hits": 0,
-      "pending": 16,
-      "hit_rate": 0.0
+      "picks": 17,
+      "hits": 2,
+      "pending": 15,
+      "hit_rate": 0.1176
     }
   ],
   "teams": [
@@ -68,12 +84,420 @@
       "sport_label": "Triple-A",
       "team": "Durham Bulls",
       "picks": 2,
+      "hits": 1,
+      "pending": 1,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 29.17,
+      "form_label": "Mala racha"
+    },
+    {
+      "sport": "mlb",
+      "sport_label": "MLB",
+      "team": "PIT",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "kbo",
+      "sport_label": "KBO",
+      "team": "SAM",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "kbo",
+      "sport_label": "KBO",
+      "team": "LG",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 87.5,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ligue1",
+      "sport_label": "Ligue 1",
+      "team": "PSG",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ligue1",
+      "sport_label": "Ligue 1",
+      "team": "OM",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 41.67,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "euroleague",
+      "sport_label": "EuroLeague",
+      "team": "ASM",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "RICH",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "HOFSTR",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "NOEAST",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "LIU",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "MTSTMY",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "STJOES",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 87.5,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "BALLST",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "SIENA",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "IONA",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "FAIR",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "ALAST",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "FDU",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "MARIST",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "MONMTH",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "XAVIER",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "BRYANT",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "WAGNER",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "NKY",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "URI",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "HOLYCR",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "STTHOM",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 25.0,
+      "form_label": "Mala racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "NAVY",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "NIU",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "CAL",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "SACST",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "ncaa_baseball",
+      "sport_label": "NCAA Baseball",
+      "team": "STJOHN",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "triple_a",
+      "sport_label": "Triple-A",
+      "team": "Buffalo Bisons",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
+    },
+    {
+      "sport": "triple_a",
+      "sport_label": "Triple-A",
+      "team": "Omaha Storm Chasers",
+      "picks": 2,
       "hits": 0,
       "pending": 2,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 29.17,
-      "form_label": "Mala racha"
+      "avg_form_score_pct": 66.67,
+      "form_label": "Buena racha"
     },
     {
       "sport": "nba",
@@ -258,19 +682,7 @@
     {
       "sport": "mlb",
       "sport_label": "MLB",
-      "team": "PIT",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 75.0,
-      "form_label": "Muy buena racha"
-    },
-    {
-      "sport": "mlb",
-      "sport_label": "MLB",
-      "team": "ARI",
+      "team": "PHI",
       "picks": 1,
       "hits": 0,
       "pending": 1,
@@ -282,14 +694,14 @@
     {
       "sport": "mlb",
       "sport_label": "MLB",
-      "team": "DET",
+      "team": "MIA",
       "picks": 1,
       "hits": 0,
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 25.0,
-      "form_label": "Mala racha"
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
     },
     {
       "sport": "mlb",
@@ -462,38 +874,14 @@
     {
       "sport": "kbo",
       "sport_label": "KBO",
-      "team": "SAM",
-      "picks": 1,
-      "hits": 0,
-      "pending": 0,
-      "settled": 1,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 66.67,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "kbo",
-      "sport_label": "KBO",
       "team": "KTW",
       "picks": 1,
       "hits": 0,
       "pending": 0,
       "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "kbo",
-      "sport_label": "KBO",
-      "team": "LG",
-      "picks": 1,
-      "hits": 0,
-      "pending": 0,
-      "settled": 1,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 75.0,
-      "form_label": "Muy buena racha"
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
     },
     {
       "sport": "liga_mx",
@@ -525,47 +913,59 @@
       "team": "RMA",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 62.5,
       "form_label": "Buena racha"
     },
     {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "RICH",
+      "sport": "euroleague",
+      "sport_label": "EuroLeague",
+      "team": "DUB",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "HOFSTR",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 50.0,
       "form_label": "Racha normal"
     },
     {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "NOEAST",
+      "sport": "euroleague",
+      "sport_label": "EuroLeague",
+      "team": "PAR",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
+    },
+    {
+      "sport": "euroleague",
+      "sport_label": "EuroLeague",
+      "team": "VIR",
+      "picks": 1,
+      "hits": 0,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 0.0,
+      "avg_form_score_pct": 0.0,
+      "form_label": "Mala racha"
+    },
+    {
+      "sport": "euroleague",
+      "sport_label": "EuroLeague",
+      "team": "ASV",
+      "picks": 1,
+      "hits": 0,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 0.0,
+      "avg_form_score_pct": 12.5,
+      "form_label": "Mala racha"
     },
     {
       "sport": "ncaa_baseball",
@@ -585,8 +985,8 @@
       "team": "FORDHM",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 37.5,
       "form_label": "Racha media"
@@ -606,59 +1006,11 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "LIU",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "MTSTMY",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "EMICH",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "STJOES",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 87.5,
-      "form_label": "Muy buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "BALLST",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 37.5,
       "form_label": "Racha media"
@@ -669,47 +1021,11 @@
       "team": "UCONN",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 75.0,
-      "form_label": "Muy buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "SIENA",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 25.0,
-      "form_label": "Mala racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "IONA",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "FAIR",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 75.0,
-      "form_label": "Muy buena racha"
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
     },
     {
       "sport": "ncaa_baseball",
@@ -717,8 +1033,8 @@
       "team": "UMES",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 12.5,
       "form_label": "Mala racha"
@@ -729,8 +1045,8 @@
       "team": "YSU",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 25.0,
       "form_label": "Mala racha"
@@ -738,59 +1054,11 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "ALAST",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "FDU",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "MARIST",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "MONMTH",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "LEHIGH",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 25.0,
       "form_label": "Mala racha"
@@ -810,74 +1078,14 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "XAVIER",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "BRYANT",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "WAGNER",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "NKY",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "COPPIN",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 25.0,
       "form_label": "Mala racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "URI",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
     },
     {
       "sport": "ncaa_baseball",
@@ -897,8 +1105,8 @@
       "team": "MIAOH",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 62.5,
       "form_label": "Buena racha"
@@ -909,20 +1117,8 @@
       "team": "WMICH",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "HOLYCR",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 62.5,
       "form_label": "Buena racha"
@@ -933,10 +1129,10 @@
       "team": "NW",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
+      "avg_form_score_pct": 66.67,
       "form_label": "Buena racha"
     },
     {
@@ -945,10 +1141,10 @@
       "team": "VALPO",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 25.0,
+      "avg_form_score_pct": 29.17,
       "form_label": "Mala racha"
     },
     {
@@ -978,50 +1174,14 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "STTHOM",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 12.5,
-      "form_label": "Mala racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "NCOLO",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 12.5,
+      "avg_form_score_pct": 0.0,
       "form_label": "Mala racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "NAVY",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
-      "team": "NIU",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
     },
     {
       "sport": "ncaa_baseball",
@@ -1221,10 +1381,10 @@
       "team": "OHIOST",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 87.5,
+      "avg_form_score_pct": 75.0,
       "form_label": "Muy buena racha"
     },
     {
@@ -1248,7 +1408,7 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 29.17,
+      "avg_form_score_pct": 25.0,
       "form_label": "Mala racha"
     },
     {
@@ -1398,18 +1558,6 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "CAL",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 25.0,
-      "form_label": "Mala racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "ARKST",
       "picks": 1,
       "hits": 0,
@@ -1548,7 +1696,7 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 79.17,
+      "avg_form_score_pct": 87.5,
       "form_label": "Muy buena racha"
     },
     {
@@ -1596,7 +1744,7 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 66.67,
+      "avg_form_score_pct": 62.5,
       "form_label": "Buena racha"
     },
     {
@@ -1752,8 +1900,8 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
     },
     {
       "sport": "ncaa_baseball",
@@ -1773,11 +1921,11 @@
       "team": "USF",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
     },
     {
       "sport": "ncaa_baseball",
@@ -1812,8 +1960,8 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
     },
     {
       "sport": "ncaa_baseball",
@@ -1860,8 +2008,8 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
     },
     {
       "sport": "ncaa_baseball",
@@ -1881,10 +2029,10 @@
       "team": "UCSB",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
+      "avg_form_score_pct": 66.67,
       "form_label": "Buena racha"
     },
     {
@@ -1896,8 +2044,8 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
     },
     {
       "sport": "ncaa_baseball",
@@ -1944,8 +2092,8 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
+      "avg_form_score_pct": 50.0,
+      "form_label": "Racha normal"
     },
     {
       "sport": "ncaa_baseball",
@@ -2010,18 +2158,6 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "SACST",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "USC",
       "picks": 1,
       "hits": 0,
@@ -2061,8 +2197,8 @@
       "team": "OAK",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 62.5,
       "form_label": "Buena racha"
@@ -2124,8 +2260,8 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 25.0,
-      "form_label": "Mala racha"
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
     },
     {
       "sport": "ncaa_baseball",
@@ -2202,18 +2338,6 @@
     {
       "sport": "ncaa_baseball",
       "sport_label": "NCAA Baseball",
-      "team": "STJOHN",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "ncaa_baseball",
-      "sport_label": "NCAA Baseball",
       "team": "NDAME",
       "picks": 1,
       "hits": 0,
@@ -2229,11 +2353,11 @@
       "team": "UMBC",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 75.0,
-      "form_label": "Muy buena racha"
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
     },
     {
       "sport": "ncaa_baseball",
@@ -2310,31 +2434,7 @@
     {
       "sport": "triple_a",
       "sport_label": "Triple-A",
-      "team": "Syracuse Mets",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 37.5,
-      "form_label": "Racha media"
-    },
-    {
-      "sport": "triple_a",
-      "sport_label": "Triple-A",
       "team": "Columbus Clippers",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "triple_a",
-      "sport_label": "Triple-A",
-      "team": "Jacksonville Jumbo Shrimp",
       "picks": 1,
       "hits": 0,
       "pending": 1,
@@ -2346,7 +2446,19 @@
     {
       "sport": "triple_a",
       "sport_label": "Triple-A",
-      "team": "Rochester Red Wings",
+      "team": "Jacksonville Jumbo Shrimp",
+      "picks": 1,
+      "hits": 0,
+      "pending": 1,
+      "settled": 0,
+      "hit_rate": 0.0,
+      "avg_form_score_pct": 62.5,
+      "form_label": "Buena racha"
+    },
+    {
+      "sport": "triple_a",
+      "sport_label": "Triple-A",
+      "team": "Lehigh Valley IronPigs",
       "picks": 1,
       "hits": 0,
       "pending": 1,
@@ -2382,14 +2494,14 @@
     {
       "sport": "triple_a",
       "sport_label": "Triple-A",
-      "team": "Toledo Mud Hens",
+      "team": "St. Paul Saints",
       "picks": 1,
       "hits": 0,
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
+      "avg_form_score_pct": 16.67,
+      "form_label": "Mala racha"
     },
     {
       "sport": "triple_a",
@@ -2400,13 +2512,13 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 87.5,
+      "avg_form_score_pct": 75.0,
       "form_label": "Muy buena racha"
     },
     {
       "sport": "triple_a",
       "sport_label": "Triple-A",
-      "team": "Tacoma Rainiers",
+      "team": "Sugar Land Space Cowboys",
       "picks": 1,
       "hits": 0,
       "pending": 1,
@@ -2424,63 +2536,51 @@
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "triple_a",
+      "sport_label": "Triple-A",
+      "team": "El Paso Chihuahuas",
+      "picks": 1,
+      "hits": 0,
+      "pending": 1,
+      "settled": 0,
+      "hit_rate": 0.0,
+      "avg_form_score_pct": 37.5,
+      "form_label": "Racha media"
+    },
+    {
+      "sport": "triple_a",
+      "sport_label": "Triple-A",
+      "team": "Salt Lake Bees",
+      "picks": 1,
+      "hits": 0,
+      "pending": 1,
+      "settled": 0,
+      "hit_rate": 0.0,
       "avg_form_score_pct": 25.0,
       "form_label": "Mala racha"
     },
     {
       "sport": "triple_a",
       "sport_label": "Triple-A",
-      "team": "Omaha Storm Chasers",
+      "team": "Sacramento River Cats",
       "picks": 1,
       "hits": 0,
       "pending": 1,
       "settled": 0,
       "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "triple_a",
-      "sport_label": "Triple-A",
-      "team": "Albuquerque Isotopes",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 50.0,
-      "form_label": "Racha normal"
-    },
-    {
-      "sport": "triple_a",
-      "sport_label": "Triple-A",
-      "team": "Reno Aces",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
-    },
-    {
-      "sport": "triple_a",
-      "sport_label": "Triple-A",
-      "team": "Las Vegas Aviators",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 62.5,
-      "form_label": "Buena racha"
+      "avg_form_score_pct": 75.0,
+      "form_label": "Muy buena racha"
     }
   ],
   "totals": {
-    "sports_count": 7,
-    "teams_count": 201,
-    "picks": 202,
-    "hits": 0,
-    "pending": 197
+    "sports_count": 9,
+    "teams_count": 208,
+    "picks": 210,
+    "hits": 34,
+    "pending": 151
   }
 }

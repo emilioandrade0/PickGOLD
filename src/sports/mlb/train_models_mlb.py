@@ -89,20 +89,20 @@ MARKET_FEATURE_PRIORITY = {
         "diff_run_diff_L10_vs_league",
         "diff_fatigue_index",
         "diff_form_power",
-        "diff_pitcher_data_available",
         "diff_pitcher_rest_days",
-        "diff_pitcher_games_started_L10",
-        "diff_pitcher_runs_allowed_L5",
-        "diff_pitcher_runs_allowed_L10",
-        "diff_pitcher_start_win_rate_L10",
+        "diff_pitcher_era_L5",
+        "diff_pitcher_whip_L5",
+        "diff_pitcher_k_bb_L5",
+        "diff_pitcher_quality_start_rate_L10",
+        "diff_pitcher_blowup_rate_L10",
+        "diff_pitcher_era_trend",
+        "diff_pitcher_whip_trend",
+        "diff_pitcher_recent_quality_score",
         "diff_bullpen_runs_allowed_L5",
         "diff_bullpen_runs_allowed_L10",
         "diff_bullpen_load_L3",
         "diff_offense_vs_pitcher",
         "home_is_favorite",
-        "odds_over_under",
-        "market_missing",
-        "both_pitchers_available",
     ],
     "yrfi": [
         # Núcleo duro: tasas R1 y matchup vs pitcher
@@ -120,6 +120,11 @@ MARKET_FEATURE_PRIORITY = {
         "home_pitcher_r1_allowed_rate_L10",
         "away_pitcher_r1_allowed_rate_L5",
         "away_pitcher_r1_allowed_rate_L10",
+        "diff_pitcher_quality_start_rate_L10",
+        "diff_pitcher_blowup_rate_L10",
+        "diff_pitcher_era_trend",
+        "diff_pitcher_whip_trend",
+        "diff_pitcher_recent_quality_score",
 
         "home_r1_vs_away_pitcher",
         "away_r1_vs_home_pitcher",
@@ -137,9 +142,6 @@ MARKET_FEATURE_PRIORITY = {
         "total_yrfi_pressure_L5",
 
         # Disponibilidad de pitchers
-        "both_pitchers_available",
-        "diff_pitcher_data_available",
-
         # Mantener versiones de tasa global como respaldo (baja prioridad)
         "home_yrfi_rate_L10",
         "away_yrfi_rate_L10",
@@ -156,18 +158,17 @@ MARKET_FEATURE_PRIORITY = {
         "diff_f5_win_pct_L5_vs_league",
         "diff_pitcher_rest_days",
         "diff_pitcher_f5_runs_allowed_L5",
-        "diff_pitcher_runs_allowed_L5",
-        "diff_pitcher_start_win_rate_L10",
+        "diff_pitcher_quality_start_rate_L10",
+        "diff_pitcher_blowup_rate_L10",
+        "diff_pitcher_era_trend",
+        "diff_pitcher_whip_trend",
+        "diff_pitcher_recent_quality_score",
         "diff_f5_vs_pitcher",
         "diff_offense_vs_pitcher",
         "diff_bullpen_runs_allowed_L5",
         "diff_bullpen_runs_allowed_L10",
         "diff_bullpen_load_L3",
         "home_is_favorite",
-        "odds_over_under",
-        "market_missing",
-        "both_pitchers_available",
-        "diff_pitcher_data_available",
     ],
     "totals": [
         "home_runs_scored_L5",
@@ -315,14 +316,41 @@ def get_feature_columns(df: pd.DataFrame) -> List[str]:
     return [c for c in df.columns if c not in NON_FEATURE_COLUMNS and c != "date_dt"]
 
 
+def _drop_constant_feature_columns(df: pd.DataFrame, feature_cols: List[str]) -> List[str]:
+    keep: List[str] = []
+    removed: List[str] = []
+
+    for col in feature_cols:
+        if col not in df.columns:
+            continue
+        series = pd.to_numeric(df[col], errors="coerce")
+        if series.nunique(dropna=True) <= 1:
+            removed.append(col)
+            continue
+        keep.append(col)
+
+    if removed:
+        preview = removed[:8]
+        suffix = "..." if len(removed) > 8 else ""
+        print(f"   ⚠️ Features constantes omitidas ({len(removed)}): {preview}{suffix}")
+
+    return keep
+
+
 def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
-    all_cols = set(get_feature_columns(df))
+    all_feature_cols = get_feature_columns(df)
+    all_cols = set(all_feature_cols)
     preferred = MARKET_FEATURE_PRIORITY.get(market_key, [])
     selected = [c for c in preferred if c in all_cols]
 
     # fallback de seguridad
     if len(selected) < 8:
-        return get_feature_columns(df)
+        selected = all_feature_cols
+
+    selected = _drop_constant_feature_columns(df, selected)
+
+    if len(selected) < 8:
+        selected = _drop_constant_feature_columns(df, all_feature_cols)
 
     return selected
 

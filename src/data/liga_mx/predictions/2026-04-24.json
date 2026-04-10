@@ -1,0 +1,119 @@
+{
+  "date": "2026-04-24",
+  "sport": "liga_mx",
+  "generated_at": "2026-04-10T15:50:21.443648",
+  "games": [
+    {
+      "game_id": "401840959",
+      "date": "2026-04-24",
+      "time": "21:00",
+      "game_name": "QRO @ PUE",
+      "home_team": "PUE",
+      "away_team": "QRO",
+      "full_game_pick": "QRO",
+      "full_game_confidence": 54,
+      "full_game_tier": "NORMAL",
+      "ht_pick": "DRAW",
+      "ht_confidence": 100,
+      "ht_tier": "ELITE",
+      "ht_prob_away": 0.0,
+      "ht_prob_home": 0.0,
+      "ht_prob_draw": 1.0,
+      "ht_model_available": false,
+      "base_probability": 0.460917,
+      "adjusted_probability": 0.448746,
+      "adjustment_amount": -0.012171,
+      "adjustment_breakdown": [
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.018000000000000002,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        }
+      ],
+      "intraday_market_mood": "neutral",
+      "intraday_completed_games": 0,
+      "intraday_qualified_games": 0,
+      "intraday_favorite_fail_rate": 0.0,
+      "intraday_draw_rate": 0.0,
+      "intraday_favorite_side": "away",
+      "intraday_adjustment_applied": false,
+      "intraday_adjustment_shift": 0.0,
+      "detected_patterns": [],
+      "pattern_edge": 0.0,
+      "recommended_pick": "QRO",
+      "recommended_confidence": 55,
+      "recommended_score": 55.1,
+      "recommended": false,
+      "spread_pick": "DNB QRO",
+      "spread_market": "DNB / 1X",
+      "total_pick": "OVER 2.5",
+      "total_confidence": 72,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.715416,
+      "total_adjusted_probability": 0.695842,
+      "total_adjustment_amount": -0.019574,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        }
+      ],
+      "total_recommended_pick": "OVER 2.5",
+      "total_recommended_score": 69.6,
+      "odds_over_under": 2.5,
+      "closing_moneyline_odds": NaN,
+      "home_moneyline_odds": NaN,
+      "away_moneyline_odds": NaN,
+      "closing_spread_odds": NaN,
+      "closing_total_odds": NaN,
+      "odds_data_quality": "fallback",
+      "btts_pick": "BTTS NO",
+      "btts_confidence": 82,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.176747,
+      "btts_adjusted_probability": 0.156747,
+      "btts_adjustment_amount": -0.02,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        }
+      ],
+      "btts_recommended_pick": "BTTS NO",
+      "btts_recommended_score": 84.3,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "UNDER 9.5",
+      "corners_confidence": 70,
+      "corners_model_prob_over": 0.299506,
+      "corners_recommended_pick": "UNDER 9.5",
+      "corners_recommended_score": 70.0,
+      "corners_action": "JUGAR",
+      "status_state": "pre",
+      "status_description": "nan"
+    }
+  ]
+}

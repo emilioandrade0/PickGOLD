@@ -135,6 +135,29 @@ const BUNDESLIGA_ESPN_CODES: Record<string, string> = {
   KIE: '116',
 };
 
+const LIGUE1_ESPN_CODES: Record<string, string> = {
+  PSG: '160', PAR: '160',
+  OM: '176', MAR: '176',
+  ASM: '174', MON: '174',
+  LOSC: '166', LIL: '166',
+  OL: '167', LYO: '167',
+  OGCN: '2502', NIC: '2502',
+  RCL: '175', LEN: '175',
+  REN: '169',
+  SDR: '3243', REI: '3243',
+  RCSA: '170', STR: '170',
+  HAC: '9748', HAV: '9748',
+  AJA: '290',
+  FCN: '165', NAN: '165',
+  SB29: '6998', BRE: '6998',
+  TFC: '179', TOU: '179',
+  MHSC: '274', MPL: '274',
+  SCO: '7868', ANG: '7868',
+  FCM: '180', MET: '180',
+  FCL: '273', LOR: '273',
+  CF63: '9747', CLE: '9747',
+};
+
 const KBO_LOGO_OVERRIDES: Record<string, string> = {
   DOO: 'doosan-bears',
   HAN: 'hanwha-eagles',
@@ -259,6 +282,12 @@ export function getBundesligaLogo(teamCode: string | null | undefined): string {
   return `https://a.espncdn.com/i/teamlogos/soccer/500/${code}.png`;
 }
 
+export function getLigue1Logo(teamCode: string | null | undefined): string {
+  const normalized = normalizeAbbr(teamCode);
+  const code = LIGUE1_ESPN_CODES[normalized] || normalized.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/soccer/500/${code}.png`;
+}
+
 export function getKBOLogo(teamCode: string | null | undefined): string {
   const normalized = normalizeAbbr(teamCode);
   const code = KBO_LOGO_OVERRIDES[normalized] || normalized.toLowerCase();
@@ -278,6 +307,7 @@ export function getTeamLogoUrl(sportKey: string, abbr: string | null | undefined
   if (sportKey === 'liga_mx') return getLigaMXLogo(abbr);
   if (sportKey === 'laliga') return getLaLigaLogo(abbr);
   if (sportKey === 'bundesliga') return getBundesligaLogo(abbr);
+  if (sportKey === 'ligue1') return getLigue1Logo(abbr);
   if (sportKey === 'kbo') return getKBOLogo(abbr);
   if (sportKey === 'triple_a') return getTripleALogo(abbr);
   return null;

@@ -626,6 +626,26 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
     default_r1_allowed = 0
     default_f5_runs_allowed = 2.5
 
+    if "away_r1" in df.columns:
+        home_r1_allowed_flag_series = (_safe_numeric(df["away_r1"], default=0.0) > 0).astype(int)
+    else:
+        home_r1_allowed_flag_series = pd.Series(default_r1_allowed, index=df.index, dtype=int)
+
+    if "home_r1" in df.columns:
+        away_r1_allowed_flag_series = (_safe_numeric(df["home_r1"], default=0.0) > 0).astype(int)
+    else:
+        away_r1_allowed_flag_series = pd.Series(default_r1_allowed, index=df.index, dtype=int)
+
+    if "away_runs_f5" in df.columns:
+        home_f5_runs_allowed_series = _safe_numeric(df["away_runs_f5"], default=default_f5_runs_allowed)
+    else:
+        home_f5_runs_allowed_series = pd.Series(default_f5_runs_allowed, index=df.index, dtype=float)
+
+    if "home_runs_f5" in df.columns:
+        away_f5_runs_allowed_series = _safe_numeric(df["home_runs_f5"], default=default_f5_runs_allowed)
+    else:
+        away_f5_runs_allowed_series = pd.Series(default_f5_runs_allowed, index=df.index, dtype=float)
+
     home_tbl = pd.DataFrame(
         {
             "date": df["date"],
@@ -638,8 +658,8 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
             "bb_allowed": _safe_numeric(df[home_bb_col], default=2.0) if home_bb_col else 2.0,
             "k": _safe_numeric(df[home_k_col], default=4.0) if home_k_col else 4.0,
             "hr_allowed": _safe_numeric(df[home_hr_col], default=1.0) if home_hr_col else 1.0,
-            "r1_allowed_flag": default_r1_allowed,
-            "f5_runs_allowed": float(default_f5_runs_allowed),
+            "r1_allowed_flag": home_r1_allowed_flag_series,
+            "f5_runs_allowed": home_f5_runs_allowed_series.astype(float),
         }
     )
 
@@ -655,8 +675,8 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
             "bb_allowed": _safe_numeric(df[away_bb_col], default=2.0) if away_bb_col else 2.0,
             "k": _safe_numeric(df[away_k_col], default=4.0) if away_k_col else 4.0,
             "hr_allowed": _safe_numeric(df[away_hr_col], default=1.0) if away_hr_col else 1.0,
-            "r1_allowed_flag": default_r1_allowed,
-            "f5_runs_allowed": float(default_f5_runs_allowed),
+            "r1_allowed_flag": away_r1_allowed_flag_series,
+            "f5_runs_allowed": away_f5_runs_allowed_series.astype(float),
         }
     )
 
@@ -668,6 +688,8 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
     p["whip_game"] = np.where(p["ip"] > 0, (p["hits_allowed"] + p["bb_allowed"]) / p["ip"], np.nan)
     p["k_bb_game"] = np.where(p["bb_allowed"] > 0, p["k"] / p["bb_allowed"], p["k"])
     p["hr9_game"] = np.where(p["ip"] > 0, (p["hr_allowed"] * 9.0) / p["ip"], np.nan)
+    p["quality_start_flag"] = ((p["ip"] >= 5.0) & (p["er"] <= 2.0)).astype(int)
+    p["blowup_start_flag"] = ((p["er"] >= 4.0) | (p["hr_allowed"] >= 2.0)).astype(int)
 
     p["last_pitch_date"] = p.groupby("pitcher")["date_dt"].shift(1)
     p["pitcher_rest_days"] = (p["date_dt"] - p["last_pitch_date"]).dt.days.fillna(5).clip(lower=0, upper=20)
@@ -681,6 +703,22 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
     p["pitcher_r1_allowed_rate_L10"] = _rolling_shifted_mean(by_pitcher["r1_allowed_flag"], 10)
     p["pitcher_r1_allowed_rate_L5"] = _rolling_shifted_mean(by_pitcher["r1_allowed_flag"], 5)
     p["pitcher_f5_runs_allowed_L5"] = _rolling_shifted_mean(by_pitcher["f5_runs_allowed"], 5)
+    p["pitcher_era_L3"] = _rolling_shifted_mean(by_pitcher["era_game"], 3)
+    p["pitcher_era_L10"] = _rolling_shifted_mean(by_pitcher["era_game"], 10)
+    p["pitcher_whip_L3"] = _rolling_shifted_mean(by_pitcher["whip_game"], 3)
+    p["pitcher_whip_L10"] = _rolling_shifted_mean(by_pitcher["whip_game"], 10)
+    p["pitcher_k_bb_L3"] = _rolling_shifted_mean(by_pitcher["k_bb_game"], 3)
+    p["pitcher_quality_start_rate_L10"] = _rolling_shifted_mean(by_pitcher["quality_start_flag"], 10)
+    p["pitcher_blowup_rate_L10"] = _rolling_shifted_mean(by_pitcher["blowup_start_flag"], 10)
+    p["pitcher_era_trend"] = p["pitcher_era_L3"] - p["pitcher_era_L10"]
+    p["pitcher_whip_trend"] = p["pitcher_whip_L3"] - p["pitcher_whip_L10"]
+    p["pitcher_recent_quality_score"] = (
+        (-0.45 * p["pitcher_era_L3"])
+        + (-0.35 * p["pitcher_whip_L3"])
+        + (0.20 * p["pitcher_k_bb_L3"])
+        + (0.60 * p["pitcher_quality_start_rate_L10"])
+        + (-0.50 * p["pitcher_blowup_rate_L10"])
+    )
 
     pitcher_features = p[
         [
@@ -696,6 +734,11 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
             "pitcher_r1_allowed_rate_L10",
             "pitcher_r1_allowed_rate_L5",
             "pitcher_f5_runs_allowed_L5",
+            "pitcher_quality_start_rate_L10",
+            "pitcher_blowup_rate_L10",
+            "pitcher_era_trend",
+            "pitcher_whip_trend",
+            "pitcher_recent_quality_score",
         ]
     ].copy()
 
@@ -709,6 +752,11 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
         "pitcher_r1_allowed_rate_L10",
         "pitcher_r1_allowed_rate_L5",
         "pitcher_f5_runs_allowed_L5",
+        "pitcher_quality_start_rate_L10",
+        "pitcher_blowup_rate_L10",
+        "pitcher_era_trend",
+        "pitcher_whip_trend",
+        "pitcher_recent_quality_score",
     ]:
         pitcher_features[c] = pitcher_features[c].fillna(
             {
@@ -721,6 +769,11 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
                 "pitcher_r1_allowed_rate_L10": 0.30,
                 "pitcher_r1_allowed_rate_L5": 0.30,
                 "pitcher_f5_runs_allowed_L5": 2.5,
+                "pitcher_quality_start_rate_L10": 0.45,
+                "pitcher_blowup_rate_L10": 0.30,
+                "pitcher_era_trend": 0.0,
+                "pitcher_whip_trend": 0.0,
+                "pitcher_recent_quality_score": -1.8,
             }[c]
         )
 
@@ -1115,6 +1168,17 @@ def build_features() -> pd.DataFrame:
     df["diff_pitcher_f5_runs_allowed_L5"] = (
         df["home_pitcher_f5_runs_allowed_L5"] - df["away_pitcher_f5_runs_allowed_L5"]
     )
+    df["diff_pitcher_quality_start_rate_L10"] = (
+        df["home_pitcher_quality_start_rate_L10"] - df["away_pitcher_quality_start_rate_L10"]
+    )
+    df["diff_pitcher_blowup_rate_L10"] = (
+        df["home_pitcher_blowup_rate_L10"] - df["away_pitcher_blowup_rate_L10"]
+    )
+    df["diff_pitcher_era_trend"] = df["home_pitcher_era_trend"] - df["away_pitcher_era_trend"]
+    df["diff_pitcher_whip_trend"] = df["home_pitcher_whip_trend"] - df["away_pitcher_whip_trend"]
+    df["diff_pitcher_recent_quality_score"] = (
+        df["home_pitcher_recent_quality_score"] - df["away_pitcher_recent_quality_score"]
+    )
 
     # =========================
     # New: bullpen differentials
@@ -1470,6 +1534,26 @@ def build_features() -> pd.DataFrame:
         "home_pitcher_f5_runs_allowed_L5",
         "away_pitcher_f5_runs_allowed_L5",
         "diff_pitcher_f5_runs_allowed_L5",
+
+        "home_pitcher_quality_start_rate_L10",
+        "away_pitcher_quality_start_rate_L10",
+        "diff_pitcher_quality_start_rate_L10",
+
+        "home_pitcher_blowup_rate_L10",
+        "away_pitcher_blowup_rate_L10",
+        "diff_pitcher_blowup_rate_L10",
+
+        "home_pitcher_era_trend",
+        "away_pitcher_era_trend",
+        "diff_pitcher_era_trend",
+
+        "home_pitcher_whip_trend",
+        "away_pitcher_whip_trend",
+        "diff_pitcher_whip_trend",
+
+        "home_pitcher_recent_quality_score",
+        "away_pitcher_recent_quality_score",
+        "diff_pitcher_recent_quality_score",
 
         # Bullpen
         "home_bullpen_runs_allowed_L5",

@@ -1,0 +1,30 @@
+{
+  "use_event_adjustments": true,
+  "games_evaluated": 417,
+  "metrics": {
+    "full_game": {
+      "base_accuracy": 0.86810551558753,
+      "adjusted_accuracy": 0.8729016786570744,
+      "base_log_loss": 0.360348010729583,
+      "adjusted_log_loss": 0.3833339333392542
+    },
+    "over_25": {
+      "base_accuracy": 0.9256594724220624,
+      "adjusted_accuracy": 0.9232613908872902,
+      "base_log_loss": 0.1992801737604346,
+      "adjusted_log_loss": 0.22328432754072916
+    },
+    "btts": {
+      "base_accuracy": 0.9232613908872902,
+      "adjusted_accuracy": 0.9136690647482014,
+      "base_log_loss": 0.2008332605188306,
+      "adjusted_log_loss": 0.21546438848814015
+    },
+    "corners_over_95": {
+      "base_accuracy": 0.9064748201438849,
+      "adjusted_accuracy": 0.9064748201438849,
+      "base_log_loss": 0.22985978369527937,
+      "adjusted_log_loss": 0.22985978369527937
+    }
+  }
+}

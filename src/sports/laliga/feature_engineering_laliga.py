@@ -6,6 +6,10 @@ import sys
 SRC_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 BASE_DIR = SRC_ROOT
 RAW_DATA = BASE_DIR / "data" / "laliga" / "raw" / "laliga_advanced_history.csv"
@@ -63,8 +67,8 @@ def calculate_elo_ratings(df: pd.DataFrame, k: float = 16, home_advantage: float
 
 
 def ensure_market_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Asegura que existan columnas de mercado."""
-    market_cols = ["odds_over_under"]
+    """Asegura que existan columnas de mercado y deriva features de odds 1X2."""
+    market_cols = ["odds_over_under", "home_price", "draw_price", "away_price"]
 
     for col in market_cols:
         if col in df.columns:
@@ -73,9 +77,29 @@ def ensure_market_columns(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = np.nan
 
     df["market_missing"] = df[market_cols].isna().any(axis=1).astype(int)
+    df["odds_over_under"] = df["odds_over_under"].fillna(2.5)
+    df["home_price"] = df["home_price"].fillna(3.0)
+    df["draw_price"] = df["draw_price"].fillna(3.3)
+    df["away_price"] = df["away_price"].fillna(3.0)
 
-    for col in market_cols:
-        df[col] = df[col].fillna(2.5)
+    def decimal_to_prob(series: pd.Series) -> pd.Series:
+        safe = pd.to_numeric(series, errors="coerce")
+        return np.where(safe > 1.0, 1.0 / safe, np.nan)
+
+    home_raw = pd.Series(decimal_to_prob(df["home_price"]), index=df.index)
+    draw_raw = pd.Series(decimal_to_prob(df["draw_price"]), index=df.index)
+    away_raw = pd.Series(decimal_to_prob(df["away_price"]), index=df.index)
+    overround = (home_raw + draw_raw + away_raw).replace(0, np.nan)
+
+    df["home_implied_prob"] = (home_raw / overround).fillna(1.0 / 3.0)
+    df["draw_implied_prob"] = (draw_raw / overround).fillna(1.0 / 3.0)
+    df["away_implied_prob"] = (away_raw / overround).fillna(1.0 / 3.0)
+    df["market_overround_1x2"] = overround.fillna(1.0)
+    df["market_home_edge"] = df["home_implied_prob"] - df["away_implied_prob"]
+    df["market_draw_bias"] = df["draw_implied_prob"]
+    top_probs = np.sort(df[["home_implied_prob", "draw_implied_prob", "away_implied_prob"]].to_numpy(dtype=float), axis=1)
+    df["market_favorite_prob"] = top_probs[:, 2]
+    df["market_favorite_gap"] = top_probs[:, 2] - top_probs[:, 1]
 
     return df
 
@@ -677,6 +701,17 @@ def build_features() -> pd.DataFrame:
         "draw_equilibrium_index",
 
         "odds_over_under",
+        "home_price",
+        "draw_price",
+        "away_price",
+        "home_implied_prob",
+        "draw_implied_prob",
+        "away_implied_prob",
+        "market_overround_1x2",
+        "market_home_edge",
+        "market_draw_bias",
+        "market_favorite_prob",
+        "market_favorite_gap",
         "market_missing",
     ]
 

@@ -8,11 +8,11 @@
   "catboost_feature_count": 97,
   "ensemble_threshold": null,
   "ensemble_weights": {
-    "xgboost": 0.2,
-    "lightgbm_primary": 0.75,
-    "lightgbm_secondary": 0.05,
-    "draw_scale": 0.85,
-    "catboost": 0.95
+    "xgboost": 0.05,
+    "lightgbm_primary": 0.55,
+    "lightgbm_secondary": 0.4,
+    "draw_scale": 0.95,
+    "catboost": 1.0
   },
   "catboost_feature_columns": [
     "home_elo_pre",
@@ -115,29 +115,29 @@
   ],
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.45614035087719296,
-      "logloss": 1.1304695692664317,
-      "roc_auc": 0.6033819481165771
+      "accuracy": 0.44298245614035087,
+      "logloss": 1.116022800292874,
+      "roc_auc": 0.6162478309839938
     },
     "lightgbm_valid": {
-      "accuracy": 0.5043859649122807,
-      "logloss": 1.226626138454407,
-      "roc_auc": 0.5978295738974798
+      "accuracy": 0.4868421052631579,
+      "logloss": 1.2251186096976392,
+      "roc_auc": 0.611118354043425
     },
     "lightgbm_secondary_valid": {
-      "accuracy": 0.4692982456140351,
-      "logloss": 1.215936149320947,
-      "roc_auc": 0.5913906847972908
+      "accuracy": 0.4956140350877193,
+      "logloss": 1.2098199107815064,
+      "roc_auc": 0.607641801870125
     },
     "ensemble_valid": {
-      "accuracy": 0.5526315789473685,
-      "logloss": 1.0343970847500101,
-      "roc_auc": 0.6285491714473116
+      "accuracy": 0.5482456140350878,
+      "logloss": 1.071039676191084,
+      "roc_auc": 0.6384114561661497
     }
   },
   "confidence_profile": {
-    "acc_conf_045": 0.6875,
-    "acc_conf_050": 0.75,
+    "acc_conf_045": 0.0,
+    "acc_conf_050": 0.0,
     "acc_conf_055": 0.0,
     "acc_conf_060": 0.0
   },

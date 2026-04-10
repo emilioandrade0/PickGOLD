@@ -186,6 +186,16 @@ export async function getAdminAllSportsUpdateStatus() {
   });
 }
 
+export async function getAdminMarketAccuracyReport() {
+  const session = getActiveSession();
+  if (!session?.token) {
+    return { ok: false, error: "Sesion invalida." };
+  }
+  return rawFetchAuth("/admin/market-accuracy-report", {
+    headers: withAuthHeaders(session.token),
+  });
+}
+
 export async function startAdminAllSportsUpdate() {
   const session = getActiveSession();
   if (!session?.token) {
@@ -246,15 +256,17 @@ export async function getAdminAppSettings() {
   });
 }
 
-export async function updateAdminAppSettings({ socialMode }) {
+export async function updateAdminAppSettings({ socialMode, uiTheme }) {
   const session = getActiveSession();
   if (!session?.token) {
     return { ok: false, error: "Sesion invalida." };
   }
+  const payload = { social_mode: Boolean(socialMode) };
+  if (uiTheme) payload.ui_theme = String(uiTheme);
   return rawFetchAuth("/admin/app-settings", {
     method: "POST",
     headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),
-    body: JSON.stringify({ social_mode: Boolean(socialMode) }),
+    body: JSON.stringify(payload),
   });
 }
 

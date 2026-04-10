@@ -48,7 +48,7 @@ function normalizeSearchText(value) {
 }
 
 export default function LeaguePage({ sportKey, sportLabel }) {
-  const { socialMode } = useAppSettings();
+  const { socialMode, uiTheme } = useAppSettings();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
@@ -60,6 +60,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
   const [eventSearch, setEventSearch] = useState("");
+  const [dashboardSidebarCompact, setDashboardSidebarCompact] = useState(false);
 
   function findNearestDate(targetDate, availableDates) {
     if (!targetDate || availableDates.length === 0) return "";
@@ -356,6 +357,11 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     const tier = resolveEventTier(event);
     return tier === "ELITE" || tier === "PREMIUM";
   }).length;
+  const dashboardTopCards = [
+    { key: "total", label: "Total Picks", value: String(totalTracked), sub: `Ganadas ${wins}`, accent: "text-white" },
+    { key: "hit", label: "Acierto %", value: `${hitRate.toFixed(1)}%`, sub: "Hit rate general", accent: "text-emerald-300" },
+    { key: "active", label: "Eventos activos", value: String(events.length), sub: `Premium ${premiumCount}`, accent: "text-white" },
+  ];
   const showNcaaSearch = sportKey === "ncaa_baseball";
   const normalizedEventSearch = normalizeSearchText(eventSearch);
   const filteredEvents = showNcaaSearch && normalizedEventSearch
@@ -370,11 +376,12 @@ export default function LeaguePage({ sportKey, sportLabel }) {
         return haystack.includes(normalizedEventSearch);
       })
     : events;
+  const isDashboardPro = uiTheme === "dashboard_pro";
 
   return (
     <>
       <main className="mx-auto max-w-[1780px] px-4 py-8 xl:px-6 2xl:px-8">
-        <div className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)_300px] 2xl:grid-cols-[310px_minmax(0,1fr)_320px]">
+        <div className={isDashboardPro ? (dashboardSidebarCompact ? "grid gap-6 xl:grid-cols-[78px_minmax(0,1fr)]" : "grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]") : "grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)_300px] 2xl:grid-cols-[310px_minmax(0,1fr)_320px]"}>
           <SidebarCalendar
             calendarMonth={calendarMonth}
             setCalendarMonth={setCalendarMonth}
@@ -384,9 +391,53 @@ export default function LeaguePage({ sportKey, sportLabel }) {
             onSelectDate={loadByDate}
             onLoadToday={loadToday}
             availableDates={availableDates}
+            sportLabel={`${sportLabel} Gold`}
+            compactMode={dashboardSidebarCompact}
+            onCompactChange={setDashboardSidebarCompact}
           />
 
           <section className="min-w-0">
+            {isDashboardPro ? (
+            <div className="mb-5 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,28,38,0.92),rgba(16,19,27,0.96))] p-5 shadow-[0_20px_40px_rgba(0,0,0,0.2)]">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadToday}
+                  className="rounded-xl border border-white/12 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white/20 hover:bg-white/[0.08]"
+                >
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  onClick={loadToday}
+                  className="rounded-xl border border-white/12 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white/65 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white/85"
+                >
+                  Esta semana
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCalendarMonth(new Date())}
+                  className="rounded-xl border border-white/12 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white/65 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white/85"
+                >
+                  Mes
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+              <div>
+                  <h2 className="text-3xl font-semibold">Dashboard {sportLabel}</h2>
+                  <p className="text-sm text-white/60">
+                  {socialMode
+                    ? "Abre cada evento para ver la lectura completa del modelo."
+                    : "Haz click en un juego para abrir su detalle completo."}
+                  </p>
+              </div>
+
+              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
+                {filteredEvents.length} juegos
+              </div>
+              </div>
+            </div>
+            ) : (
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-semibold">Eventos {sportLabel}</h2>
@@ -401,6 +452,27 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                 {filteredEvents.length} juegos
               </div>
             </div>
+            )}
+
+            {isDashboardPro && (
+              <div className="mb-6 grid gap-4 lg:grid-cols-3">
+                {dashboardTopCards.map((card) => (
+                  <article key={card.key} className="rounded-[24px] border border-white/12 bg-[linear-gradient(180deg,rgba(30,34,46,0.92),rgba(20,24,33,0.96))] p-5 shadow-[0_16px_34px_rgba(0,0,0,0.24)]">
+                    <p className="text-sm font-semibold text-white/88">{card.label}</p>
+                    <p className={`mt-2 text-5xl font-semibold tracking-tight ${card.accent}`}>{card.value}</p>
+                    <p className="mt-1 text-sm text-white/60">{card.sub}</p>
+                    {card.key === "hit" && (
+                      <div className="mt-4 h-3 overflow-hidden rounded-full border border-emerald-300/35 bg-emerald-400/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-lime-200"
+                          style={{ width: `${Math.max(6, Math.min(100, hitRate || 0))}%` }}
+                        />
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
 
             {filteredEvents.length === 0 && !loading ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/70">
@@ -437,7 +509,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                   ))}
                 </div>
 
-                <div className="mt-8">
+                {!isDashboardPro && <div className="mt-8">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/55">
                       {socialMode ? "Resumen del modelo" : "Resumen del dia"}
@@ -508,12 +580,12 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                       </div>
                     </div>
                   </div>
-                </div>
+                </div>}
               </>
             )}
           </section>
 
-          <aside className="self-start xl:sticky xl:top-6">
+          {!isDashboardPro && <aside className="self-start xl:sticky xl:top-6">
             <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,198,79,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(52,211,153,0.10),transparent_30%),linear-gradient(180deg,rgba(22,26,36,0.96),rgba(14,17,24,0.98))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
               <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200/85">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />
@@ -562,7 +634,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                 </div>
               </div>
             </div>
-          </aside>
+          </aside>}
         </div>
       </main>
 

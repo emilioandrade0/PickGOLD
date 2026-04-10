@@ -24,6 +24,13 @@ body {
   color: var(--text-main);
 }
 
+html[data-ui-theme="dashboard_pro"] body {
+  background:
+    radial-gradient(1200px 700px at -6% 10%, rgba(246, 196, 83, 0.1), transparent 58%),
+    radial-gradient(900px 520px at 105% -8%, rgba(92, 200, 232, 0.1), transparent 62%),
+    linear-gradient(180deg, #0a0d14, #070a10);
+}
+
 .team-logo {
   width: 42px;
   height: 42px;

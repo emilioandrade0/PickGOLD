@@ -9,7 +9,7 @@ if str(SRC_ROOT) not in sys.path:
 import pandas as pd
 import requests
 
-import predict_today as nba_predict
+from sports.nba import predict_today as nba_predict
 
 BASE_DIR = SRC_ROOT
 RAW_DATA = BASE_DIR / "data" / "euroleague" / "raw" / "euroleague_advanced_history.csv"

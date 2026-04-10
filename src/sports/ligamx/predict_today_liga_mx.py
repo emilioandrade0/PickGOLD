@@ -260,6 +260,9 @@ def _american_to_implied_prob(odds_value):
     if odds == 0:
         return None
 
+    if odds > 1.0 and odds < 20.0:
+        return 1.0 / odds
+
     if odds > 0:
         return 100.0 / (odds + 100.0)
     return abs(odds) / (abs(odds) + 100.0)

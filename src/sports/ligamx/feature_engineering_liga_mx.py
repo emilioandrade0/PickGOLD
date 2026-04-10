@@ -102,13 +102,17 @@ def ensure_market_columns(df: pd.DataFrame) -> pd.DataFrame:
 def _american_to_implied_prob_series(odds: pd.Series) -> pd.Series:
     odds = pd.to_numeric(odds, errors="coerce").fillna(0.0)
 
+    # Decimal odds (common in soccer feeds): 1.01 .. 19.99
+    decimal = (odds > 1.0) & (odds < 20.0)
     pos = odds > 0
     neg = odds < 0
 
     out = pd.Series(np.zeros(len(odds), dtype=float), index=odds.index)
-    out.loc[pos] = 100.0 / (odds.loc[pos] + 100.0)
+    out.loc[decimal] = 1.0 / odds.loc[decimal]
+    american_pos = pos & ~decimal
+    out.loc[american_pos] = 100.0 / (odds.loc[american_pos] + 100.0)
     out.loc[neg] = np.abs(odds.loc[neg]) / (np.abs(odds.loc[neg]) + 100.0)
-    out.loc[~(pos | neg)] = 0.5
+    out.loc[~(american_pos | neg | decimal)] = 0.5
     return out.clip(0.01, 0.99)
 
 

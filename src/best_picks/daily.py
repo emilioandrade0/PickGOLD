@@ -15,6 +15,7 @@ SPORT_LABELS = {
     "liga_mx": "Liga MX",
     "laliga": "LaLiga EA Sports",
     "bundesliga": "Bundesliga",
+    "ligue1": "Ligue 1",
     "euroleague": "EuroLeague",
     "ncaa_baseball": "NCAA Baseball",
     "tennis": "Tennis",
@@ -28,6 +29,7 @@ EXCLUDED_BEST_PICKS_SPORTS = {"ncaa_baseball"}
 FROZEN_SPORT_MARKETS = {
     "nhl": {"spread"},
     "liga_mx": {"full_game", "total", "btts"},
+    "ligue1": {"full_game", "total", "btts"},
     "mlb": {"q1_yrfi"},
 }
 

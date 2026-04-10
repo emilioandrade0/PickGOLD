@@ -455,6 +455,17 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         ),
 
         "odds_over_under": 2.5,
+        "home_price": 3.0,
+        "draw_price": 3.3,
+        "away_price": 3.0,
+        "home_implied_prob": 1.0 / 3.0,
+        "draw_implied_prob": 1.0 / 3.0,
+        "away_implied_prob": 1.0 / 3.0,
+        "market_overround_1x2": 1.0,
+        "market_home_edge": 0.0,
+        "market_draw_bias": 1.0 / 3.0,
+        "market_favorite_prob": 1.0 / 3.0,
+        "market_favorite_gap": 0.0,
         "market_missing": 0,
     }
 
@@ -638,6 +649,26 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, raw_histo
                 schedule_total_line = float(sched_row.get("odds_over_under", 2.5) or 2.5)
             except Exception:
                 schedule_total_line = 2.5
+            for key, fallback in [("home_price", 3.0), ("draw_price", 3.3), ("away_price", 3.0)]:
+                try:
+                    row[key] = float(sched_row.get(key, row.get(key, fallback)) or fallback)
+                except Exception:
+                    row[key] = fallback
+            implied_home = 1.0 / row["home_price"] if row["home_price"] > 1 else (1.0 / 3.0)
+            implied_draw = 1.0 / row["draw_price"] if row["draw_price"] > 1 else (1.0 / 3.0)
+            implied_away = 1.0 / row["away_price"] if row["away_price"] > 1 else (1.0 / 3.0)
+            overround = implied_home + implied_draw + implied_away
+            if overround > 0:
+                row["home_implied_prob"] = implied_home / overround
+                row["draw_implied_prob"] = implied_draw / overround
+                row["away_implied_prob"] = implied_away / overround
+                row["market_overround_1x2"] = overround
+                row["market_home_edge"] = row["home_implied_prob"] - row["away_implied_prob"]
+                row["market_draw_bias"] = row["draw_implied_prob"]
+                sorted_probs = sorted([row["home_implied_prob"], row["draw_implied_prob"], row["away_implied_prob"]])
+                row["market_favorite_prob"] = sorted_probs[-1]
+                row["market_favorite_gap"] = sorted_probs[-1] - sorted_probs[-2]
+            row["market_missing"] = 0
 
         schedule_odds_quality = "fallback"
         if sched_row is not None:
@@ -683,6 +714,9 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, raw_histo
                 "total_recommended_pick": total_recommended_pick,
                 "total_recommended_score": round(float(total_score), 1),
                 "odds_over_under": schedule_total_line,
+                "home_price": None if sched_row is None else sched_row.get("home_price"),
+                "draw_price": None if sched_row is None else sched_row.get("draw_price"),
+                "away_price": None if sched_row is None else sched_row.get("away_price"),
                 "closing_moneyline_odds": None if sched_row is None else sched_row.get("closing_moneyline_odds"),
                 "home_moneyline_odds": None if sched_row is None else sched_row.get("home_moneyline_odds"),
                 "away_moneyline_odds": None if sched_row is None else sched_row.get("away_moneyline_odds"),

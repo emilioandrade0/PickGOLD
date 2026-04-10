@@ -8,7 +8,7 @@ if str(SRC_ROOT) not in sys.path:
 
 import pandas as pd
 
-import historical_predictions as nba_hist
+from sports.nba import historical_predictions as nba_hist
 
 BASE_DIR = SRC_ROOT
 

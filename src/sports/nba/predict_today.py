@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 from calibration import calibrate_probability, load_calibration_config
 from pattern_engine import aggregate_pattern_edge
-from pattern_engine_nba import generate_nba_patterns
+from sports.nba.pattern_engine_nba import generate_nba_patterns
 from pick_selector import fuse_with_pattern_score, recommendation_score
 try:
     from sports.nba.error_risk_utils import apply_error_risk_override, load_error_risk_bundle

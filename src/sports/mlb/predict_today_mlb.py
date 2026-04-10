@@ -30,6 +30,37 @@ PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
 CALIBRATION_FILE = MODELS_DIR / "calibration_params.json"
 
 
+def get_latest_prediction_dependency_mtime() -> float:
+    dependency_paths = [
+        FEATURES_FILE,
+        UPCOMING_FILE,
+        LINE_MOVEMENT_FILE,
+        CALIBRATION_FILE,
+        Path(__file__),
+    ]
+
+    for market_key in ["full_game", "yrfi", "f5", "totals", "run_line"]:
+        market_dir = MODELS_DIR / market_key
+        dependency_paths.extend(
+            [
+                market_dir / "xgb_model.pkl",
+                market_dir / "lgbm_model.pkl",
+                market_dir / "feature_columns.json",
+                market_dir / "metadata.json",
+            ]
+        )
+
+    latest_mtime = 0.0
+    for path in dependency_paths:
+        try:
+            if path.exists():
+                latest_mtime = max(latest_mtime, float(path.stat().st_mtime))
+        except Exception:
+            continue
+
+    return latest_mtime
+
+
 def load_json(path: Path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -108,6 +139,52 @@ def tier_from_conf(conf: int) -> str:
     if conf >= 54:
         return "NORMAL"
     return "PASS"
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        num = float(pd.to_numeric(value, errors="coerce"))
+    except Exception:
+        return float(default)
+    if not np.isfinite(num):
+        return float(default)
+    return float(num)
+
+
+def compute_full_game_publish_policy(feature_row: pd.Series, prob_home: float):
+    confidence = max(float(prob_home), 1.0 - float(prob_home))
+    threshold = 0.56
+
+    both_pitchers_available = _safe_float(feature_row.get("both_pitchers_available", 0.0), 0.0)
+    if both_pitchers_available < 1.0:
+        threshold += 0.05
+
+    pred_side = 1.0 if float(prob_home) >= 0.5 else -1.0
+
+    momentum_penalty = 0.0
+    diff_quality = _safe_float(feature_row.get("diff_pitcher_recent_quality_score", 0.0), 0.0)
+    quality_side = np.sign(diff_quality)
+    quality_conflict = (quality_side * pred_side) < 0
+    if quality_conflict:
+        momentum_penalty += 0.004
+    if quality_conflict and abs(diff_quality) >= 2.0:
+        momentum_penalty += 0.005
+
+    diff_era_trend = _safe_float(feature_row.get("diff_pitcher_era_trend", 0.0), 0.0)
+    if (float(prob_home) >= 0.5 and diff_era_trend > 0.12) or (float(prob_home) < 0.5 and diff_era_trend < -0.12):
+        momentum_penalty += 0.002
+
+    diff_whip_trend = _safe_float(feature_row.get("diff_pitcher_whip_trend", 0.0), 0.0)
+    if (float(prob_home) >= 0.5 and diff_whip_trend > 0.025) or (float(prob_home) < 0.5 and diff_whip_trend < -0.025):
+        momentum_penalty += 0.002
+
+    threshold += min(0.03, momentum_penalty)
+
+    publish = confidence >= threshold
+    if 0.60 <= confidence < 0.62:
+        publish = False
+
+    return bool(publish), float(threshold), float(min(0.03, momentum_penalty))
 
 
 def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
@@ -193,6 +270,11 @@ def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
             "pitcher_r1_allowed_rate_L10": row.get("home_pitcher_r1_allowed_rate_L10", 0),
             "pitcher_r1_allowed_rate_L5": row.get("home_pitcher_r1_allowed_rate_L5", 0),
             "pitcher_f5_runs_allowed_L5": row.get("home_pitcher_f5_runs_allowed_L5", 0),
+            "pitcher_quality_start_rate_L10": row.get("home_pitcher_quality_start_rate_L10", 0),
+            "pitcher_blowup_rate_L10": row.get("home_pitcher_blowup_rate_L10", 0),
+            "pitcher_era_trend": row.get("home_pitcher_era_trend", 0),
+            "pitcher_whip_trend": row.get("home_pitcher_whip_trend", 0),
+            "pitcher_recent_quality_score": row.get("home_pitcher_recent_quality_score", 0),
             "pitcher_team_run_support_L5": row.get("home_pitcher_team_run_support_L5", 0),
             "pitcher_start_win_rate_L10": row.get("home_pitcher_start_win_rate_L10", 0),
 
@@ -262,6 +344,11 @@ def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
             "pitcher_r1_allowed_rate_L10": row.get("away_pitcher_r1_allowed_rate_L10", 0),
             "pitcher_r1_allowed_rate_L5": row.get("away_pitcher_r1_allowed_rate_L5", 0),
             "pitcher_f5_runs_allowed_L5": row.get("away_pitcher_f5_runs_allowed_L5", 0),
+            "pitcher_quality_start_rate_L10": row.get("away_pitcher_quality_start_rate_L10", 0),
+            "pitcher_blowup_rate_L10": row.get("away_pitcher_blowup_rate_L10", 0),
+            "pitcher_era_trend": row.get("away_pitcher_era_trend", 0),
+            "pitcher_whip_trend": row.get("away_pitcher_whip_trend", 0),
+            "pitcher_recent_quality_score": row.get("away_pitcher_recent_quality_score", 0),
             "pitcher_team_run_support_L5": row.get("away_pitcher_team_run_support_L5", 0),
             "pitcher_start_win_rate_L10": row.get("away_pitcher_start_win_rate_L10", 0),
 
@@ -520,6 +607,11 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         "diff_pitcher_r1_allowed_rate_L10": float(home_snap.get("pitcher_r1_allowed_rate_L10", 0)) - float(away_snap.get("pitcher_r1_allowed_rate_L10", 0)),
         "diff_pitcher_r1_allowed_rate_L5": float(home_snap.get("pitcher_r1_allowed_rate_L5", 0)) - float(away_snap.get("pitcher_r1_allowed_rate_L5", 0)),
         "diff_pitcher_f5_runs_allowed_L5": float(home_snap.get("pitcher_f5_runs_allowed_L5", 0)) - float(away_snap.get("pitcher_f5_runs_allowed_L5", 0)),
+        "diff_pitcher_quality_start_rate_L10": float(home_snap.get("pitcher_quality_start_rate_L10", 0)) - float(away_snap.get("pitcher_quality_start_rate_L10", 0)),
+        "diff_pitcher_blowup_rate_L10": float(home_snap.get("pitcher_blowup_rate_L10", 0)) - float(away_snap.get("pitcher_blowup_rate_L10", 0)),
+        "diff_pitcher_era_trend": float(home_snap.get("pitcher_era_trend", 0)) - float(away_snap.get("pitcher_era_trend", 0)),
+        "diff_pitcher_whip_trend": float(home_snap.get("pitcher_whip_trend", 0)) - float(away_snap.get("pitcher_whip_trend", 0)),
+        "diff_pitcher_recent_quality_score": float(home_snap.get("pitcher_recent_quality_score", 0)) - float(away_snap.get("pitcher_recent_quality_score", 0)),
         "diff_pitcher_team_run_support_L5": float(home_snap.get("pitcher_team_run_support_L5", 0)) - float(away_snap.get("pitcher_team_run_support_L5", 0)),
         "diff_pitcher_start_win_rate_L10": float(home_snap.get("pitcher_start_win_rate_L10", 0)) - float(away_snap.get("pitcher_start_win_rate_L10", 0)),
 
@@ -673,6 +765,7 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
         full_game_pick = home_team if fg_preds[i] == 1 else away_team
         full_game_conf = confidence_from_prob(fg_prob_home)
         full_game_score = fuse_with_pattern_score(recommendation_score(fg_prob_home), pattern_edge)
+        full_game_publish_ok, full_game_threshold_effective, full_game_momentum_penalty = compute_full_game_publish_policy(row, fg_prob_home)
 
         f5_pick = home_team if f5_preds[i] == 1 else away_team
         f5_conf = confidence_from_prob(f5_prob_home)
@@ -728,7 +821,10 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
                 "full_game_pattern_edge": round(pattern_edge, 4),
                 "full_game_detected_patterns": mlb_patterns,
                 "full_game_recommended_score": round(full_game_score, 1),
-                "full_game_recommended": bool(full_game_score >= 56.0),
+                "full_game_publish_threshold_effective": round(full_game_threshold_effective, 4),
+                "full_game_momentum_penalty": round(full_game_momentum_penalty, 4),
+                "full_game_action": "JUGAR" if full_game_publish_ok else "PASS",
+                "full_game_recommended": bool(full_game_publish_ok),
 
                 "q1_pick": yrfi_pick,
                 "q1_confidence": yrfi_conf,
@@ -806,6 +902,8 @@ def main():
         schedule_df.get("status_completed", 0), errors="coerce"
     ).fillna(0).astype(int)
 
+    latest_dependency_mtime = get_latest_prediction_dependency_mtime()
+
     total_rows = 0
     total_skipped = 0
 
@@ -824,17 +922,13 @@ def main():
 
         output_path = PREDICTIONS_DIR / f"{date_str}.json"
 
-        # Incremental: skip generation if output exists and is newer than features file
-        try:
-            features_mtime = FEATURES_FILE.stat().st_mtime
-        except Exception:
-            features_mtime = 0
+        # Incremental: skip generation if output is newer than all relevant inputs
         if output_path.exists():
             try:
                 out_mtime = output_path.stat().st_mtime
             except Exception:
                 out_mtime = 0
-            if out_mtime >= features_mtime:
+            if out_mtime >= latest_dependency_mtime:
                 print(f"ℹ️ {date_str}: predicción ya existente y actualizada, se omite")
                 total_skipped += len(skipped)
                 continue
