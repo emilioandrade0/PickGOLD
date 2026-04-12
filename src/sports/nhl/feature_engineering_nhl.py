@@ -460,6 +460,14 @@ def add_matchup_diff_features(df: pd.DataFrame) -> pd.DataFrame:
     df["goal_diff_l10_diff"] = df["home_goal_diff_l10"] - df["away_goal_diff_l10"]
     df["goal_diff_std_l5_diff"] = df["home_goal_diff_std_l5"] - df["away_goal_diff_std_l5"]
 
+    # Explicit differential aliases used by FULL_GAME V2 selectors.
+    df["fg_form_diff"] = df["win_rate_l5_diff"]
+    df["fg_form_long_diff"] = df["win_rate_l10_diff"]
+    df["fg_scoring_diff"] = df["goals_scored_l5_diff"] - df["goals_allowed_l5_diff"]
+    df["fg_scoring_long_diff"] = df["goals_scored_l10_diff"] - df["goals_allowed_l10_diff"]
+    df["fg_rest_diff"] = df["rest_days_diff"]
+    df["fg_volatility_diff"] = df["goal_diff_std_l5_diff"]
+
     if "home_goalie_goals_allowed_l5" in df.columns and "away_goalie_goals_allowed_l5" in df.columns:
         df["goalie_goals_allowed_l3_diff"] = df["home_goalie_goals_allowed_l3"] - df["away_goalie_goals_allowed_l3"]
         df["goalie_goals_allowed_l5_diff"] = df["home_goalie_goals_allowed_l5"] - df["away_goalie_goals_allowed_l5"]
@@ -475,6 +483,13 @@ def add_matchup_diff_features(df: pd.DataFrame) -> pd.DataFrame:
         df["both_goalies_confirmed"] = (
             (df["home_goalie_confirmed"] > 0) & (df["away_goalie_confirmed"] > 0)
         ).astype(int)
+
+        df["fg_goalie_diff"] = (
+            1.10 * df["goalie_win_rate_l5_diff"]
+            + 0.55 * df["goalie_win_rate_l10_diff"]
+            - 0.85 * df["goalie_goals_allowed_l5_diff"]
+            + 0.08 * df["goalie_experience_diff"]
+        )
     else:
         df["goalie_goals_allowed_l3_diff"] = 0.0
         df["goalie_goals_allowed_l5_diff"] = 0.0
@@ -486,6 +501,7 @@ def add_matchup_diff_features(df: pd.DataFrame) -> pd.DataFrame:
         df["goalie_experience_diff"] = 0.0
         df["both_goalies_found"] = 0
         df["both_goalies_confirmed"] = 0
+        df["fg_goalie_diff"] = 0.0
 
     return df
 
@@ -589,6 +605,10 @@ def add_full_game_signal_features(df: pd.DataFrame) -> pd.DataFrame:
         + 0.02 * df["fg_form_x_schedule"]
     )
 
+    # Explicit aliases requested for model interpretability and selective training.
+    df["fg_strength_diff"] = df["fg_team_strength_gap_long"]
+    df["fg_strength_x_goalie_diff"] = df["fg_strength_x_goalie"]
+
     abs_signal = df["fg_signal_total"].abs().fillna(0)
     threshold = float(abs_signal.quantile(0.35)) if len(abs_signal) else 0.0
     df["fg_coinflip_flag"] = (abs_signal < threshold).astype(int)
@@ -644,8 +664,14 @@ def add_moneyline_odds_features(df: pd.DataFrame) -> pd.DataFrame:
     # Blend model form signal with market signal to stabilize coinflip games.
     if "fg_signal_total" in df.columns:
         df["fg_x_market_prob_gap"] = df["fg_signal_total"] * df["ml_prob_gap_no_vig"]
+        df["fg_market_vs_model_gap"] = df["ml_prob_gap_no_vig"] - (df["fg_signal_total"] / 100.0)
     else:
         df["fg_x_market_prob_gap"] = 0.0
+        df["fg_market_vs_model_gap"] = 0.0
+
+    df["fg_market_edge"] = df["ml_prob_gap_no_vig"]
+    df["fg_market_favorite_flag"] = df["ml_home_is_favorite_market"].astype(float)
+    df["fg_market_confidence"] = df["ml_prob_gap_no_vig"].abs()
 
     return df
 

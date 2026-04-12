@@ -33,6 +33,8 @@ RAW_DATA_DIR = BASE_DIR / "data" / "mlb" / "raw"
 RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR = BASE_DIR / "data" / "mlb" / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+WEATHER_CACHE_DIR = CACHE_DIR / "weather"
+WEATHER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 FILE_PATH_ADVANCED = RAW_DATA_DIR / "mlb_advanced_history.csv"
 FILE_PATH_UPCOMING = RAW_DATA_DIR / "mlb_upcoming_schedule.csv"
@@ -47,6 +49,9 @@ EXTERNAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 USE_PITCHER_CACHE = True
 ONLY_ENRICH_MISSING_PITCHERS = True
 MAX_ENRICH_ROWS_PER_RUN = None   # prueba rápida: 500
+FORCE_CONTEXT_BACKFILL = os.getenv("NBA_MLB_FORCE_CONTEXT_BACKFILL", "0").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 REQUEST_SLEEP_SECONDS = 0.01
 SUMMARY_TIMEOUT = 20
 REQUEST_RETRIES = 3
@@ -69,6 +74,12 @@ CORE_ODDS_URL = (
     "https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/"
     "events/{event_id}/competitions/{competition_id}/odds"
 )
+MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
+MLB_BOXSCORE_URL = "https://statsapi.mlb.com/api/v1.1/game/{game_pk}/boxscore"
+MLB_FEED_URL = "https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
+
+_MLB_SCHEDULE_CACHE = {}
+_MLB_SCHEDULE_LOCK = threading.Lock()
 
 
 # =========================
@@ -126,6 +137,262 @@ def safe_str(value, default=""):
         return str(value).strip()
     except Exception:
         return default
+
+
+def _is_missing_value(value) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        s = safe_str(value).strip().lower()
+        return s in {"", "nan", "none", "null", "na", "n/a", "0"}
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
+
+
+def _normalize_team_abbr_for_mlb_api(team: str) -> str:
+    t = safe_str(team).upper()
+    mapping = {
+        "CHW": "CWS",
+        "WSN": "WSH",
+        "SDP": "SD",
+        "SFG": "SF",
+        "TBD": "TB",
+        "KCR": "KC",
+        "ANA": "LAA",
+    }
+    return mapping.get(t, t)
+
+
+def _weather_cache_path(date_str: str, team: str) -> Path:
+    safe = re.sub(r"[^a-z0-9]+", "_", f"{safe_str(date_str)}_{safe_str(team).lower()}").strip("_")
+    return WEATHER_CACHE_DIR / f"{safe}.json"
+
+
+def save_weather_cache(date_str: str, team: str, data: dict):
+    if not date_str or not team or not isinstance(data, dict):
+        return
+
+    payload = {}
+    for src_key, dst_key in [("temp", "temp"), ("wind", "wind"), ("humidity", "humidity"), ("condition", "condition")]:
+        v = data.get(src_key)
+        if isinstance(v, float) and math.isnan(v):
+            continue
+        if v not in [None, ""]:
+            payload[dst_key] = v
+
+    if not payload:
+        return
+
+    try:
+        pd.Series(payload).to_json(_weather_cache_path(date_str, team), force_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _parse_numeric_text(value) -> float:
+    if value is None:
+        return np.nan
+    try:
+        txt = str(value).replace(",", "")
+        m = re.search(r"-?\d+(?:\.\d+)?", txt)
+        if not m:
+            return np.nan
+        return float(m.group(0))
+    except Exception:
+        return np.nan
+
+
+def _extract_venue_fields(venue_obj) -> dict:
+    venue_obj = venue_obj if isinstance(venue_obj, dict) else {}
+    address = venue_obj.get("address") if isinstance(venue_obj.get("address"), dict) else {}
+
+    indoor_raw = venue_obj.get("indoor")
+    if isinstance(indoor_raw, bool):
+        indoor_value = int(indoor_raw)
+    elif safe_str(indoor_raw).lower() in {"true", "1", "yes"}:
+        indoor_value = 1
+    elif safe_str(indoor_raw).lower() in {"false", "0", "no"}:
+        indoor_value = 0
+    else:
+        indoor_value = np.nan
+
+    return {
+        "venue_name": safe_str(venue_obj.get("fullName") or venue_obj.get("shortName")),
+        "venue_id": safe_str(venue_obj.get("id")),
+        "venue_city": safe_str(address.get("city")),
+        "venue_state": safe_str(address.get("state")),
+        "venue_indoor": indoor_value,
+    }
+
+
+def _extract_weather_fields(weather_obj) -> dict:
+    weather_obj = weather_obj if isinstance(weather_obj, dict) else {}
+    out = {
+        "weather_temp": np.nan,
+        "weather_wind": np.nan,
+        "weather_humidity": np.nan,
+        "weather_condition": "",
+    }
+
+    temp = _parse_numeric_text(weather_obj.get("temperature"))
+    if np.isnan(temp):
+        temp = _parse_numeric_text(weather_obj.get("temp"))
+    if np.isnan(temp):
+        txt = " ".join(
+            [
+                safe_str(weather_obj.get("displayValue")),
+                safe_str(weather_obj.get("shortDisplayValue")),
+                safe_str(weather_obj.get("description")),
+                safe_str(weather_obj.get("condition")),
+            ]
+        )
+        m = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:deg|°|f|c)\b", txt, flags=re.IGNORECASE)
+        if m:
+            temp = _parse_numeric_text(m.group(1))
+
+    wind = _parse_numeric_text(weather_obj.get("windSpeed"))
+    if np.isnan(wind):
+        wind = _parse_numeric_text(weather_obj.get("wind"))
+    if np.isnan(wind):
+        txt = " ".join(
+            [
+                safe_str(weather_obj.get("displayValue")),
+                safe_str(weather_obj.get("shortDisplayValue")),
+                safe_str(weather_obj.get("description")),
+            ]
+        )
+        m = re.search(r"(\d+(?:\.\d+)?)\s*(?:mph|kph|km\/h)", txt, flags=re.IGNORECASE)
+        if m:
+            wind = _parse_numeric_text(m.group(1))
+
+    humidity = _parse_numeric_text(weather_obj.get("humidity"))
+    if np.isnan(humidity):
+        txt = " ".join(
+            [
+                safe_str(weather_obj.get("displayValue")),
+                safe_str(weather_obj.get("shortDisplayValue")),
+                safe_str(weather_obj.get("description")),
+            ]
+        )
+        m = re.search(r"(\d+(?:\.\d+)?)\s*%", txt)
+        if m:
+            humidity = _parse_numeric_text(m.group(1))
+
+    out["weather_temp"] = temp
+    out["weather_wind"] = wind
+    out["weather_humidity"] = humidity
+    out["weather_condition"] = safe_str(
+        weather_obj.get("condition")
+        or weather_obj.get("description")
+        or weather_obj.get("displayValue")
+    )
+    return out
+
+
+def _extract_home_plate_umpire_from_officials(officials_obj) -> str:
+    officials = officials_obj if isinstance(officials_obj, list) else []
+    for official in officials:
+        if not isinstance(official, dict):
+            continue
+
+        position = official.get("position")
+        if isinstance(position, dict):
+            role = safe_str(position.get("displayName") or position.get("name") or position.get("abbreviation")).lower()
+        else:
+            role = safe_str(position).lower()
+        role = role or safe_str(official.get("type") or official.get("role") or official.get("displayPosition")).lower()
+
+        name = safe_str(official.get("displayName") or official.get("fullName") or official.get("name"))
+        if not name and isinstance(official.get("athlete"), dict):
+            athlete = official.get("athlete")
+            name = safe_str(athlete.get("displayName") or athlete.get("fullName") or athlete.get("name"))
+
+        if "home plate" in role and name:
+            return name
+
+    return ""
+
+
+def _extract_game_context_from_summary(summary_json: dict) -> dict:
+    out = {
+        "home_plate_umpire": "",
+        "venue_name": "",
+        "venue_id": "",
+        "venue_city": "",
+        "venue_state": "",
+        "venue_indoor": np.nan,
+        "weather_temp": np.nan,
+        "weather_wind": np.nan,
+        "weather_humidity": np.nan,
+        "weather_condition": "",
+    }
+    if not isinstance(summary_json, dict):
+        return out
+
+    game_info = summary_json.get("gameInfo")
+    if isinstance(game_info, dict):
+        out.update(_extract_venue_fields(game_info.get("venue")))
+        out.update(_extract_weather_fields(game_info.get("weather")))
+        ump = _extract_home_plate_umpire_from_officials(game_info.get("officials"))
+        if ump:
+            out["home_plate_umpire"] = ump
+
+    comps = summary_json.get("header", {}).get("competitions", [])
+    if isinstance(comps, list) and comps and isinstance(comps[0], dict):
+        comp = comps[0]
+        if not out.get("venue_name"):
+            out.update({k: v for k, v in _extract_venue_fields(comp.get("venue")).items() if v not in ["", None]})
+        comp_weather = _extract_weather_fields(comp.get("weather"))
+        for k in ["weather_temp", "weather_wind", "weather_humidity", "weather_condition"]:
+            v = comp_weather.get(k)
+            if k == "weather_condition":
+                if not out.get(k) and safe_str(v):
+                    out[k] = v
+            else:
+                if (isinstance(out.get(k), float) and np.isnan(out.get(k))) and not (isinstance(v, float) and np.isnan(v)):
+                    out[k] = v
+        if not out.get("home_plate_umpire"):
+            ump = _extract_home_plate_umpire_from_officials(comp.get("officials"))
+            if ump:
+                out["home_plate_umpire"] = ump
+
+    return out
+
+
+def _weather_payload_from_row(row: dict) -> dict:
+    payload = {}
+    t = safe_float(row.get("weather_temp"), np.nan)
+    w = safe_float(row.get("weather_wind"), np.nan)
+    h = safe_float(row.get("weather_humidity"), np.nan)
+    c = safe_str(row.get("weather_condition"))
+    if not np.isnan(t):
+        payload["temp"] = float(t)
+    if not np.isnan(w):
+        payload["wind"] = float(w)
+    if not np.isnan(h):
+        payload["humidity"] = float(h)
+    if c:
+        payload["condition"] = c
+    return payload
+
+
+def persist_weather_cache_from_row(row: dict):
+    date_str = safe_str(row.get("date"))
+    home_team = safe_str(row.get("home_team"))
+    if not date_str or not home_team:
+        return
+    payload = _weather_payload_from_row(row)
+    if payload:
+        save_weather_cache(date_str, home_team, payload)
+
+
+def has_min_context_fields(row: dict) -> bool:
+    venue_ok = not _is_missing_value(row.get("venue_name"))
+    ump_ok = not _is_missing_value(row.get("home_plate_umpire"))
+    # Weather can legitimately be absent in some historical summaries.
+    return venue_ok and ump_ok
 
 
 def normalize_pitcher_name(name: str) -> str:
@@ -485,6 +752,9 @@ def parse_event_to_row(event: dict, season: str | None = None):
     game_time = (dt_utc - timedelta(hours=5)).strftime("%H:%M")
 
     attendance = comp.get("attendance", 0)
+    venue_info = _extract_venue_fields(comp.get("venue"))
+    weather_info = _extract_weather_fields(comp.get("weather"))
+    home_plate_umpire = _extract_home_plate_umpire_from_officials(comp.get("officials"))
 
     odds = comp.get("odds", [{}])
     odds = odds[0] if odds else {}
@@ -554,6 +824,16 @@ def parse_event_to_row(event: dict, season: str | None = None):
         "away_runs_f5": away_runs_f5,
 
         "attendance": attendance,
+        "venue_name": venue_info.get("venue_name", ""),
+        "venue_id": venue_info.get("venue_id", ""),
+        "venue_city": venue_info.get("venue_city", ""),
+        "venue_state": venue_info.get("venue_state", ""),
+        "venue_indoor": venue_info.get("venue_indoor", np.nan),
+        "home_plate_umpire": home_plate_umpire,
+        "weather_temp": weather_info.get("weather_temp", np.nan),
+        "weather_wind": weather_info.get("weather_wind", np.nan),
+        "weather_humidity": weather_info.get("weather_humidity", np.nan),
+        "weather_condition": weather_info.get("weather_condition", ""),
         "odds_details": odds_details,
         "odds_over_under": over_under,
         **market_odds_fields,
@@ -721,24 +1001,109 @@ def save_external_cache(game_id: str, data: dict):
         pass
 
 
-def fetch_from_mlb_stats_api_if_possible(game_id: str):
-    # Best-effort: some game IDs contain numeric gamePk usable with MLB stats API
+def _fetch_mlb_schedule_for_date(date_str: str):
+    d = safe_str(date_str)[:10]
+    if not d:
+        return []
+
+    with _MLB_SCHEDULE_LOCK:
+        if d in _MLB_SCHEDULE_CACHE:
+            return _MLB_SCHEDULE_CACHE[d]
+
+    url = f"{MLB_SCHEDULE_URL}?sportId=1&date={d}"
+    resp = requests_with_retry(url, timeout=12)
+    games = []
+    if resp is not None:
+        try:
+            payload = resp.json() or {}
+            dates = payload.get("dates") if isinstance(payload.get("dates"), list) else []
+            if dates and isinstance(dates[0], dict):
+                for game in dates[0].get("games", []):
+                    if not isinstance(game, dict):
+                        continue
+                    teams = game.get("teams") if isinstance(game.get("teams"), dict) else {}
+                    home = teams.get("home") if isinstance(teams.get("home"), dict) else {}
+                    away = teams.get("away") if isinstance(teams.get("away"), dict) else {}
+                    home_team = home.get("team") if isinstance(home.get("team"), dict) else {}
+                    away_team = away.get("team") if isinstance(away.get("team"), dict) else {}
+
+                    games.append(
+                        {
+                            "game_pk": safe_str(game.get("gamePk")),
+                            "home_abbr": _normalize_team_abbr_for_mlb_api(home_team.get("abbreviation")),
+                            "away_abbr": _normalize_team_abbr_for_mlb_api(away_team.get("abbreviation")),
+                        }
+                    )
+        except Exception:
+            games = []
+
+    with _MLB_SCHEDULE_LOCK:
+        _MLB_SCHEDULE_CACHE[d] = games
+    return games
+
+
+def _resolve_mlb_game_pk(date_str: str, home_abbr: str, away_abbr: str) -> str:
+    d = safe_str(date_str)[:10]
+    h = _normalize_team_abbr_for_mlb_api(home_abbr)
+    a = _normalize_team_abbr_for_mlb_api(away_abbr)
+    if not d or not h or not a:
+        return ""
+
+    games = _fetch_mlb_schedule_for_date(d)
+    for g in games:
+        if safe_str(g.get("home_abbr")).upper() == h and safe_str(g.get("away_abbr")).upper() == a:
+            return safe_str(g.get("game_pk"))
+    return ""
+
+
+def fetch_from_mlb_stats_api_if_possible(
+    game_id: str,
+    date_str: str = "",
+    home_abbr: str = "",
+    away_abbr: str = "",
+):
+    # Best-effort: try direct numeric gamePk and date/team resolution.
+    candidates = []
     try:
         gid_numeric = int(re.sub(r"[^0-9]", "", safe_str(game_id)))
+        if gid_numeric > 0:
+            candidates.append(str(gid_numeric))
     except Exception:
+        pass
+
+    resolved_pk = _resolve_mlb_game_pk(date_str=date_str, home_abbr=home_abbr, away_abbr=away_abbr)
+    if resolved_pk and resolved_pk not in candidates:
+        candidates.append(resolved_pk)
+
+    if not candidates:
         return None
 
-    base = f"https://statsapi.mlb.com/api/v1.1/game/{gid_numeric}/boxscore"
-    resp = requests_with_retry(base, timeout=10)
-    if resp is None:
-        return None
-    try:
-        data = resp.json() or {}
-        payload = {"mlb_boxscore": data}
+    for game_pk in candidates:
+        payload = {"mlb_game_pk": safe_str(game_pk)}
+
+        box_url = MLB_BOXSCORE_URL.format(game_pk=game_pk)
+        box_resp = requests_with_retry(box_url, timeout=12)
+        if box_resp is not None:
+            try:
+                payload["mlb_boxscore"] = box_resp.json() or {}
+            except Exception:
+                pass
+
+        feed_url = MLB_FEED_URL.format(game_pk=game_pk)
+        feed_resp = requests_with_retry(feed_url, timeout=12)
+        if feed_resp is not None:
+            try:
+                payload["mlb_feed_live"] = feed_resp.json() or {}
+            except Exception:
+                pass
+
+        if not payload.get("mlb_boxscore") and not payload.get("mlb_feed_live"):
+            continue
+
         save_external_cache(game_id, payload)
         return payload
-    except Exception:
-        return None
+
+    return None
 
 
 def get_pitcher_cache_path(game_id: str) -> Path:
@@ -1256,6 +1621,70 @@ def _extract_pitchers_from_mlb_payload(payload: dict, home_abbr: str, away_abbr:
     return out
 
 
+def _extract_game_context_from_mlb_payload(payload: dict) -> dict:
+    out = {
+        "home_plate_umpire": "",
+        "venue_name": "",
+        "venue_id": "",
+        "venue_city": "",
+        "venue_state": "",
+        "venue_indoor": np.nan,
+        "weather_temp": np.nan,
+        "weather_wind": np.nan,
+        "weather_humidity": np.nan,
+        "weather_condition": "",
+    }
+    if not isinstance(payload, dict):
+        return out
+
+    feed = payload.get("mlb_feed_live") if isinstance(payload.get("mlb_feed_live"), dict) else {}
+    box = payload.get("mlb_boxscore") if isinstance(payload.get("mlb_boxscore"), dict) else {}
+
+    game_data = feed.get("gameData") if isinstance(feed.get("gameData"), dict) else {}
+    live_data = feed.get("liveData") if isinstance(feed.get("liveData"), dict) else {}
+    live_box = live_data.get("boxscore") if isinstance(live_data.get("boxscore"), dict) else {}
+
+    venue = game_data.get("venue") if isinstance(game_data.get("venue"), dict) else {}
+    if venue:
+        out["venue_name"] = safe_str(venue.get("name"))
+        out["venue_id"] = safe_str(venue.get("id"))
+        loc = venue.get("location") if isinstance(venue.get("location"), dict) else {}
+        out["venue_city"] = safe_str(loc.get("city"))
+        out["venue_state"] = safe_str(loc.get("stateAbbrev") or loc.get("state"))
+
+    weather = game_data.get("weather") if isinstance(game_data.get("weather"), dict) else {}
+    if weather:
+        out["weather_temp"] = _parse_numeric_text(weather.get("temp"))
+        out["weather_wind"] = _parse_numeric_text(weather.get("wind"))
+        out["weather_condition"] = safe_str(weather.get("condition"))
+
+    officials = live_box.get("officials") if isinstance(live_box.get("officials"), list) else []
+    for official in officials:
+        if not isinstance(official, dict):
+            continue
+        role = safe_str(official.get("officialType")).lower()
+        official_obj = official.get("official") if isinstance(official.get("official"), dict) else {}
+        name = safe_str(official_obj.get("fullName") or official_obj.get("name"))
+        if "home plate" in role and name:
+            out["home_plate_umpire"] = name
+            break
+
+    # Backup from boxscore officials if needed
+    if not out["home_plate_umpire"]:
+        officials_alt = box.get("officials") if isinstance(box.get("officials"), list) else []
+        for official in officials_alt:
+            if not isinstance(official, dict):
+                continue
+            role = safe_str(official.get("officialType")).lower()
+            official_obj = official.get("official") if isinstance(official.get("official"), dict) else {}
+            name = safe_str(official_obj.get("fullName") or official_obj.get("name"))
+            if "home plate" in role and name:
+                out["home_plate_umpire"] = name
+                break
+
+    return out
+
+
 # =========================
 # HISTORICAL ENRICHMENT
 # =========================
@@ -1295,6 +1724,8 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                 pitcher_ready = pitcher_ready and stats_flag == 1
             market_ready = (market_quality == "real") or (not recent_market_candidate)
             should_enrich = not (pitcher_ready and market_ready)
+        if FORCE_CONTEXT_BACKFILL:
+            should_enrich = should_enrich or (not has_min_context_fields(row))
 
         if should_enrich:
             target_rows.append(row)
@@ -1310,6 +1741,8 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
     print(f"   Total rows en dataset     : {total}")
     print(f"   Ya completos / omitidos   : {skipped_ready}")
     print(f"   Pendientes por enriquecer : {pending_total}")
+    if FORCE_CONTEXT_BACKFILL:
+        print("   Context backfill forzado : ON (venue + home_plate_umpire faltantes)")
 
     if pending_total == 0:
         print("   ✅ No hay juegos pendientes de enriquecer.")
@@ -1349,7 +1782,10 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                 and row_market_quality != "real"
                 and cached_market_quality != "real"
             )
-            if needs_stats_refresh or needs_market_refresh:
+            needs_context_refresh = False
+            if FORCE_CONTEXT_BACKFILL and (not has_min_context_fields(row)):
+                needs_context_refresh = not has_min_context_fields(pitcher_info)
+            if needs_stats_refresh or needs_market_refresh or needs_context_refresh:
                 pitcher_info = None
 
         if pitcher_info is not None:
@@ -1372,6 +1808,16 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                         competition_id=safe_str(row.get("competition_id") or game_id),
                     )
                 )
+                pitcher_info.update(_extract_game_context_from_summary(summary_json))
+                if FORCE_CONTEXT_BACKFILL and (not has_min_context_fields(pitcher_info)):
+                    mlb_payload = fetch_from_mlb_stats_api_if_possible(
+                        game_id=game_id,
+                        date_str=safe_str(row.get("date")),
+                        home_abbr=safe_str(row.get("home_team")),
+                        away_abbr=safe_str(row.get("away_team")),
+                    )
+                    if mlb_payload:
+                        pitcher_info.update(_extract_game_context_from_mlb_payload(mlb_payload))
                 save_pitcher_cache(game_id, pitcher_info)
                 stats["api_hit"] = 1
             else:
@@ -1380,16 +1826,25 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                     pitcher_info = _extract_pitchers_from_mlb_payload(
                         external, safe_str(row.get("home_team")), safe_str(row.get("away_team"))
                     )
-                    if pitcher_info and pitcher_info.get("pitcher_data_available", 0):
+                    pitcher_info.update(_extract_game_context_from_mlb_payload(external))
+                    has_context = has_min_context_fields(pitcher_info)
+                    if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context):
                         save_pitcher_cache(game_id, pitcher_info)
                         stats["api_hit"] = 1
                     else:
-                        mlb_payload = fetch_from_mlb_stats_api_if_possible(game_id)
+                        mlb_payload = fetch_from_mlb_stats_api_if_possible(
+                            game_id=game_id,
+                            date_str=safe_str(row.get("date")),
+                            home_abbr=safe_str(row.get("home_team")),
+                            away_abbr=safe_str(row.get("away_team")),
+                        )
                         if mlb_payload:
                             pitcher_info = _extract_pitchers_from_mlb_payload(
                                 mlb_payload, safe_str(row.get("home_team")), safe_str(row.get("away_team"))
                             )
-                            if pitcher_info and pitcher_info.get("pitcher_data_available", 0):
+                            pitcher_info.update(_extract_game_context_from_mlb_payload(mlb_payload))
+                            has_context = has_min_context_fields(pitcher_info)
+                            if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context):
                                 save_pitcher_cache(game_id, pitcher_info)
                                 stats["api_hit"] = 1
                             else:
@@ -1400,18 +1855,44 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                             pitcher_info = {}
                             save_pitcher_cache(game_id, pitcher_info)
                             stats["api_miss"] = 1
+                else:
+                    mlb_payload = fetch_from_mlb_stats_api_if_possible(
+                        game_id=game_id,
+                        date_str=safe_str(row.get("date")),
+                        home_abbr=safe_str(row.get("home_team")),
+                        away_abbr=safe_str(row.get("away_team")),
+                    )
+                    if mlb_payload:
+                        pitcher_info = _extract_pitchers_from_mlb_payload(
+                            mlb_payload, safe_str(row.get("home_team")), safe_str(row.get("away_team"))
+                        )
+                        pitcher_info.update(_extract_game_context_from_mlb_payload(mlb_payload))
+                        has_context = has_min_context_fields(pitcher_info)
+                        if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context):
+                            save_pitcher_cache(game_id, pitcher_info)
+                            stats["api_hit"] = 1
+                        else:
+                            pitcher_info = {}
+                            save_pitcher_cache(game_id, pitcher_info)
+                            stats["api_miss"] = 1
+                    else:
+                        pitcher_info = {}
+                        save_pitcher_cache(game_id, pitcher_info)
+                        stats["api_miss"] = 1
 
             time.sleep(REQUEST_SLEEP_SECONDS)
 
         if pitcher_info:
             for k, v in pitcher_info.items():
                 is_nan_float = isinstance(v, float) and np.isnan(v)
-                if k not in row or (v not in ["", None] and not is_nan_float):
+                row_has_value = (k in row) and (not _is_missing_value(row.get(k)))
+                if (not row_has_value) and (v not in ["", None] and not is_nan_float):
                     row[k] = v
 
         stats["found_name"] = int(bool(safe_str(row.get("home_starting_pitcher"))) and bool(safe_str(row.get("away_starting_pitcher"))))
         stats_flag = pd.to_numeric(row.get("pitcher_stats_available", 0), errors="coerce")
         stats["found_stats"] = int((not pd.isna(stats_flag)) and float(stats_flag) >= 1.0)
+        persist_weather_cache_from_row(row)
         return row, stats
 
     results = []

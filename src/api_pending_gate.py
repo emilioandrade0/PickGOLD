@@ -1851,7 +1851,43 @@ def merge_result_hints_from_historical(events: list, historical_file: Path):
         item = dict(event)
         game_id = str(item.get("game_id", "")).strip()
         hist = by_game_id.get(game_id)
-        if hist:
+        state = str(item.get("status_state") or "").strip().lower()
+        completed = int(item.get("status_completed", 0) or 0)
+        status_description = str(item.get("status_description") or "").strip().lower()
+        status_detail = str(item.get("status_detail") or "").strip().lower()
+        status_text = f"{status_description} {status_detail}".strip()
+        non_final_states = {
+            "pre",
+            "in",
+            "live",
+            "in_progress",
+            "inprogress",
+            "status_in_progress",
+            "halftime",
+            "mid",
+            "scheduled",
+            "not_started",
+            "ns",
+        }
+        has_live_hint = any(
+            token in status_text
+            for token in (
+                "in progress",
+                "en vivo",
+                "live",
+                "q1",
+                "q2",
+                "q3",
+                "q4",
+                "quarter",
+                "halftime",
+                "top",
+                "bot",
+            )
+        )
+        should_skip_hints = completed != 1 and (state in non_final_states or has_live_hint)
+
+        if hist and not should_skip_hints:
             for key in result_keys:
                 if item.get(key) is None and hist.get(key) is not None:
                     item[key] = hist.get(key)

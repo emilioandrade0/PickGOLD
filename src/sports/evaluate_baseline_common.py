@@ -497,6 +497,84 @@ def _evaluate_nhl_markets(base_dir: Path, label: str, raw_path: Path, pred_dir: 
         "home_over": [0, 0],
     }
     tiers = {}
+    consensus_ml = {
+        "STRONG": [0, 0],
+        "NEUTRAL": [0, 0],
+        "WEAK": [0, 0],
+    }
+    meta_bucket_ml = {
+        "ELITE": [0, 0],
+        "STRONG": [0, 0],
+        "NORMAL": [0, 0],
+        "LOW": [0, 0],
+    }
+    meta_range_ml = {
+        ">=0.66": [0, 0],
+        "0.60-0.66": [0, 0],
+        "0.55-0.60": [0, 0],
+        "<0.55": [0, 0],
+        "missing": [0, 0],
+    }
+    market_alignment_ml = {
+        "aligned": [0, 0],
+        "neutral": [0, 0],
+        "conflicted": [0, 0],
+    }
+
+    def _safe_prob(value):
+        try:
+            out = float(value)
+        except Exception:
+            return None
+        if out != out:
+            return None
+        if out < 0.0 or out > 1.0:
+            return None
+        return out
+
+    def _resolve_meta_score(row):
+        score = _safe_prob(row.get("full_game_meta_score"))
+        if score is not None:
+            return score
+        conf = row.get("full_game_meta_confidence")
+        try:
+            conf_f = float(conf)
+        except Exception:
+            return None
+        if conf_f != conf_f:
+            return None
+        if conf_f > 1.0:
+            conf_f = conf_f / 100.0
+        if conf_f < 0.0 or conf_f > 1.0:
+            return None
+        return conf_f
+
+    def _resolve_meta_bucket(row):
+        bucket = str(row.get("full_game_meta_bucket", "") or "").strip().upper()
+        if bucket in meta_bucket_ml:
+            return bucket
+        score = _resolve_meta_score(row)
+        if score is None:
+            return "LOW"
+        if score >= 0.67:
+            return "ELITE"
+        if score >= 0.60:
+            return "STRONG"
+        if score >= 0.55:
+            return "NORMAL"
+        return "LOW"
+
+    def _resolve_meta_range(row):
+        score = _resolve_meta_score(row)
+        if score is None:
+            return "missing"
+        if score >= 0.66:
+            return ">=0.66"
+        if score >= 0.60:
+            return "0.60-0.66"
+        if score >= 0.55:
+            return "0.55-0.60"
+        return "<0.55"
 
     for jf in json_files:
         rows = _safe_rows_from_json(jf)
@@ -513,6 +591,26 @@ def _evaluate_nhl_markets(base_dir: Path, label: str, raw_path: Path, pred_dir: 
                     tiers[tier] = [0, 0]
                 tiers[tier][1] += 1
                 tiers[tier][0] += int(ml_hit)
+
+                consensus_key = str(r.get("consensus_signal", "NEUTRAL") or "NEUTRAL").strip().upper()
+                if consensus_key not in consensus_ml:
+                    consensus_ml[consensus_key] = [0, 0]
+                consensus_ml[consensus_key][1] += 1
+                consensus_ml[consensus_key][0] += int(ml_hit)
+
+                meta_bucket_key = _resolve_meta_bucket(r)
+                meta_bucket_ml[meta_bucket_key][1] += 1
+                meta_bucket_ml[meta_bucket_key][0] += int(ml_hit)
+
+                meta_range_key = _resolve_meta_range(r)
+                meta_range_ml[meta_range_key][1] += 1
+                meta_range_ml[meta_range_key][0] += int(ml_hit)
+
+                align_key = str(r.get("market_ml_alignment", "neutral") or "neutral").strip().lower()
+                if align_key not in market_alignment_ml:
+                    align_key = "neutral"
+                market_alignment_ml[align_key][1] += 1
+                market_alignment_ml[align_key][0] += int(ml_hit)
 
             spread_hit = _to_bool(r.get("correct_spread"))
             if spread_hit is not None:
@@ -571,6 +669,67 @@ def _evaluate_nhl_markets(base_dir: Path, label: str, raw_path: Path, pred_dir: 
         h, t = tiers[tier_name]
         tier_acc = (100.0 * h / t) if t > 0 else 0.0
         print(f"   {tier_name.ljust(8)} : {tier_acc:.2f}% ({h}/{t})")
+
+    print("-" * 66)
+    print("ACCURACY MONEYLINE POR CONSENSUS_SIGNAL")
+    for signal_name in ["STRONG", "NEUTRAL", "WEAK"]:
+        h, t = consensus_ml.get(signal_name, [0, 0])
+        p = _pct(h, t)
+        if p is None:
+            print(f"   {signal_name.ljust(8)} : N/A")
+        else:
+            print(f"   {signal_name.ljust(8)} : {p:.2f}% ({h}/{t})")
+
+    extra_signals = sorted(
+        signal for signal in consensus_ml.keys() if signal not in {"STRONG", "NEUTRAL", "WEAK"}
+    )
+    for signal_name in extra_signals:
+        h, t = consensus_ml[signal_name]
+        p = _pct(h, t)
+        if p is None:
+            print(f"   {signal_name.ljust(8)} : N/A")
+        else:
+            print(f"   {signal_name.ljust(8)} : {p:.2f}% ({h}/{t})")
+
+    strong_h, strong_t = consensus_ml.get("STRONG", [0, 0])
+    if strong_t > 0 and counters["ml"][1] > 0:
+        strong_acc = 100.0 * strong_h / strong_t
+        global_acc = 100.0 * counters["ml"][0] / counters["ml"][1]
+        print(f"   DELTA STRONG vs GLOBAL: {strong_acc - global_acc:+.2f} pp")
+
+    print("-" * 66)
+    print("FULL_GAME META BUCKETS (MONEYLINE)")
+    global_ml_total = counters["ml"][1]
+    for bucket_name in ["ELITE", "STRONG", "NORMAL", "LOW"]:
+        h, t = meta_bucket_ml[bucket_name]
+        p = _pct(h, t)
+        if p is None:
+            print(f"   {bucket_name.ljust(8)} : N/A")
+            continue
+        coverage = (100.0 * t / global_ml_total) if global_ml_total > 0 else 0.0
+        print(f"   {bucket_name.ljust(8)} : {p:.2f}% ({h}/{t}) | Cobertura {coverage:.2f}%")
+
+    print("-" * 66)
+    print("FULL_GAME META SCORE RANGES (MONEYLINE)")
+    for range_name in [">=0.66", "0.60-0.66", "0.55-0.60", "<0.55", "missing"]:
+        h, t = meta_range_ml[range_name]
+        p = _pct(h, t)
+        if p is None:
+            print(f"   {range_name.ljust(10)} : N/A")
+            continue
+        coverage = (100.0 * t / global_ml_total) if global_ml_total > 0 else 0.0
+        print(f"   {range_name.ljust(10)} : {p:.2f}% ({h}/{t}) | Cobertura {coverage:.2f}%")
+
+    print("-" * 66)
+    print("MARKET ML ALIGNMENT (MONEYLINE)")
+    for align_name in ["aligned", "neutral", "conflicted"]:
+        h, t = market_alignment_ml[align_name]
+        p = _pct(h, t)
+        if p is None:
+            print(f"   {align_name.upper().ljust(10)} : N/A")
+            continue
+        coverage = (100.0 * t / global_ml_total) if global_ml_total > 0 else 0.0
+        print(f"   {align_name.upper().ljust(10)} : {p:.2f}% ({h}/{t}) | Cobertura {coverage:.2f}%")
     print("=" * 66)
     return True
 

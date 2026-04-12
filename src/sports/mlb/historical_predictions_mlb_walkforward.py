@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -12,12 +13,14 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.ensemble import RandomForestClassifier
 
 try:
     from .train_models_mlb import (
@@ -78,6 +81,8 @@ MARKET_THRESHOLD_CONFIG = {
         "min_threshold": 0.56,
         "max_threshold": 0.68,
         "min_coverage": 0.08,
+        "target_coverage": 0.075,
+        "min_published_rows": 18,
         "prob_shrink": 0.00,
         "fallback_penalty": 0.01,
         "missing_pitcher_penalty": 0.05,
@@ -87,6 +92,8 @@ MARKET_THRESHOLD_CONFIG = {
         "min_threshold": 0.55,
         "max_threshold": 0.63,
         "min_coverage": 0.02,
+        "target_coverage": 0.04,
+        "min_published_rows": 10,
         "prob_shrink": 0.06,
         "fallback_penalty": 0.02,
         "missing_pitcher_penalty": 0.08,
@@ -95,6 +102,8 @@ MARKET_THRESHOLD_CONFIG = {
         "min_threshold": 0.56,
         "max_threshold": 0.66,
         "min_coverage": 0.02,
+        "target_coverage": 0.075,
+        "min_published_rows": 14,
         "prob_shrink": 0.00,
         "fallback_penalty": 0.015,
         "missing_pitcher_penalty": 0.08,
@@ -110,19 +119,259 @@ MARKET_THRESHOLD_CONFIG = {
     },
 }
 
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return float(default)
+    try:
+        return float(raw)
+    except Exception:
+        return float(default)
+
+
+def _env_float_list(name: str, default: List[float]) -> List[float]:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return [float(v) for v in default]
+    out: List[float] = []
+    for token in raw.split(","):
+        t = token.strip()
+        if not t:
+            continue
+        try:
+            out.append(float(t))
+        except Exception:
+            continue
+    return [float(v) for v in out] if out else [float(v) for v in default]
+
+
+def _env_str(name: str, default: str) -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return str(default)
+    value = str(raw).strip()
+    return value if value else str(default)
+
+
+def _env_market_filter(name: str = "NBA_MLB_MARKETS") -> Set[str] | None:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return None
+
+    values = {token.strip().lower() for token in raw.split(",") if token.strip()}
+    return values if values else None
+
+
+FULL_GAME_GLOBAL_BRIER_WEIGHT = float(
+    np.clip(_env_float("NBA_MLB_FULL_GAME_BRIER_WEIGHT", 0.08), 0.0, 0.25)
+)
+
+FULL_GAME_PROB_SHIFT_ENABLED = int(np.clip(_env_float("NBA_MLB_FULL_GAME_PROB_SHIFT_ENABLED", 1.0), 0.0, 1.0))
+FULL_GAME_PROB_SHIFT_MIN = float(np.clip(_env_float("NBA_MLB_FULL_GAME_PROB_SHIFT_MIN", -0.02), -0.20, 0.20))
+FULL_GAME_PROB_SHIFT_MAX = float(np.clip(_env_float("NBA_MLB_FULL_GAME_PROB_SHIFT_MAX", 0.02), -0.20, 0.20))
+FULL_GAME_PROB_SHIFT_STEP = float(np.clip(_env_float("NBA_MLB_FULL_GAME_PROB_SHIFT_STEP", 0.01), 0.001, 0.10))
+
+FULL_GAME_META_GATE_ENABLED = int(np.clip(_env_float("NBA_MLB_META_GATE_ENABLED", 0.0), 0.0, 1.0))
+FULL_GAME_META_GATE_MODEL_C = float(np.clip(_env_float("NBA_MLB_META_GATE_MODEL_C", 0.8), 0.1, 5.0))
+FULL_GAME_META_GATE_MIN_CALIB_ROWS = int(max(50, _env_float("NBA_MLB_META_GATE_MIN_CALIB_ROWS", 180.0)))
+FULL_GAME_META_GATE_MIN_BASE_ROWS = int(max(8, _env_float("NBA_MLB_META_GATE_MIN_BASE_ROWS", 25.0)))
+FULL_GAME_META_GATE_THRESHOLD_MIN = float(np.clip(_env_float("NBA_MLB_META_GATE_THRESHOLD_MIN", 0.50), 0.30, 0.95))
+FULL_GAME_META_GATE_THRESHOLD_MAX = float(np.clip(_env_float("NBA_MLB_META_GATE_THRESHOLD_MAX", 0.80), 0.35, 0.99))
+FULL_GAME_META_GATE_THRESHOLD_STEP = float(np.clip(_env_float("NBA_MLB_META_GATE_THRESHOLD_STEP", 0.02), 0.005, 0.20))
+FULL_GAME_META_GATE_MIN_KEEP_ROWS = int(max(5, _env_float("NBA_MLB_META_GATE_MIN_KEEP_ROWS", 12.0)))
+FULL_GAME_META_GATE_COVERAGE_BONUS = float(np.clip(_env_float("NBA_MLB_META_GATE_COVERAGE_BONUS", 0.04), 0.0, 0.20))
+FULL_GAME_META_GATE_RETENTION_TARGET = float(np.clip(_env_float("NBA_MLB_META_GATE_RETENTION_TARGET", 0.50), 0.0, 1.0))
+FULL_GAME_META_GATE_RETENTION_PENALTY = float(np.clip(_env_float("NBA_MLB_META_GATE_RETENTION_PENALTY", 0.14), 0.0, 0.50))
+FULL_GAME_META_GATE_MIN_ACC_GAIN = float(np.clip(_env_float("NBA_MLB_META_GATE_MIN_ACC_GAIN", 0.01), 0.0, 0.10))
+FULL_GAME_META_GATE_MIN_COVERAGE_RETENTION = float(np.clip(_env_float("NBA_MLB_META_GATE_MIN_COVERAGE_RETENTION", 0.40), 0.0, 1.0))
+
+# Optional threshold sweep controls for full_game.
+FULL_GAME_THR_MIN = float(np.clip(_env_float("NBA_MLB_FULL_GAME_THR_MIN", 0.56), 0.30, 0.90))
+FULL_GAME_THR_MAX = float(np.clip(_env_float("NBA_MLB_FULL_GAME_THR_MAX", 0.68), 0.35, 0.95))
+FULL_GAME_THR_STEP = float(np.clip(_env_float("NBA_MLB_FULL_GAME_THR_STEP", 0.01), 0.001, 0.10))
+
+FULL_GAME_XGB_WEIGHT_GRID = sorted(
+    {
+        float(np.clip(v, 0.0, 1.0))
+        for v in _env_float_list("NBA_MLB_FULL_GAME_XGB_WEIGHT_GRID", [0.20, 0.35, 0.50, 0.65, 0.80])
+    }
+)
+if len(FULL_GAME_XGB_WEIGHT_GRID) == 0:
+    FULL_GAME_XGB_WEIGHT_GRID = [0.20, 0.35, 0.50, 0.65, 0.80]
+
+_cal_mode_raw = _env_str("NBA_MLB_FULL_GAME_CALIBRATOR_MODE", "auto").lower()
+if _cal_mode_raw not in {"auto", "global_lr", "regime_aware"}:
+    _cal_mode_raw = "auto"
+FULL_GAME_CALIBRATOR_MODE = _cal_mode_raw
+
+def build_full_game_stacking_feature_frame(
+    xgb_probs: np.ndarray,
+    lgbm_probs: np.ndarray,
+    rf_probs: np.ndarray | None = None,
+) -> pd.DataFrame:
+    xgb = np.asarray(xgb_probs, dtype=float)
+    lgbm = np.asarray(lgbm_probs, dtype=float)
+    if rf_probs is None or len(rf_probs) != len(xgb):
+        rf = np.full(len(xgb), 0.5, dtype=float)
+    else:
+        rf = np.asarray(rf_probs, dtype=float)
+
+    stacked = np.vstack([xgb, lgbm, rf])
+    out = pd.DataFrame(
+        {
+            "xgb_prob": xgb,
+            "lgbm_prob": lgbm,
+            "rf_prob": rf,
+            "mean_prob": np.nanmean(stacked, axis=0),
+            "std_prob": np.nanstd(stacked, axis=0),
+            "max_prob": np.nanmax(stacked, axis=0),
+            "min_prob": np.nanmin(stacked, axis=0),
+            "xgb_lgbm_gap": np.abs(xgb - lgbm),
+            "xgb_rf_gap": np.abs(xgb - rf),
+            "lgbm_rf_gap": np.abs(lgbm - rf),
+        }
+    )
+    out = out.replace([np.inf, -np.inf], np.nan).fillna(0.5)
+    return out
+
+
+class IdentityProbabilityCalibrator:
+    def predict_proba(self, probs_2d: np.ndarray) -> np.ndarray:
+        p = np.asarray(probs_2d, dtype=float).reshape(-1)
+        p = np.clip(p, 1e-6, 1.0 - 1e-6)
+        return np.column_stack([1.0 - p, p])
+
+
 class WeightedEnsembleModel:
-    def __init__(self, xgb_model, lgbm_model, xgb_weight: float = 0.5, lgbm_weight: float = 0.5):
+    def __init__(
+        self,
+        xgb_model,
+        lgbm_model,
+        xgb_weight: float = 0.5,
+        lgbm_weight: float = 0.5,
+        rf_model=None,
+        rf_weight: float = 0.0,
+        stacking_model: LogisticRegression | None = None,
+    ):
         self.xgb_model = xgb_model
         self.lgbm_model = lgbm_model
+        self.rf_model = rf_model
         self.xgb_weight = float(xgb_weight)
         self.lgbm_weight = float(lgbm_weight)
+        self.rf_weight = float(rf_weight)
+        self.stacking_model = stacking_model
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         xgb_probs = self.xgb_model.predict_proba(X)[:, 1]
         lgbm_probs = self.lgbm_model.predict_proba(X)[:, 1]
-        probs = (self.xgb_weight * xgb_probs) + (self.lgbm_weight * lgbm_probs)
+        rf_probs = self.rf_model.predict_proba(X)[:, 1] if self.rf_model is not None else None
+
+        if self.stacking_model is not None:
+            X_meta = build_full_game_stacking_feature_frame(xgb_probs, lgbm_probs, rf_probs)
+            probs = self.stacking_model.predict_proba(X_meta)[:, 1]
+        else:
+            total_weight = self.xgb_weight + self.lgbm_weight + (self.rf_weight if rf_probs is not None else 0.0)
+            if total_weight <= 0:
+                total_weight = 1.0
+            weighted_sum = (self.xgb_weight * xgb_probs) + (self.lgbm_weight * lgbm_probs)
+            if rf_probs is not None and self.rf_weight > 0:
+                weighted_sum += self.rf_weight * rf_probs
+            probs = weighted_sum / total_weight
+
         probs = np.clip(probs, 1e-6, 1.0 - 1e-6)
         return np.column_stack([1.0 - probs, probs])
+
+
+class RegimeAwareLogisticCalibrator:
+    def __init__(self, global_calibrator: LogisticRegression, regime_calibrators: Dict[str, LogisticRegression]):
+        self.global_calibrator = global_calibrator
+        self.regime_calibrators = regime_calibrators
+
+    def predict_proba(self, probs_2d: np.ndarray, regimes: np.ndarray | None = None) -> np.ndarray:
+        raw = np.asarray(probs_2d, dtype=float).reshape(-1, 1)
+        out = self.global_calibrator.predict_proba(raw)[:, 1]
+
+        if regimes is not None and len(regimes) == len(out):
+            regime_arr = np.asarray(regimes, dtype=str)
+            for regime_name, calibrator in self.regime_calibrators.items():
+                mask = regime_arr == regime_name
+                if np.any(mask):
+                    out[mask] = calibrator.predict_proba(raw[mask])[:, 1]
+
+        out = np.clip(out, 1e-6, 1.0 - 1e-6)
+        return np.column_stack([1.0 - out, out])
+
+
+def build_calibration_regimes(df_context: pd.DataFrame, market_key: str) -> np.ndarray:
+    if not isinstance(df_context, pd.DataFrame) or df_context.empty:
+        return np.array([], dtype=str)
+
+    if market_key != "full_game":
+        return np.array(["global"] * len(df_context), dtype=str)
+
+    has_pitchers = np.ones(len(df_context), dtype=bool)
+    if "both_pitchers_available" in df_context.columns:
+        has_pitchers = pd.to_numeric(df_context["both_pitchers_available"], errors="coerce").fillna(0).to_numpy(dtype=float) >= 1.0
+
+    quality_gap = np.zeros(len(df_context), dtype=float)
+    if "diff_pitcher_recent_quality_score" in df_context.columns:
+        quality_gap = np.abs(pd.to_numeric(df_context["diff_pitcher_recent_quality_score"], errors="coerce").fillna(0).to_numpy(dtype=float))
+
+    regime = np.full(len(df_context), "fg_normal", dtype=object)
+    regime[~has_pitchers] = "fg_missing_pitchers"
+    regime[has_pitchers & (quality_gap >= 2.5)] = "fg_high_quality_gap"
+    return regime.astype(str)
+
+
+def fit_regime_aware_calibrator(
+    raw_probs: np.ndarray,
+    y_calib: pd.Series,
+    calib_context: pd.DataFrame,
+    market_key: str,
+) -> Tuple[object, np.ndarray, int]:
+    y_arr = y_calib.to_numpy(dtype=int)
+    global_cal = LogisticRegression(C=1.0, solver="lbfgs")
+    global_cal.fit(raw_probs.reshape(-1, 1), y_arr)
+    global_probs = global_cal.predict_proba(raw_probs.reshape(-1, 1))[:, 1]
+
+    regimes = build_calibration_regimes(calib_context, market_key)
+    if market_key != "full_game" or len(regimes) != len(y_arr):
+        return global_cal, np.clip(global_probs, 1e-6, 1.0 - 1e-6), 0
+
+    regime_models: Dict[str, LogisticRegression] = {}
+    min_rows_per_regime = 45
+
+    for regime_name in sorted(set(regimes.tolist())):
+        mask = regimes == regime_name
+        if int(mask.sum()) < min_rows_per_regime:
+            continue
+        y_reg = y_arr[mask]
+        if len(np.unique(y_reg)) < 2:
+            continue
+        reg_cal = LogisticRegression(C=1.0, solver="lbfgs")
+        reg_cal.fit(raw_probs[mask].reshape(-1, 1), y_reg)
+        regime_models[regime_name] = reg_cal
+
+    if not regime_models:
+        return global_cal, np.clip(global_probs, 1e-6, 1.0 - 1e-6), 0
+
+    calibrator = RegimeAwareLogisticCalibrator(global_calibrator=global_cal, regime_calibrators=regime_models)
+    regime_probs = calibrator.predict_proba(raw_probs.reshape(-1, 1), regimes=regimes)[:, 1]
+    return calibrator, np.clip(regime_probs, 1e-6, 1.0 - 1e-6), int(len(regime_models))
+
+
+def predict_calibrated_probs(
+    calibrator: object,
+    raw_probs: np.ndarray,
+    df_context: pd.DataFrame,
+    market_key: str,
+) -> np.ndarray:
+    raw_2d = np.asarray(raw_probs, dtype=float).reshape(-1, 1)
+    if isinstance(calibrator, RegimeAwareLogisticCalibrator):
+        regimes = build_calibration_regimes(df_context, market_key)
+        return calibrator.predict_proba(raw_2d, regimes=regimes)[:, 1]
+    return calibrator.predict_proba(raw_2d)[:, 1]
 
 
 def get_market_runtime_config(market_key: str) -> Dict[str, float]:
@@ -136,12 +385,145 @@ def get_market_runtime_config(market_key: str) -> Dict[str, float]:
             "fallback_penalty": 0.01,
             "missing_pitcher_penalty": 0.00,
         }
+    if market_key == "full_game":
+        base["min_threshold"] = float(min(FULL_GAME_THR_MIN, FULL_GAME_THR_MAX))
+        base["max_threshold"] = float(max(FULL_GAME_THR_MIN, FULL_GAME_THR_MAX))
+        base["threshold_step"] = float(FULL_GAME_THR_STEP)
+    else:
+        base["threshold_step"] = float(base.get("threshold_step", 0.01))
     return base
 
 
 def shrink_probs_toward_half(probs: np.ndarray, shrink: float) -> np.ndarray:
     shrink = float(np.clip(shrink, 0.0, 0.49))
     return np.clip(0.5 + ((probs - 0.5) * (1.0 - shrink)), 1e-6, 1.0 - 1e-6)
+
+
+def apply_bayesian_probability_blend(
+    probs: np.ndarray,
+    prior: float,
+    strength: float,
+    sample_size: int,
+) -> np.ndarray:
+    p = np.clip(np.asarray(probs, dtype=float), 1e-6, 1.0 - 1e-6)
+    s = max(0.0, float(strength))
+    n = max(1.0, float(sample_size))
+    if s <= 0.0:
+        return p
+    prior_p = float(np.clip(prior, 0.05, 0.95))
+    blend = s / (n + s)
+    return np.clip(((1.0 - blend) * p) + (blend * prior_p), 1e-6, 1.0 - 1e-6)
+
+
+def apply_probability_shift(probs: np.ndarray, shift: float) -> np.ndarray:
+    p = np.asarray(probs, dtype=float)
+    return np.clip(p + float(shift), 1e-6, 1.0 - 1e-6)
+
+
+def full_game_global_score_from_probs(
+    probs: np.ndarray,
+    y_true: np.ndarray,
+    brier_weight: float = FULL_GAME_GLOBAL_BRIER_WEIGHT,
+) -> Tuple[float, float, float]:
+    p = np.clip(np.asarray(probs, dtype=float), 1e-6, 1.0 - 1e-6)
+    y = np.asarray(y_true, dtype=int)
+    pred = (p >= 0.5).astype(int)
+    acc = float((pred == y).mean())
+    brier = float(np.mean((p - y) ** 2))
+    score = float(acc - (float(brier_weight) * brier))
+    return acc, brier, score
+
+
+def choose_best_bayesian_blend(
+    probs: np.ndarray,
+    y_true: np.ndarray,
+    prior: float,
+    sample_size: int,
+    strength_grid: List[float],
+) -> Tuple[float, np.ndarray, float]:
+    y = np.asarray(y_true, dtype=int)
+    base = np.clip(np.asarray(probs, dtype=float), 1e-6, 1.0 - 1e-6)
+
+    best_strength = 0.0
+    best_probs = base
+    best_score = -1e9
+
+    for strength in strength_grid:
+        cand = apply_bayesian_probability_blend(
+            probs=base,
+            prior=prior,
+            strength=float(strength),
+            sample_size=sample_size,
+        )
+        _, _, score = full_game_global_score_from_probs(cand, y, brier_weight=FULL_GAME_GLOBAL_BRIER_WEIGHT)
+
+        if score > best_score:
+            best_strength = float(strength)
+            best_probs = cand
+            best_score = score
+
+    return best_strength, best_probs, best_score
+
+
+def choose_best_probability_shift(
+    probs: np.ndarray,
+    y_true: np.ndarray,
+    shift_grid: List[float],
+) -> Tuple[float, np.ndarray, float]:
+    y = np.asarray(y_true, dtype=int)
+    base = np.clip(np.asarray(probs, dtype=float), 1e-6, 1.0 - 1e-6)
+
+    best_pred = (base >= 0.5).astype(int)
+    best_acc = float((best_pred == y).mean())
+    best_shift = 0.0
+    best_probs = base
+
+    best_brier = float(np.mean((base - y) ** 2))
+    best_score = float(best_acc - (FULL_GAME_GLOBAL_BRIER_WEIGHT * best_brier))
+
+    for shift in shift_grid:
+        cand = apply_probability_shift(base, float(shift))
+        pred = (cand >= 0.5).astype(int)
+        acc = float((pred == y).mean())
+        brier = float(np.mean((cand - y) ** 2))
+        score = float(acc - (FULL_GAME_GLOBAL_BRIER_WEIGHT * brier))
+
+        improves_acc = acc > (best_acc + 1e-9)
+        ties_acc_improves_score = abs(acc - best_acc) <= 1e-9 and score > (best_score + 1e-9)
+        if improves_acc or ties_acc_improves_score:
+            best_shift = float(shift)
+            best_probs = cand
+            best_acc = acc
+            best_score = score
+
+    return best_shift, best_probs, best_score
+
+
+def choose_best_decision_threshold(
+    probs: np.ndarray,
+    y_true: np.ndarray,
+    threshold_grid: List[float],
+    center: float = 0.5,
+    drift_penalty: float = 0.01,
+) -> float:
+    y = np.asarray(y_true, dtype=int)
+    p = np.asarray(probs, dtype=float)
+
+    best_t = float(center)
+    best_acc = float(((p >= best_t).astype(int) == y).mean())
+    best_score = best_acc
+
+    for thr in threshold_grid:
+        t = float(thr)
+        pred = (p >= t).astype(int)
+        acc = float((pred == y).mean())
+        score = float(acc - (abs(t - float(center)) * float(drift_penalty)))
+        if score > (best_score + 1e-9):
+            best_t = t
+            best_acc = acc
+            best_score = score
+
+    return float(best_t)
 
 
 def get_missing_pitcher_flag(df_like: pd.DataFrame) -> np.ndarray:
@@ -168,6 +550,158 @@ def _collect_mean_arrays(arrays: List[np.ndarray]) -> np.ndarray | None:
         return None
     stacked = np.vstack(valid)
     return np.nanmean(stacked, axis=0)
+
+
+FULL_GAME_GATE_FEATURE_COLUMNS = [
+    "fg_confidence",
+    "fg_edge",
+    "both_pitchers_available",
+    "diff_pitcher_recent_quality_score",
+    "diff_pitcher_quality_start_rate_L10",
+    "diff_pitcher_blowup_rate_L10",
+    "diff_pitcher_era_trend",
+    "diff_pitcher_whip_trend",
+    "diff_form_power",
+    "diff_elo",
+    "home_is_favorite",
+]
+
+
+class FullGamePlayabilityGate:
+    def __init__(self, model: LogisticRegression, threshold: float):
+        self.model = model
+        self.threshold = float(threshold)
+
+    def predict_mask(self, df_context: pd.DataFrame, probs_calibrated: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        X_gate = build_full_game_gate_feature_frame(df_context, probs_calibrated)
+        score = self.model.predict_proba(X_gate)[:, 1]
+        keep = (score >= self.threshold).astype(int)
+        return keep, np.clip(score, 1e-6, 1.0 - 1e-6)
+
+
+def build_full_game_gate_feature_frame(df_context: pd.DataFrame, probs_calibrated: np.ndarray) -> pd.DataFrame:
+    probs = np.asarray(probs_calibrated, dtype=float)
+    conf = np.maximum(probs, 1.0 - probs)
+    edge = np.abs(probs - 0.5)
+
+    out = pd.DataFrame({
+        "fg_confidence": conf,
+        "fg_edge": edge,
+    })
+
+    def _col_or_default(col: str, default: float = 0.0) -> np.ndarray:
+        if not isinstance(df_context, pd.DataFrame) or col not in df_context.columns:
+            return np.full(len(out), float(default), dtype=float)
+        vals = pd.to_numeric(df_context[col], errors="coerce").fillna(default).to_numpy(dtype=float)
+        if len(vals) != len(out):
+            return np.full(len(out), float(default), dtype=float)
+        return vals
+
+    out["both_pitchers_available"] = (_col_or_default("both_pitchers_available", 1.0) >= 1.0).astype(float)
+    out["diff_pitcher_recent_quality_score"] = _col_or_default("diff_pitcher_recent_quality_score", 0.0)
+    out["diff_pitcher_quality_start_rate_L10"] = _col_or_default("diff_pitcher_quality_start_rate_L10", 0.0)
+    out["diff_pitcher_blowup_rate_L10"] = _col_or_default("diff_pitcher_blowup_rate_L10", 0.0)
+    out["diff_pitcher_era_trend"] = _col_or_default("diff_pitcher_era_trend", 0.0)
+    out["diff_pitcher_whip_trend"] = _col_or_default("diff_pitcher_whip_trend", 0.0)
+    out["diff_form_power"] = _col_or_default("diff_form_power", 0.0)
+    out["diff_elo"] = _col_or_default("diff_elo", 0.0)
+    out["home_is_favorite"] = (_col_or_default("home_is_favorite", 0.0) > 0).astype(float)
+
+    out = out.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    return out[FULL_GAME_GATE_FEATURE_COLUMNS]
+
+
+def fit_full_game_playability_gate(
+    df_context: pd.DataFrame,
+    probs_calibrated: np.ndarray,
+    y_true: np.ndarray,
+    pred_label: np.ndarray,
+    base_publish_pick: np.ndarray,
+) -> Tuple[FullGamePlayabilityGate | None, Dict[str, float]]:
+    meta = {
+        "meta_gate_enabled": 0,
+        "meta_gate_threshold": 0.0,
+        "meta_gate_base_accuracy": 0.0,
+        "meta_gate_final_accuracy": 0.0,
+        "meta_gate_base_coverage": 0.0,
+        "meta_gate_final_coverage": 0.0,
+    }
+
+    y_arr = np.asarray(y_true, dtype=int)
+    pred_arr = np.asarray(pred_label, dtype=int)
+    publish_base = np.asarray(base_publish_pick, dtype=int)
+
+    if FULL_GAME_META_GATE_ENABLED <= 0:
+        return None, meta
+
+    if len(y_arr) < FULL_GAME_META_GATE_MIN_CALIB_ROWS:
+        return None, meta
+
+    base_mask = publish_base == 1
+    base_rows = int(base_mask.sum())
+    if base_rows < FULL_GAME_META_GATE_MIN_BASE_ROWS:
+        return None, meta
+
+    base_acc = float((pred_arr[base_mask] == y_arr[base_mask]).mean())
+    base_cov = float(base_mask.mean())
+
+    target_correct = (pred_arr == y_arr).astype(int)
+    if len(np.unique(target_correct)) < 2:
+        return None, meta
+
+    X_gate = build_full_game_gate_feature_frame(df_context, probs_calibrated)
+    gate_model = LogisticRegression(C=FULL_GAME_META_GATE_MODEL_C, solver="lbfgs", class_weight="balanced")
+    gate_model.fit(X_gate, target_correct)
+    gate_score = gate_model.predict_proba(X_gate)[:, 1]
+
+    thr_min = min(FULL_GAME_META_GATE_THRESHOLD_MIN, FULL_GAME_META_GATE_THRESHOLD_MAX)
+    thr_max = max(FULL_GAME_META_GATE_THRESHOLD_MIN, FULL_GAME_META_GATE_THRESHOLD_MAX)
+    thr_step = max(0.005, FULL_GAME_META_GATE_THRESHOLD_STEP)
+
+    best = None
+    for thr in np.arange(thr_min, thr_max + 1e-9, thr_step):
+        keep = base_mask & (gate_score >= thr)
+        rows = int(keep.sum())
+        if rows < FULL_GAME_META_GATE_MIN_KEEP_ROWS:
+            continue
+
+        acc = float((pred_arr[keep] == y_arr[keep]).mean())
+        cov = float(keep.mean())
+        retention = rows / max(1, base_rows)
+        score = (
+            acc
+            + (cov * FULL_GAME_META_GATE_COVERAGE_BONUS)
+            - (max(0.0, FULL_GAME_META_GATE_RETENTION_TARGET - retention) * FULL_GAME_META_GATE_RETENTION_PENALTY)
+        )
+
+        if (best is None) or (score > best["score"]):
+            best = {
+                "thr": float(thr),
+                "acc": acc,
+                "cov": cov,
+                "score": float(score),
+            }
+
+    if best is None:
+        return None, meta
+
+    improves_acc = best["acc"] >= (base_acc + FULL_GAME_META_GATE_MIN_ACC_GAIN)
+    keeps_volume = best["cov"] >= (base_cov * FULL_GAME_META_GATE_MIN_COVERAGE_RETENTION)
+    if not (improves_acc and keeps_volume):
+        return None, meta
+
+    gate = FullGamePlayabilityGate(model=gate_model, threshold=best["thr"])
+    meta.update(
+        {
+            "meta_gate_enabled": 1,
+            "meta_gate_threshold": float(best["thr"]),
+            "meta_gate_base_accuracy": float(base_acc),
+            "meta_gate_final_accuracy": float(best["acc"]),
+            "meta_gate_base_coverage": float(base_cov),
+            "meta_gate_final_coverage": float(best["cov"]),
+        }
+    )
+    return gate, meta
 
 
 def compute_pitcher_momentum_publish_penalty(
@@ -459,15 +993,25 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
     ]
 
     full_game_keep = [
-        "diff_elo", "diff_rest_days", "diff_games_last_5_days", "diff_win_pct_L10",
+        "diff_elo", "home_elo_pre", "away_elo_pre", "diff_rest_days", "diff_games_last_5_days", "diff_win_pct_L10",
         "diff_run_diff_L10", "diff_runs_scored_L5", "diff_runs_allowed_L5",
+        "diff_games_in_season_before", "diff_prev_win_pct", "diff_prev_run_diff_pg",
+        "prev_season_data_available",
+        "diff_prev_runs_scored_pg", "diff_prev_runs_allowed_pg", "diff_win_pct_L10_blend",
+        "diff_run_diff_L10_blend", "diff_runs_scored_L5_blend", "diff_runs_allowed_L5_blend",
         "diff_runs_scored_std_L10", "diff_runs_allowed_std_L10", "diff_surface_win_pct_L5",
         "diff_surface_run_diff_L5", "diff_surface_edge", "diff_win_pct_L10_vs_league",
         "diff_run_diff_L10_vs_league", "diff_fatigue_index", "diff_form_power",
         "diff_pitcher_data_available", "diff_pitcher_rest_days", "diff_pitcher_runs_allowed_L5",
         "diff_pitcher_runs_allowed_L10", "diff_pitcher_start_win_rate_L10", "diff_bullpen_runs_allowed_L5",
         "diff_bullpen_runs_allowed_L10", "diff_bullpen_load_L3", "diff_offense_vs_pitcher",
-        "home_is_favorite", "odds_over_under", "market_missing", "both_pitchers_available",
+        "park_factor_delta", "park_offense_pressure", "park_bullpen_pressure", "park_form_pressure",
+        "umpire_zone_delta", "umpire_sample_log",
+        "home_is_favorite", "odds_over_under", "open_line", "current_line", "line_movement",
+        "open_total", "current_total", "total_movement", "current_home_moneyline",
+        "current_away_moneyline", "current_total_line", "bookmakers_count", "snapshot_count",
+        "market_moneyline_gap", "market_total_delta", "market_line_velocity", "market_missing",
+        "market_micro_missing", "both_pitchers_available",
     ]
 
     f5_keep = [
@@ -622,9 +1166,13 @@ def choose_ensemble_and_threshold(
     y_calib: pd.Series,
     market_key: str,
     calib_context: pd.DataFrame | None = None,
-) -> Tuple[WeightedEnsembleModel, LogisticRegression, Dict[str, float], pd.DataFrame]:
+) -> Tuple[WeightedEnsembleModel, object, Dict[str, float], pd.DataFrame, FullGamePlayabilityGate | None]:
     xgb_probs = xgb_model.predict_proba(X_calib)[:, 1]
     lgbm_probs = lgbm_model.predict_proba(X_calib)[:, 1]
+    y_calib_arr = y_calib.to_numpy().astype(int)
+
+    rf_model = None
+    rf_probs = None
 
     cfg = get_market_runtime_config(market_key)
     default_threshold = float(cfg["min_threshold"])
@@ -638,57 +1186,169 @@ def choose_ensemble_and_threshold(
         "accuracy": 0.0,
         "used_fallback": 1,
         "prob_shrink": float(cfg.get("prob_shrink", 0.0)),
+        "regime_calibrators": 0,
+        "meta_gate_enabled": 0,
+        "meta_gate_threshold": 0.0,
+        "meta_gate_base_accuracy": 0.0,
+        "meta_gate_final_accuracy": 0.0,
+        "meta_gate_base_coverage": 0.0,
+        "meta_gate_final_coverage": 0.0,
+        "selection_objective": "publish_quality",
+        "global_selection_accuracy": 0.0,
+        "global_selection_brier": 0.0,
+        "global_selection_logloss": 0.0,
+        "calibrator_mode": "global_lr",
+        "rf_weight": 0.0,
+        "stacking_mode": "none",
+        "bayes_prior": float(np.clip(y_calib_arr.mean(), 0.05, 0.95)),
+        "bayes_strength": 0.0,
+        "bayes_sample_size": int(len(y_calib_arr)),
+        "prob_shift": 0.0,
+        "decision_threshold": 0.5,
     }
     best_calib_probs = None
     best_calibrator = None
+    full_game_gate: FullGamePlayabilityGate | None = None
+    best_rf_weight = 0.0
+    best_stack_model: LogisticRegression | None = None
 
-    for xgb_weight in [0.20, 0.35, 0.50, 0.65, 0.80]:
-        lgbm_weight = 1.0 - xgb_weight
-        raw_probs = np.clip((xgb_weight * xgb_probs) + (lgbm_weight * lgbm_probs), 1e-6, 1.0 - 1e-6)
+    rf_weight_grid = [0.0]
 
-        lr_calibrator = LogisticRegression(C=1.0, solver='lbfgs')
-        lr_calibrator.fit(raw_probs.reshape(-1, 1), y_calib.to_numpy())
-        calib_probs = lr_calibrator.predict_proba(raw_probs.reshape(-1, 1))[:, 1]
-        
-        if cfg.get("prob_shrink", 0.0) > 0:
-            calib_probs = shrink_probs_toward_half(calib_probs, cfg["prob_shrink"])
+    for rf_weight in rf_weight_grid:
+        remaining = max(1e-6, 1.0 - rf_weight)
+        xgb_weight_grid = FULL_GAME_XGB_WEIGHT_GRID if market_key == "full_game" else [0.20, 0.35, 0.50, 0.65, 0.80]
+        for xgb_weight in xgb_weight_grid:
+            lgbm_weight = 1.0 - xgb_weight
+            blend = (xgb_weight * xgb_probs) + (lgbm_weight * lgbm_probs)
+            if rf_probs is not None and rf_weight > 0:
+                blend = (remaining * blend) + (rf_weight * rf_probs)
+            raw_probs = np.clip(blend, 1e-6, 1.0 - 1e-6)
 
-        threshold_info = choose_threshold_from_calibration(
-            y_true=y_calib.to_numpy(),
-            probs=calib_probs,
-            min_threshold=cfg["min_threshold"],
-            max_threshold=cfg["max_threshold"],
-            step=0.01,
-            min_coverage=cfg["min_coverage"],
-        )
-        if market_key == "f5":
-            print(
-                f"[F5 CALIB] xgb_w={xgb_weight:.2f} | "
-                f"thr={threshold_info.get('threshold', -1):.3f} | "
-                f"acc={threshold_info.get('accuracy', 0.0):.4f} | "
-                f"cov={threshold_info.get('coverage', 0.0):.4f} | "
-                f"score={threshold_info.get('score', -999):.4f}"
+            lr_calibrator = LogisticRegression(C=1.0, solver='lbfgs')
+            lr_calibrator.fit(raw_probs.reshape(-1, 1), y_calib_arr)
+            calib_probs = lr_calibrator.predict_proba(raw_probs.reshape(-1, 1))[:, 1]
+
+            oof_calib_probs = None
+            if len(y_calib) >= 120 and y_calib.nunique() >= 2:
+                n_splits = 3 if len(y_calib_arr) >= 240 else 2
+                oof_preds = np.full(len(y_calib_arr), np.nan, dtype=float)
+                folds_used = 0
+                for tr_idx, val_idx in TimeSeriesSplit(n_splits=n_splits).split(raw_probs):
+                    y_tr = y_calib_arr[tr_idx]
+                    if len(np.unique(y_tr)) < 2 or len(val_idx) == 0:
+                        continue
+                    fold_calibrator = LogisticRegression(C=1.0, solver='lbfgs')
+                    fold_calibrator.fit(raw_probs[tr_idx].reshape(-1, 1), y_tr)
+                    oof_preds[val_idx] = fold_calibrator.predict_proba(raw_probs[val_idx].reshape(-1, 1))[:, 1]
+                    folds_used += 1
+
+                if folds_used > 0:
+                    missing_mask = np.isnan(oof_preds)
+                    if missing_mask.any():
+                        oof_preds[missing_mask] = lr_calibrator.predict_proba(raw_probs[missing_mask].reshape(-1, 1))[:, 1]
+                    oof_calib_probs = np.clip(oof_preds, 1e-6, 1.0 - 1e-6)
+
+            selection_probs = oof_calib_probs if oof_calib_probs is not None else calib_probs
+            selection_mode = "oof_timeseries" if oof_calib_probs is not None else "in_sample"
+
+            candidate_stack_model = None
+            if cfg.get("prob_shrink", 0.0) > 0:
+                calib_probs = shrink_probs_toward_half(calib_probs, cfg["prob_shrink"])
+                selection_probs = shrink_probs_toward_half(selection_probs, cfg["prob_shrink"])
+
+            bayes_prior = float(np.clip(y_calib_arr.mean(), 0.05, 0.95))
+            bayes_strength = 0.0
+            if market_key == "full_game":
+                bayes_strength, selection_probs, _ = choose_best_bayesian_blend(
+                    probs=selection_probs,
+                    y_true=y_calib_arr,
+                    prior=bayes_prior,
+                    sample_size=len(y_calib_arr),
+                    strength_grid=[0.0, 8.0, 16.0, 24.0],
+                )
+
+            target_cov = float(cfg.get("target_coverage", 0.0))
+            if target_cov <= 0:
+                target_cov = None
+
+            min_published_rows = int(cfg.get("min_published_rows", max(10, int(len(y_calib) * float(cfg.get("min_coverage", 0.02)) * 0.5))))
+
+            threshold_info = choose_threshold_from_calibration(
+                y_true=y_calib.to_numpy(),
+                probs=selection_probs,
+                min_threshold=cfg["min_threshold"],
+                max_threshold=cfg["max_threshold"],
+                step=float(cfg.get("threshold_step", 0.01)),
+                min_coverage=cfg["min_coverage"],
+                target_coverage=target_cov,
+                min_published_rows=min_published_rows,
             )
 
-        invalid_threshold = (
-            threshold_info.get("coverage", 0.0) <= 0.0
-            or threshold_info.get("accuracy", 0.0) <= 0.0
-            or threshold_info.get("score", -1e9) <= 0.0
-        )
-        if invalid_threshold:
-            continue
+            y_sel = y_calib_arr
+            sel_probs = np.clip(selection_probs, 1e-6, 1.0 - 1e-6)
+            sel_pred = (sel_probs >= 0.5).astype(int)
+            global_acc, global_brier, global_score = full_game_global_score_from_probs(
+                sel_probs,
+                y_sel,
+                brier_weight=FULL_GAME_GLOBAL_BRIER_WEIGHT,
+            )
+            global_logloss = float(
+                -np.mean((y_sel * np.log(sel_probs)) + ((1 - y_sel) * np.log(1.0 - sel_probs)))
+            )
 
-        score = float(threshold_info["score"])
-        if score > best["score"]:
-            best = {
-                "xgb_weight": float(round(xgb_weight, 2)),
-                "lgbm_weight": float(round(lgbm_weight, 2)),
-                **threshold_info,
-                "used_fallback": 0,
-                "prob_shrink": float(cfg.get("prob_shrink", 0.0)),
-            }
-            best_calib_probs = calib_probs
-            best_calibrator = lr_calibrator
+            if market_key == "f5":
+                print(
+                    f"[F5 CALIB] xgb_w={xgb_weight:.2f} | "
+                    f"thr={threshold_info.get('threshold', -1):.3f} | "
+                    f"acc={threshold_info.get('accuracy', 0.0):.4f} | "
+                    f"cov={threshold_info.get('coverage', 0.0):.4f} | "
+                    f"rows={threshold_info.get('published_rows', 0)} | "
+                    f"score={threshold_info.get('score', -999):.4f}"
+                )
+
+            if market_key == "full_game":
+                score = global_score
+                invalid_candidate = not np.isfinite(score)
+                selection_objective = "global_acc050_brier_soft"
+            else:
+                invalid_candidate = (
+                    threshold_info.get("coverage", 0.0) <= 0.0
+                    or threshold_info.get("accuracy", 0.0) <= 0.0
+                    or threshold_info.get("score", -1e9) <= 0.0
+                )
+                score = float(threshold_info["score"])
+                selection_objective = "publish_quality"
+
+            if invalid_candidate:
+                continue
+
+            if score > best["score"]:
+                best = {
+                    "xgb_weight": float(round(xgb_weight * remaining, 2)),
+                    "lgbm_weight": float(round(lgbm_weight * remaining, 2)),
+                    "rf_weight": 0.0,
+                    **threshold_info,
+                    "score": float(score),
+                    "used_fallback": 0,
+                    "prob_shrink": float(cfg.get("prob_shrink", 0.0)),
+                    "selection_mode": selection_mode,
+                    "regime_calibrators": 0,
+                    "selection_objective": selection_objective,
+                    "global_selection_accuracy": float(global_acc),
+                    "global_selection_brier": float(global_brier),
+                    "global_selection_logloss": float(global_logloss),
+                    "calibrator_mode": "global_lr",
+                    "stacking_mode": "none",
+                    "bayes_prior": bayes_prior,
+                    "bayes_strength": float(bayes_strength),
+                    "bayes_sample_size": int(len(y_calib_arr)),
+                    "prob_shift": 0.0,
+                    "decision_threshold": 0.5,
+                }
+                best_rf_weight = 0.0
+                best_calib_probs = selection_probs
+                best_calibrator = lr_calibrator
+                best_stack_model = candidate_stack_model
 
     if best_calib_probs is None or best_calibrator is None:
         if market_key == "f5":
@@ -715,13 +1375,127 @@ def choose_ensemble_and_threshold(
             "accuracy": 0.0,
             "used_fallback": 1,
             "prob_shrink": float(cfg.get("prob_shrink", 0.0)),
+            "selection_mode": "fallback_default",
+            "published_rows": 0,
+            "regime_calibrators": 0,
+            "meta_gate_enabled": 0,
+            "meta_gate_threshold": 0.0,
+            "meta_gate_base_accuracy": 0.0,
+            "meta_gate_final_accuracy": 0.0,
+            "meta_gate_base_coverage": 0.0,
+            "meta_gate_final_coverage": 0.0,
+            "selection_objective": "fallback_default",
+            "global_selection_accuracy": 0.0,
+            "global_selection_brier": 0.0,
+            "global_selection_logloss": 0.0,
+            "calibrator_mode": "global_lr",
+            "rf_weight": 0.0,
+            "stacking_mode": "none",
+            "bayes_prior": float(np.clip(y_calib_arr.mean(), 0.05, 0.95)),
+            "bayes_strength": 0.0,
+            "bayes_sample_size": int(len(y_calib_arr)),
+            "prob_shift": 0.0,
+            "decision_threshold": 0.5,
         }
+        best_rf_weight = 0.0
+        best_stack_model = None
+
+    if market_key == "full_game" and isinstance(calib_context, pd.DataFrame) and not calib_context.empty:
+        best_raw_probs = np.clip(
+            (float(best["xgb_weight"]) * xgb_probs) + (float(best["lgbm_weight"]) * lgbm_probs),
+            1e-6,
+            1.0 - 1e-6,
+        )
+        base_probs = np.clip(best_calibrator.predict_proba(best_raw_probs.reshape(-1, 1))[:, 1], 1e-6, 1.0 - 1e-6)
+        if cfg.get("prob_shrink", 0.0) > 0:
+            base_probs = shrink_probs_toward_half(base_probs, cfg["prob_shrink"])
+
+        y_eval = y_calib.to_numpy().astype(int)
+        base_acc, base_brier, base_global_score = full_game_global_score_from_probs(
+            base_probs,
+            y_eval,
+            brier_weight=FULL_GAME_GLOBAL_BRIER_WEIGHT,
+        )
+        base_logloss = float(
+            -np.mean((y_eval * np.log(base_probs)) + ((1 - y_eval) * np.log(1.0 - base_probs)))
+        )
+
+        regime_calibrator, regime_probs, regime_count = fit_regime_aware_calibrator(
+            raw_probs=best_raw_probs,
+            y_calib=y_calib,
+            calib_context=calib_context,
+            market_key=market_key,
+        )
+        if cfg.get("prob_shrink", 0.0) > 0:
+            regime_probs = shrink_probs_toward_half(regime_probs, cfg["prob_shrink"])
+
+        regime_acc, regime_brier, regime_global_score = full_game_global_score_from_probs(
+            regime_probs,
+            y_eval,
+            brier_weight=FULL_GAME_GLOBAL_BRIER_WEIGHT,
+        )
+        regime_logloss = float(
+            -np.mean((y_eval * np.log(regime_probs)) + ((1 - y_eval) * np.log(1.0 - regime_probs)))
+        )
+
+        prefer_regime = regime_global_score > (base_global_score + 1e-4)
+        if FULL_GAME_CALIBRATOR_MODE == "regime_aware":
+            prefer_regime = True
+        elif FULL_GAME_CALIBRATOR_MODE == "global_lr":
+            prefer_regime = False
+
+        if prefer_regime:
+            best_calibrator = regime_calibrator
+            best_calib_probs = regime_probs
+            best["regime_calibrators"] = int(regime_count)
+            best["calibrator_mode"] = "regime_aware"
+        else:
+            best_calib_probs = base_probs
+            best["regime_calibrators"] = 0
+            best["calibrator_mode"] = "global_lr"
+
+        bayes_prior_final = float(np.clip(best.get("bayes_prior", y_eval.mean()), 0.05, 0.95))
+        bayes_strength_final, best_calib_probs, _ = choose_best_bayesian_blend(
+            probs=best_calib_probs,
+            y_true=y_eval,
+            prior=bayes_prior_final,
+            sample_size=len(y_eval),
+            strength_grid=[0.0, 8.0, 16.0, 24.0],
+        )
+        best["bayes_prior"] = float(bayes_prior_final)
+        best["bayes_strength"] = float(bayes_strength_final)
+        best["bayes_sample_size"] = int(len(y_eval))
+
+        if FULL_GAME_PROB_SHIFT_ENABLED > 0:
+            shift_min = min(FULL_GAME_PROB_SHIFT_MIN, FULL_GAME_PROB_SHIFT_MAX)
+            shift_max = max(FULL_GAME_PROB_SHIFT_MIN, FULL_GAME_PROB_SHIFT_MAX)
+            shift_step = max(0.001, FULL_GAME_PROB_SHIFT_STEP)
+            shift_grid = [float(s) for s in np.arange(shift_min, shift_max + 1e-9, shift_step)]
+            if not shift_grid:
+                shift_grid = [0.0]
+            if not any(abs(s) <= 1e-12 for s in shift_grid):
+                shift_grid.append(0.0)
+            shift_grid = sorted(set([float(round(s, 6)) for s in shift_grid]))
+        else:
+            shift_grid = [0.0]
+
+        prob_shift, best_calib_probs, _ = choose_best_probability_shift(
+            probs=best_calib_probs,
+            y_true=y_eval,
+            shift_grid=shift_grid,
+        )
+        best["prob_shift"] = float(prob_shift)
+
+        best["decision_threshold"] = 0.5
 
     ensemble_model = WeightedEnsembleModel(
         xgb_model=xgb_model,
         lgbm_model=lgbm_model,
         xgb_weight=best["xgb_weight"],
         lgbm_weight=best["lgbm_weight"],
+        rf_model=rf_model,
+        rf_weight=best_rf_weight,
+        stacking_model=best_stack_model,
     )
 
     calib_publish_pick, calib_effective_threshold, calib_policy_meta = apply_publish_policy(
@@ -732,16 +1506,38 @@ def choose_ensemble_and_threshold(
         used_fallback=int(best.get("used_fallback", 0)),
     )
 
+    calib_decision_threshold = float(best.get("decision_threshold", 0.5))
+    calib_pred_label = (best_calib_probs >= calib_decision_threshold).astype(int)
+    gate_keep = np.ones(len(best_calib_probs), dtype=int)
+    gate_score = np.ones(len(best_calib_probs), dtype=float)
+
+    if market_key == "full_game" and isinstance(calib_context, pd.DataFrame) and not calib_context.empty:
+        gate_obj, gate_meta = fit_full_game_playability_gate(
+            df_context=calib_context,
+            probs_calibrated=best_calib_probs,
+            y_true=y_calib.to_numpy(),
+            pred_label=calib_pred_label,
+            base_publish_pick=calib_publish_pick,
+        )
+        best.update(gate_meta)
+        if gate_obj is not None:
+            full_game_gate = gate_obj
+            gate_keep, gate_score = full_game_gate.predict_mask(calib_context, best_calib_probs)
+            calib_publish_pick = (calib_publish_pick.astype(int) * gate_keep.astype(int)).astype(int)
+
     calib_detail = pd.DataFrame(
         {
             "y_true": y_calib.to_numpy().astype(int),
             "ensemble_prob_calibrated": best_calib_probs,
-            "pred_label": (best_calib_probs >= 0.5).astype(int),
+            "pred_label": calib_pred_label,
             "publish_pick": calib_publish_pick.astype(int),
             "publish_threshold_effective": calib_effective_threshold.astype(float),
             "used_fallback": int(best.get("used_fallback", 0)),
         }
     )
+    if market_key == "full_game":
+        calib_detail["full_game_gate_keep"] = gate_keep.astype(int)
+        calib_detail["full_game_gate_score"] = gate_score.astype(float)
 
     published_calib = calib_detail[calib_detail["publish_pick"] == 1].copy()
     best["published_accuracy"] = float((published_calib["pred_label"].astype(int) == published_calib["y_true"].astype(int)).mean()) if len(published_calib) else 0.0
@@ -752,7 +1548,7 @@ def choose_ensemble_and_threshold(
     best["momentum_penalty_mean_calib"] = float(calib_policy_meta.get("momentum_penalty_mean", 0.0))
     best["momentum_penalty_active_rate_calib"] = float(calib_policy_meta.get("momentum_penalty_active_rate", 0.0))
 
-    return ensemble_model, best_calibrator, best, calib_detail
+    return ensemble_model, best_calibrator, best, calib_detail, full_game_gate
 
 
 def build_prediction_rows(
@@ -764,6 +1560,7 @@ def build_prediction_rows(
     split_id: int,
     used_fallback: int,
     prob_shrink: float,
+    full_game_gate: FullGamePlayabilityGate | None = None,
 ) -> pd.DataFrame:
     candidate_cols = [
         "game_id", "date", "home_team", "away_team",
@@ -794,6 +1591,12 @@ def build_prediction_rows(
         market_key=market_key,
         used_fallback=used_fallback,
     )
+
+    if market_key == "full_game" and full_game_gate is not None:
+        gate_keep, gate_score = full_game_gate.predict_mask(df_test, probs_calibrated)
+        publish_pick = (publish_pick.astype(int) * gate_keep.astype(int)).astype(int)
+        out["full_game_gate_keep"] = gate_keep.astype(int)
+        out["full_game_gate_score"] = gate_score.astype(float)
 
     out["publish_pick"] = publish_pick.astype(int)
     out["publish_threshold_effective"] = effective_threshold.astype(float)
@@ -848,13 +1651,8 @@ def run_market_walkforward(
             print("      split omitido por tamaño insuficiente")
             continue
 
-        X_train = sanitize_feature_frame(train_df, feature_cols)
         y_train = train_df[target_col].astype(int)
-
-        X_calib = sanitize_feature_frame(calib_df, feature_cols)
         y_calib = calib_df[target_col].astype(int)
-
-        X_test = sanitize_feature_frame(test_df, feature_cols)
         y_test = test_df[target_col].astype(int)
 
         if y_train.nunique() < 2:
@@ -864,11 +1662,15 @@ def run_market_walkforward(
             print("      split omitido: y_calib con una sola clase")
             continue
 
+        X_train = sanitize_feature_frame(train_df, feature_cols)
+        X_calib = sanitize_feature_frame(calib_df, feature_cols)
+        X_test = sanitize_feature_frame(test_df, feature_cols)
+
         print("      entrenando XGB + LGBM...")
         xgb_model, lgbm_model = fit_market_models(X_train, y_train, market_key)
         print("      modelos entrenados, calibrando ensemble...")
 
-        ensemble_model, calibrator, threshold_info, calib_detail = choose_ensemble_and_threshold(
+        ensemble_model, calibrator, threshold_info, calib_detail, full_game_gate = choose_ensemble_and_threshold(
             xgb_model=xgb_model,
             lgbm_model=lgbm_model,
             X_calib=X_calib,
@@ -881,23 +1683,50 @@ def run_market_walkforward(
             f"      threshold={threshold_info['threshold']:.3f} | "
             f"calib_acc={threshold_info['accuracy']:.4f} | "
             f"calib_cov={threshold_info['coverage']:.4f} | "
+            f"global_sel_acc={threshold_info.get('global_selection_accuracy', 0.0):.4f} | "
+            f"global_sel_brier={threshold_info.get('global_selection_brier', 0.0):.4f} | "
+            f"bayes_s={threshold_info.get('bayes_strength', 0.0):.1f} | "
+            f"p_shift={threshold_info.get('prob_shift', 0.0):+.3f} | "
             f"published_acc={threshold_info.get('published_accuracy', 0.0):.4f} | "
             f"published_cov={threshold_info.get('published_coverage', 0.0):.4f} | "
+            f"published_rows={threshold_info.get('published_rows', 0)} | "
             f"xgb_w={threshold_info['xgb_weight']:.2f} | "
             f"lgbm_w={threshold_info['lgbm_weight']:.2f} | "
+            f"rf_w={threshold_info.get('rf_weight', 0.0):.2f} | "
             f"fallback={threshold_info.get('used_fallback', 0)} | "
-            f"shrink={threshold_info.get('prob_shrink', 0.0):.2f}"
+            f"shrink={threshold_info.get('prob_shrink', 0.0):.2f} | "
+            f"objective={threshold_info.get('selection_objective', 'n/a')} | "
+            f"selection={threshold_info.get('selection_mode', 'n/a')} | "
+            f"calibrator={threshold_info.get('calibrator_mode', 'n/a')} | "
+            f"stack={threshold_info.get('stacking_mode', 'none')} | "
+            f"regime_cal={threshold_info.get('regime_calibrators', 0)} | "
+            f"meta_gate={threshold_info.get('meta_gate_enabled', 0)}"
         )
 
         raw_test_probs = ensemble_model.predict_proba(X_test)[:, 1]
-        
-        # Aquí también aplicamos reshape porque es de LogReg
-        calibrated_test_probs = calibrator.predict_proba(raw_test_probs.reshape(-1, 1))[:, 1]
+        calibrated_test_probs = predict_calibrated_probs(
+            calibrator=calibrator,
+            raw_probs=raw_test_probs,
+            df_context=test_df,
+            market_key=market_key,
+        )
         
         if float(threshold_info.get("prob_shrink", 0.0)) > 0:
             calibrated_test_probs = shrink_probs_toward_half(
                 calibrated_test_probs,
                 float(threshold_info["prob_shrink"]),
+            )
+        if market_key == "full_game" and float(threshold_info.get("bayes_strength", 0.0)) > 0:
+            calibrated_test_probs = apply_bayesian_probability_blend(
+                probs=calibrated_test_probs,
+                prior=float(threshold_info.get("bayes_prior", 0.5)),
+                strength=float(threshold_info.get("bayes_strength", 0.0)),
+                sample_size=int(threshold_info.get("bayes_sample_size", len(y_calib))),
+            )
+        if market_key == "full_game" and abs(float(threshold_info.get("prob_shift", 0.0))) > 1e-12:
+            calibrated_test_probs = apply_probability_shift(
+                probs=calibrated_test_probs,
+                shift=float(threshold_info.get("prob_shift", 0.0)),
             )
         test_metrics = safe_binary_metrics(y_test, calibrated_test_probs, threshold=0.5)
 
@@ -917,6 +1746,7 @@ def run_market_walkforward(
             split_id=split.split_id,
             used_fallback=int(threshold_info.get("used_fallback", 0)),
             prob_shrink=float(threshold_info.get("prob_shrink", 0.0)),
+            full_game_gate=full_game_gate,
         )
         prediction_rows.append(pred_rows)
 
@@ -946,6 +1776,7 @@ def run_market_walkforward(
                 "test_rows": int(len(test_df)),
                 "ensemble_xgb_weight": float(threshold_info["xgb_weight"]),
                 "ensemble_lgbm_weight": float(threshold_info["lgbm_weight"]),
+                "ensemble_rf_weight": float(threshold_info.get("rf_weight", 0.0)),
                 "publish_threshold": float(threshold_info["threshold"]),
                 "prob_shrink": float(threshold_info.get("prob_shrink", 0.0)),
                 "calib_accuracy": float(threshold_info["accuracy"]),
@@ -956,6 +1787,22 @@ def run_market_walkforward(
                 "fallback_penalty": float(threshold_info.get("fallback_penalty", 0.0)),
                 "missing_pitcher_penalty": float(threshold_info.get("missing_pitcher_penalty", 0.0)),
                 "missing_pitchers_rate_calib": float(threshold_info.get("missing_pitchers_rate_calib", 0.0)),
+                "regime_calibrators": int(threshold_info.get("regime_calibrators", 0)),
+                "selection_objective": str(threshold_info.get("selection_objective", "n/a")),
+                "calibrator_mode": str(threshold_info.get("calibrator_mode", "n/a")),
+                "stacking_mode": str(threshold_info.get("stacking_mode", "none")),
+                "bayes_strength": float(threshold_info.get("bayes_strength", 0.0)),
+                "bayes_prior": float(threshold_info.get("bayes_prior", 0.5)),
+                "prob_shift": float(threshold_info.get("prob_shift", 0.0)),
+                "global_selection_accuracy": float(threshold_info.get("global_selection_accuracy", 0.0)),
+                "global_selection_brier": float(threshold_info.get("global_selection_brier", 0.0)),
+                "global_selection_logloss": float(threshold_info.get("global_selection_logloss", 0.0)),
+                "meta_gate_enabled": int(threshold_info.get("meta_gate_enabled", 0)),
+                "meta_gate_threshold": float(threshold_info.get("meta_gate_threshold", 0.0)),
+                "meta_gate_base_accuracy": float(threshold_info.get("meta_gate_base_accuracy", 0.0)),
+                "meta_gate_final_accuracy": float(threshold_info.get("meta_gate_final_accuracy", 0.0)),
+                "meta_gate_base_coverage": float(threshold_info.get("meta_gate_base_coverage", 0.0)),
+                "meta_gate_final_coverage": float(threshold_info.get("meta_gate_final_coverage", 0.0)),
                 "momentum_penalty_mean_calib": float(threshold_info.get("momentum_penalty_mean_calib", 0.0)),
                 "momentum_penalty_active_rate_calib": float(threshold_info.get("momentum_penalty_active_rate_calib", 0.0)),
                 "missing_pitchers_rate_test": float(missing_pitchers_rate_test),
@@ -1134,10 +1981,17 @@ def save_market_outputs(market_key: str, detail_df: pd.DataFrame, split_df: pd.D
 
 def main() -> None:
     df = load_dataset()
+    selected_markets = _env_market_filter()
 
     global_summary = {}
 
+    if selected_markets:
+        print(f"Filtro de mercados activo ({len(selected_markets)}): {sorted(selected_markets)}")
+
     for market_key, cfg in TARGET_CONFIG.items():
+        if selected_markets and market_key.lower() not in selected_markets:
+            continue
+
         target_col = cfg["target_col"]
         feature_cols = get_market_feature_columns(df, market_key)
 
@@ -1148,6 +2002,9 @@ def main() -> None:
         print(f"OK {market_key}: {saved['metrics']}")
 
     for market_key, cfg in REGRESSION_TARGET_CONFIG.items():
+        if selected_markets and market_key.lower() not in selected_markets:
+            continue
+
         target_col = cfg["target_col"]
         feature_cols = get_market_feature_columns(df, market_key)
 
@@ -1156,6 +2013,9 @@ def main() -> None:
         saved = save_market_outputs(market_key, outputs["detail"], outputs["splits"])
         global_summary[market_key] = saved["metrics"]
         print(f"OK {market_key}: {saved['metrics']}")
+
+    if not global_summary:
+        raise RuntimeError("No markets selected for walk-forward run. Check NBA_MLB_MARKETS value.")
 
     summary_path = OUTPUT_DIR / "walkforward_summary_mlb.json"
     with open(summary_path, "w", encoding="utf-8") as f:

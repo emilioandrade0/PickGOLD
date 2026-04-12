@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
+from sklearn.linear_model import LogisticRegression
 
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
@@ -96,7 +97,7 @@ def get_nhl_market_feature_columns(df: pd.DataFrame, market: str) -> List[str]:
 
     if market == "full_game":
         keep = []
-        keep_prefixes = ("fg_",)
+        keep_prefixes = ("fg_", "ml_")
         keep_exact = {
             "elo_diff",
             "home_elo_pre", "away_elo_pre",
@@ -117,18 +118,35 @@ def get_nhl_market_feature_columns(df: pd.DataFrame, market: str) -> List[str]:
             "home_goalie_confirmed", "away_goalie_confirmed",
             "home_goalie_games_started_before", "away_goalie_games_started_before",
             "both_goalies_found", "both_goalies_confirmed",
+            "rest_days_diff",
+            "win_rate_l5_diff", "win_rate_l10_diff",
+            "goals_scored_l5_diff", "goals_allowed_l5_diff",
+            "goals_scored_l10_diff", "goals_allowed_l10_diff",
+            "goal_diff_l5_diff", "goal_diff_l10_diff", "goal_diff_std_l5_diff",
+            "goalie_goals_allowed_l3_diff", "goalie_goals_allowed_l5_diff", "goalie_goals_allowed_l10_diff",
+            "goalie_win_rate_l3_diff", "goalie_win_rate_l5_diff", "goalie_win_rate_l10_diff",
+            "goalie_rest_days_diff", "goalie_experience_diff",
+            "fg_form_diff", "fg_form_long_diff", "fg_scoring_diff", "fg_scoring_long_diff",
+            "fg_rest_diff", "fg_volatility_diff", "fg_goalie_diff", "fg_strength_diff",
+            "fg_strength_x_goalie_diff", "fg_market_edge", "fg_market_confidence", "fg_market_vs_model_gap",
+            "ml_implied_home_prob_no_vig", "ml_implied_away_prob_no_vig",
+            "ml_prob_gap_no_vig", "ml_home_is_favorite_market", "ml_abs_price_gap", "ml_odds_available",
         }
 
         drop_keywords = [
             "over_55", "home_over_25", "total", "under", "over",
-            "team_total", "q1_", "1p_", "spread_pick", "correct"
+            "team_total", "q1_", "1p_", "p1_", "spread_pick", "correct"
         ]
 
         for c in all_numeric:
             c_low = c.lower()
             if any(k in c_low for k in drop_keywords):
                 continue
-            if c in keep_exact or c.startswith(keep_prefixes):
+            if (
+                c in keep_exact
+                or c.startswith(keep_prefixes)
+                or c.endswith("_diff")
+            ):
                 keep.append(c)
 
         return sorted(set(keep))
@@ -230,6 +248,196 @@ def calculate_optimal_threshold(y_valid: np.ndarray, probs: np.ndarray, market: 
             best_threshold = float(threshold)
 
     return best_threshold
+
+
+def _ensemble_binary_probs(models: Dict, X: pd.DataFrame) -> np.ndarray:
+    xgb_probs = models["xgb"].predict_proba(X)[:, 1]
+    lgbm_probs = models["lgbm"].predict_proba(X)[:, 1]
+    lgbm_sec_probs = models["lgbm_sec"].predict_proba(X)[:, 1]
+    catboost_probs = models["catboost"].predict_proba(X)[:, 1]
+    return np.clip((xgb_probs + lgbm_probs + lgbm_sec_probs + catboost_probs) / 4.0, 1e-6, 1 - 1e-6)
+
+
+def _load_market_models(market: str) -> Optional[Dict]:
+    market_dir = MODELS_DIR / market
+    metadata_path = market_dir / "metadata.json"
+    if not metadata_path.exists():
+        return None
+    try:
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        return {
+            "xgb": joblib.load(market_dir / "xgboost_model.pkl"),
+            "lgbm": joblib.load(market_dir / "lgbm_model.pkl"),
+            "lgbm_sec": joblib.load(market_dir / "lgbm_secondary_model.pkl"),
+            "catboost": joblib.load(market_dir / "catboost_model.pkl"),
+            "metadata": metadata,
+        }
+    except Exception as e:
+        print(f"   [WARN] Could not load {market} models for V2 meta: {e}")
+        return None
+
+
+def _safe_prob_series(df: pd.DataFrame, col: str, default: float) -> pd.Series:
+    if col not in df.columns:
+        return pd.Series(default, index=df.index, dtype="float64")
+    s = pd.to_numeric(df[col], errors="coerce")
+    if default >= 0.0:
+        return s.fillna(default)
+    return s
+
+
+def _build_v2_meta_matrix(
+    full_home_prob: np.ndarray,
+    spread_home_cover_prob: np.ndarray,
+    market_home_prob: np.ndarray,
+    market_gap: np.ndarray,
+) -> np.ndarray:
+    base_p = np.clip(np.asarray(full_home_prob, dtype=float), 1e-6, 1 - 1e-6)
+    spread_p = np.asarray(spread_home_cover_prob, dtype=float)
+    market_p = np.asarray(market_home_prob, dtype=float)
+    gap = np.asarray(market_gap, dtype=float)
+
+    spread_p = np.where(np.isnan(spread_p), 0.5, spread_p)
+    market_p = np.where(np.isnan(market_p), 0.5, market_p)
+    gap = np.where(np.isnan(gap), 0.0, gap)
+    gap = np.clip(np.abs(gap), 0.0, 1.0)
+
+    spread_proxy = np.clip(0.5 + (spread_p - 0.5) * 0.60, 1e-6, 1 - 1e-6)
+    return np.column_stack(
+        [
+            base_p,
+            market_p,
+            spread_p,
+            spread_proxy,
+            gap,
+            base_p - market_p,
+            base_p - spread_proxy,
+            market_p - spread_proxy,
+            base_p * gap,
+            market_p * gap,
+        ]
+    )
+
+
+def train_full_game_v2_meta_model(df: pd.DataFrame) -> Optional[Dict]:
+    print("\n🧠 Training FULL_GAME V2 meta model (base + handicap + market)")
+
+    full_assets = _load_market_models("full_game")
+    spread_assets = _load_market_models("handicap_1_5")
+    if full_assets is None:
+        print("   [WARN] full_game assets missing; skipping V2 meta model")
+        return None
+
+    full_features = full_assets["metadata"].get("feature_columns", [])
+    spread_features = spread_assets["metadata"].get("feature_columns", []) if spread_assets else []
+
+    target = pd.to_numeric(df.get("TARGET_full_game"), errors="coerce")
+    valid_idx = target.isin([0, 1])
+    if valid_idx.sum() < 200:
+        print("   [WARN] Not enough rows for V2 meta model")
+        return None
+
+    df_work = df.loc[valid_idx].copy()
+    y = target.loc[valid_idx].astype(int)
+
+    split_idx = int(len(df_work) * 0.8)
+    split_idx = max(80, min(split_idx, len(df_work) - 40))
+
+    df_train = df_work.iloc[:split_idx].copy()
+    df_valid = df_work.iloc[split_idx:].copy()
+    y_train = y.iloc[:split_idx].copy()
+    y_valid = y.iloc[split_idx:].copy()
+
+    X_full_train = df_train[full_features].fillna(0)
+    X_full_valid = df_valid[full_features].fillna(0)
+
+    full_prob_train = _ensemble_binary_probs(full_assets, X_full_train)
+    full_prob_valid = _ensemble_binary_probs(full_assets, X_full_valid)
+
+    if spread_assets and spread_features:
+        X_spread_train = df_train[spread_features].fillna(0)
+        X_spread_valid = df_valid[spread_features].fillna(0)
+        spread_prob_train = _ensemble_binary_probs(spread_assets, X_spread_train)
+        spread_prob_valid = _ensemble_binary_probs(spread_assets, X_spread_valid)
+    else:
+        spread_prob_train = np.full(len(df_train), 0.5, dtype=float)
+        spread_prob_valid = np.full(len(df_valid), 0.5, dtype=float)
+
+    market_home_train = _safe_prob_series(df_train, "ml_implied_home_prob_no_vig", 0.5).to_numpy(dtype=float)
+    market_home_valid = _safe_prob_series(df_valid, "ml_implied_home_prob_no_vig", 0.5).to_numpy(dtype=float)
+    market_gap_train = _safe_prob_series(df_train, "ml_prob_gap_no_vig", 0.0).to_numpy(dtype=float)
+    market_gap_valid = _safe_prob_series(df_valid, "ml_prob_gap_no_vig", 0.0).to_numpy(dtype=float)
+
+    X_meta_train = _build_v2_meta_matrix(
+        full_home_prob=full_prob_train,
+        spread_home_cover_prob=spread_prob_train,
+        market_home_prob=market_home_train,
+        market_gap=market_gap_train,
+    )
+    X_meta_valid = _build_v2_meta_matrix(
+        full_home_prob=full_prob_valid,
+        spread_home_cover_prob=spread_prob_valid,
+        market_home_prob=market_home_valid,
+        market_gap=market_gap_valid,
+    )
+
+    if len(np.unique(y_train)) < 2:
+        print("   [WARN] Meta train split has one class; skipping V2 meta model")
+        return None
+
+    meta_model = LogisticRegression(C=1.0, solver="lbfgs", max_iter=500)
+    meta_model.fit(X_meta_train, y_train)
+
+    train_probs = meta_model.predict_proba(X_meta_train)[:, 1]
+    valid_probs = meta_model.predict_proba(X_meta_valid)[:, 1]
+    meta_threshold = calculate_optimal_threshold(y_train.values, train_probs, "full_game")
+
+    valid_preds = (valid_probs >= meta_threshold).astype(int)
+    base_valid_preds = (full_prob_valid >= float(full_assets["metadata"].get("threshold", 0.5))).astype(int)
+
+    valid_acc_meta = float(accuracy_score(y_valid, valid_preds))
+    valid_acc_base = float(accuracy_score(y_valid, base_valid_preds))
+
+    market_dir = MODELS_DIR / "full_game"
+    model_path = market_dir / "meta_model_full_game_v2.pkl"
+    metadata_path = market_dir / "meta_model_full_game_v2_metadata.json"
+    joblib.dump(meta_model, model_path)
+
+    meta_metadata = {
+        "model": "logistic_regression",
+        "features": [
+            "base_home_prob",
+            "market_home_prob",
+            "spread_home_cover_prob",
+            "spread_home_win_proxy",
+            "market_gap_abs",
+            "base_minus_market",
+            "base_minus_spread_proxy",
+            "market_minus_spread_proxy",
+            "base_x_gap",
+            "market_x_gap",
+        ],
+        "threshold": float(meta_threshold),
+        "valid_rows": int(len(y_valid)),
+        "valid_accuracy_base": float(valid_acc_base),
+        "valid_accuracy_v2": float(valid_acc_meta),
+        "valid_delta_v2_vs_base_pp": float((valid_acc_meta - valid_acc_base) * 100.0),
+        "base_full_game_threshold": float(full_assets["metadata"].get("threshold", 0.5)),
+        "spread_model_available": bool(spread_assets is not None),
+    }
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(meta_metadata, f, indent=2, ensure_ascii=False)
+
+    print(f"   FULL_GAME base valid acc: {valid_acc_base:.4f}")
+    print(f"   FULL_GAME V2   valid acc: {valid_acc_meta:.4f}")
+    print(f"   Delta V2-Base         : {(valid_acc_meta - valid_acc_base) * 100.0:+.2f} pp")
+    print(f"   Saved meta model      : {model_path}")
+
+    return {
+        "market": "full_game_v2_meta",
+        **meta_metadata,
+    }
 
 
 def train_single_market(df: pd.DataFrame, market: str, config: Dict):
@@ -343,6 +551,10 @@ def train_nhl_models():
         result = train_single_market(df, market, config)
         if result is not None:
             results[market] = result
+
+    v2_result = train_full_game_v2_meta_model(df)
+    if v2_result is not None:
+        results["full_game_v2_meta"] = v2_result
 
     summary_file = REPORTS_DIR / "training_summary_nhl.json"
     with open(summary_file, "w", encoding="utf-8") as f:

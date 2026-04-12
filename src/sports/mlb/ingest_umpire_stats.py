@@ -17,30 +17,57 @@ UMP_CACHE = CACHE_DIR / "umpire_stats.csv"
 
 
 def fetch_umpscorecards(season=None, save_path=UMP_CACHE, timeout=30):
-    """Best-effort download from umpscorecards.com data endpoint and save CSV.
+    """Download umpire aggregates from Umpscorecards API and save normalized CSV."""
+    target_year = int(season) if season else pd.Timestamp.now("UTC").year
+    start_date = f"{target_year}-01-01"
+    end_date = f"{target_year}-12-31"
 
-    If the site or format changes this will fallback to raising an exception.
-    """
-    url = "https://umpscorecards.com/data/umpires"
-    params = {}
-    if season:
-        params["season"] = season
+    url = "https://umpscorecards.com/api/umpires"
+    params = {
+        "startDate": start_date,
+        "endDate": end_date,
+        "seasonType": "R",
+    }
     resp = requests.get(url, params=params, timeout=timeout)
     resp.raise_for_status()
-    # try to parse as CSV
-    txt = resp.text
-    try:
-        df = pd.read_csv(io.StringIO(txt))
-    except Exception:
-        # try manual CSV parsing
-        rows = list(csv.reader(txt.splitlines()))
-        if not rows:
-            raise RuntimeError("Downloaded umpire data empty")
-        header = rows[0]
-        data = rows[1:]
-        df = pd.DataFrame(data, columns=header)
+    payload = resp.json()
 
-    df.to_csv(save_path, index=False)
+    rows = payload.get("rows") if isinstance(payload, dict) else None
+    if not isinstance(rows, list) or not rows:
+        raise RuntimeError("Umpire API returned no rows")
+
+    df = pd.DataFrame(rows)
+    if "umpire" not in df.columns:
+        raise RuntimeError("Umpire API schema missing 'umpire' column")
+
+    # Keep a lightweight normalized file compatible with feature_engineering_mlb_core.py
+    norm = pd.DataFrame()
+    norm["umpire"] = df["umpire"].astype(str).str.strip()
+
+    # Historical pipeline expects zone_rate; map to 0..1 when possible.
+    if "overall_accuracy_wmean" in df.columns:
+        zone_rate = pd.to_numeric(df["overall_accuracy_wmean"], errors="coerce")
+        zone_rate = zone_rate.where(zone_rate <= 1.0, zone_rate / 100.0)
+        norm["zone_rate"] = zone_rate
+    elif "consistency_wmean" in df.columns:
+        zone_rate = pd.to_numeric(df["consistency_wmean"], errors="coerce")
+        zone_rate = zone_rate.where(zone_rate <= 1.0, zone_rate / 100.0)
+        norm["zone_rate"] = zone_rate
+    else:
+        norm["zone_rate"] = pd.NA
+
+    if "n" in df.columns:
+        norm["games_sample"] = pd.to_numeric(df["n"], errors="coerce")
+    if "consistency_wmean" in df.columns:
+        c = pd.to_numeric(df["consistency_wmean"], errors="coerce")
+        norm["consistency_rate"] = c.where(c <= 1.0, c / 100.0)
+    if "favor_abs_mean" in df.columns:
+        norm["favor_abs_mean"] = pd.to_numeric(df["favor_abs_mean"], errors="coerce")
+    if "weighted_score" in df.columns:
+        norm["weighted_score"] = pd.to_numeric(df["weighted_score"], errors="coerce")
+
+    norm = norm.dropna(subset=["umpire"]).drop_duplicates(subset=["umpire"], keep="first")
+    norm.to_csv(save_path, index=False)
     print(f"Umpire stats saved to: {save_path}")
     return save_path
 

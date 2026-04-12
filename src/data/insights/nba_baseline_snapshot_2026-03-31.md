@@ -3,15 +3,15 @@
 Fecha: 2026-03-31
 
 ## Accuracy global
-- Partido completo: 68.11% (771/1132)
-- Primer cuarto: 53.62% (578/1078)
-- Primera mitad: 59.51% (657/1104)
-- Handicap/Spread: 50.46% (442/876)
-- Over/Under: 51.33% (444/865)
+- Partido completo: 68.22% (822/1205)
+- Primer cuarto: 54.22% (623/1149)
+- Primera mitad: 59.78% (703/1176)
+- Handicap/Spread: 50.16% (476/949)
+- Over/Under: 51.07% (479/938)
 
 ## Accuracy por tier (partido completo)
-- ELITE: 83.73% (139/166)
-- PREMIUM: 68.46% (191/279)
-- STRONG: 67.76% (145/214)
-- NORMAL: 67.19% (86/128)
-- PASS: 60.87% (210/345)
+- ELITE: 79.34% (215/271)
+- PREMIUM: 68.62% (199/290)
+- STRONG: 69.43% (134/193)
+- NORMAL: 56.62% (77/136)
+- PASS: 62.54% (197/315)

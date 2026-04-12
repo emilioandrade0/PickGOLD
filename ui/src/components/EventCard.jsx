@@ -63,11 +63,19 @@ function toFiniteNumber(value) {
 
 function resolveResultState(event) {
   const state = String(event?.status_state || "").trim().toLowerCase();
+  const statusDescription = String(event?.status_description || "").trim().toLowerCase();
+  const statusDetail = String(event?.status_detail || "").trim().toLowerCase();
+  const statusText = `${statusDescription} ${statusDetail}`.trim();
+  const completed = Number(event?.status_completed) === 1;
+  const finalScoreText = String(event?.final_score_text || "").trim();
+  const liveStates = ["in", "live", "in_progress", "inprogress", "status_in_progress", "halftime", "mid"];
+  const nonFinalStates = [...liveStates, "pre", "scheduled", "not_started", "ns"];
+  const hasLiveHint = /\ben vivo\b|\bin progress\b|\blive\b|\bq[1-4]\b|\bquarter\b|\bhalftime\b|\bhalf\b|\bot\b|\bperiod\b|\b[1-4](?:st|nd|rd|th)\b|\btop\s*\d+\b|\bbot\s*\d+\b/.test(statusText);
+  const hasFinalState = event?.result_available === true || completed || ["post", "final", "completed"].includes(state);
+  const hasFinalScoreFallback = Boolean(finalScoreText) && !nonFinalStates.includes(state) && !hasLiveHint;
   const hasResult =
-    event?.result_available === true ||
-    ["post", "final", "completed"].includes(state) ||
-    Boolean(String(event?.final_score_text || "").trim());
-  const isLive = !hasResult && state === "in";
+    hasFinalState || hasFinalScoreFallback;
+  const isLive = !hasResult && (liveStates.includes(state) || hasLiveHint);
   return { hasResult, isLive, state };
 }
 

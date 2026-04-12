@@ -168,6 +168,12 @@ def choose_threshold_from_calibration(
     max_threshold: float = 0.70,
     step: float = 0.01,
     min_coverage: float = 0.20,
+    target_coverage: Optional[float] = None,
+    coverage_tolerance: float = 0.02,
+    min_published_rows: int = 25,
+    accuracy_weight: float = 1.0,
+    coverage_weight: float = 0.03,
+    balance_weight: float = 0.03,
 ) -> Dict[str, float]:
     y = np.asarray(y_true, dtype=int)
     p = clamp_probs(probs)
@@ -179,6 +185,8 @@ def choose_threshold_from_calibration(
         "accuracy": 0.0,
         "coverage": 0.0,
         "positive_rate": 0.0,
+        "published_rows": 0,
+        "target_penalty": 0.0,
     }
 
     conf = np.maximum(p, 1.0 - p)
@@ -186,13 +194,27 @@ def choose_threshold_from_calibration(
 
     for thr in candidates:
         take = conf >= thr
+        published_rows = int(take.sum())
         coverage = float(take.mean()) if len(take) else 0.0
-        if coverage < min_coverage or take.sum() == 0:
+        if coverage < min_coverage or published_rows < int(max(1, min_published_rows)):
             continue
 
         acc = float((pred_side[take] == y[take]).mean())
-        positive_rate = float(pred_side[take].mean()) if take.sum() else 0.0
-        score = acc + (coverage * 0.08) - (abs(positive_rate - 0.5) * 0.02)
+        positive_rate = float(pred_side[take].mean()) if published_rows else 0.0
+
+        target_penalty = 0.0
+        if target_coverage is not None and float(target_coverage) > 0.0:
+            target_cov = float(target_coverage)
+            cov_shortfall = max(0.0, target_cov - coverage)
+            cov_excess = max(0.0, coverage - (target_cov + float(max(0.0, coverage_tolerance))))
+            target_penalty = (cov_shortfall * 0.25) + (cov_excess * 0.20)
+
+        score = (
+            (float(accuracy_weight) * acc)
+            + (coverage * float(coverage_weight))
+            - (abs(positive_rate - 0.5) * float(balance_weight))
+            - target_penalty
+        )
 
         if score > best["score"]:
             best = {
@@ -201,6 +223,32 @@ def choose_threshold_from_calibration(
                 "accuracy": acc,
                 "coverage": coverage,
                 "positive_rate": positive_rate,
+                "published_rows": int(published_rows),
+                "target_penalty": float(target_penalty),
             }
+
+    if best["score"] <= -1e8:
+        relaxed_min_coverage = max(0.0, float(min_coverage) * 0.5)
+        for thr in candidates:
+            take = conf >= thr
+            published_rows = int(take.sum())
+            coverage = float(take.mean()) if len(take) else 0.0
+            if coverage < relaxed_min_coverage or published_rows == 0:
+                continue
+
+            acc = float((pred_side[take] == y[take]).mean())
+            positive_rate = float(pred_side[take].mean()) if published_rows else 0.0
+            score = acc + (coverage * 0.02) - (abs(positive_rate - 0.5) * float(balance_weight))
+
+            if score > best["score"]:
+                best = {
+                    "threshold": float(round(thr, 2)),
+                    "score": float(score),
+                    "accuracy": acc,
+                    "coverage": coverage,
+                    "positive_rate": positive_rate,
+                    "published_rows": int(published_rows),
+                    "target_penalty": 0.0,
+                }
 
     return best

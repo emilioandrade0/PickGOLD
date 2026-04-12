@@ -1,0 +1,22 @@
+{
+  "model": "logistic_regression",
+  "features": [
+    "base_home_prob",
+    "market_home_prob",
+    "spread_home_cover_prob",
+    "spread_home_win_proxy",
+    "market_gap_abs",
+    "base_minus_market",
+    "base_minus_spread_proxy",
+    "market_minus_spread_proxy",
+    "base_x_gap",
+    "market_x_gap"
+  ],
+  "threshold": 0.46,
+  "valid_rows": 258,
+  "valid_accuracy_base": 0.5193798449612403,
+  "valid_accuracy_v2": 0.5,
+  "valid_delta_v2_vs_base_pp": -1.9379844961240345,
+  "base_full_game_threshold": 0.46,
+  "spread_model_available": true
+}

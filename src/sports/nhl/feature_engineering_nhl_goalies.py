@@ -368,6 +368,13 @@ def add_matchup_diff_features(df: pd.DataFrame) -> pd.DataFrame:
     df["goals_scored_l10_diff"] = df["home_goals_scored_l10"] - df["away_goals_scored_l10"]
     df["goals_allowed_l10_diff"] = df["home_goals_allowed_l10"] - df["away_goals_allowed_l10"]
 
+    # Explicit aliases used by FULL_GAME V2 training selectors.
+    df["fg_form_diff"] = df["win_rate_l5_diff"]
+    df["fg_form_long_diff"] = df["win_rate_l10_diff"]
+    df["fg_scoring_diff"] = df["goals_scored_l5_diff"] - df["goals_allowed_l5_diff"]
+    df["fg_scoring_long_diff"] = df["goals_scored_l10_diff"] - df["goals_allowed_l10_diff"]
+    df["fg_rest_diff"] = df["rest_days_diff"]
+
     if "home_goalie_goals_allowed_l5" in df.columns and "away_goalie_goals_allowed_l5" in df.columns:
         df["goalie_goals_allowed_l3_diff"] = df["home_goalie_goals_allowed_l3"] - df["away_goalie_goals_allowed_l3"]
         df["goalie_goals_allowed_l5_diff"] = df["home_goalie_goals_allowed_l5"] - df["away_goalie_goals_allowed_l5"]
@@ -385,6 +392,14 @@ def add_matchup_diff_features(df: pd.DataFrame) -> pd.DataFrame:
         df["both_goalies_confirmed"] = (
             (df["home_goalie_confirmed"] > 0) & (df["away_goalie_confirmed"] > 0)
         ).astype(int)
+        df["fg_goalie_diff"] = (
+            1.10 * df["goalie_win_rate_l5_diff"]
+            + 0.55 * df["goalie_win_rate_l10_diff"]
+            - 0.85 * df["goalie_goals_allowed_l5_diff"]
+            + 0.08 * df["goalie_experience_diff"]
+        )
+    else:
+        df["fg_goalie_diff"] = 0.0
 
     return df
 

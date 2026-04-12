@@ -47,6 +47,22 @@ function normalizeSearchText(value) {
     .trim();
 }
 
+function isLiveEvent(event) {
+  const state = String(event?.status_state || "").trim().toLowerCase();
+  if (["post", "final", "completed"].includes(state)) return false;
+  if (event?.result_available === true || Number(event?.status_completed) === 1) return false;
+
+  if (["in", "live", "in_progress", "inprogress", "status_in_progress", "halftime", "mid"].includes(state)) {
+    return true;
+  }
+
+  const statusDescription = String(event?.status_description || "").trim().toLowerCase();
+  const statusDetail = String(event?.status_detail || "").trim().toLowerCase();
+  const statusText = `${statusDescription} ${statusDetail}`.trim();
+
+  return /\ben vivo\b|\bin progress\b|\blive\b|\bq[1-4]\b|\bquarter\b|\bhalftime\b|\bhalf\b|\bot\b|\bperiod\b|\b[1-4](?:st|nd|rd|th)\b|\btop\s*\d+\b|\bbot\s*\d+\b/.test(statusText);
+}
+
 export default function LeaguePage({ sportKey, sportLabel }) {
   const { socialMode, uiTheme } = useAppSettings();
   const navigate = useNavigate();
@@ -316,7 +332,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
   useEffect(() => {
     if (sportKey !== "nba") return undefined;
     const localToday = toYmdLocal(new Date());
-    const hasLiveGames = events.some((event) => String(event.status_state || "").toLowerCase() === "in");
+    const hasLiveGames = events.some((event) => isLiveEvent(event));
     if (!hasLiveGames && selectedDate !== localToday) return undefined;
 
     const intervalId = setInterval(() => {

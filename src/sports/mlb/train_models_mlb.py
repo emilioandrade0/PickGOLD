@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, log_loss, mean_absolute_error, mean_squared_error, r2_score, roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import TimeSeriesSplit
 
 from xgboost import XGBClassifier
 from xgboost import XGBRegressor
@@ -74,7 +75,16 @@ NON_FEATURE_COLUMNS = {
 MARKET_FEATURE_PRIORITY = {
     "full_game": [
         "diff_elo",
+        "home_elo_pre",
+        "away_elo_pre",
         "diff_rest_days",
+        "diff_win_pct_L10_blend",
+        "diff_run_diff_L10_blend",
+        "diff_runs_scored_L5_blend",
+        "diff_runs_allowed_L5_blend",
+        "diff_prev_win_pct",
+        "diff_prev_run_diff_pg",
+        "prev_season_data_available",
         "diff_games_last_5_days",
         "diff_win_pct_L10",
         "diff_run_diff_L10",
@@ -102,6 +112,12 @@ MARKET_FEATURE_PRIORITY = {
         "diff_bullpen_runs_allowed_L10",
         "diff_bullpen_load_L3",
         "diff_offense_vs_pitcher",
+        "park_factor_delta",
+        "park_offense_pressure",
+        "park_bullpen_pressure",
+        "park_form_pressure",
+        "umpire_zone_delta",
+        "umpire_sample_log",
         "home_is_favorite",
     ],
     "yrfi": [
@@ -650,6 +666,59 @@ def choose_best_ensemble_params(
     return best
 
 
+def build_temporal_oof_classification_probs(
+    train_df: pd.DataFrame,
+    feature_cols: List[str],
+    target_col: str,
+    market_key: str,
+) -> Dict[str, np.ndarray] | None:
+    n_rows = len(train_df)
+    if n_rows < 350:
+        return None
+
+    n_splits = 4 if n_rows >= 1200 else 3 if n_rows >= 700 else 2
+    splitter = TimeSeriesSplit(n_splits=n_splits)
+
+    X_all = train_df[feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
+    y_all = train_df[target_col].astype(int).to_numpy()
+
+    xgb_oof = np.full(n_rows, np.nan, dtype=float)
+    lgbm_oof = np.full(n_rows, np.nan, dtype=float)
+
+    folds_used = 0
+    for tr_idx, val_idx in splitter.split(X_all):
+        y_tr = y_all[tr_idx]
+        if len(np.unique(y_tr)) < 2 or len(val_idx) == 0:
+            continue
+
+        scale_pos_weight = get_scale_pos_weight(pd.Series(y_tr))
+        xgb_fold = build_xgb(scale_pos_weight, market_key)
+        lgbm_fold = build_lgbm(scale_pos_weight, market_key)
+
+        X_tr = X_all.iloc[tr_idx]
+        X_val = X_all.iloc[val_idx]
+
+        xgb_fold.fit(X_tr, y_tr)
+        lgbm_fold.fit(X_tr, y_tr)
+
+        xgb_oof[val_idx] = xgb_fold.predict_proba(X_val)[:, 1]
+        lgbm_oof[val_idx] = lgbm_fold.predict_proba(X_val)[:, 1]
+        folds_used += 1
+
+    valid_mask = np.isfinite(xgb_oof) & np.isfinite(lgbm_oof)
+    min_required = max(120, int(n_rows * 0.35))
+    if folds_used == 0 or int(valid_mask.sum()) < min_required:
+        return None
+
+    return {
+        "y_true": y_all[valid_mask],
+        "xgb_probs": xgb_oof[valid_mask],
+        "lgbm_probs": lgbm_oof[valid_mask],
+        "oof_rows": int(valid_mask.sum()),
+        "folds_used": int(folds_used),
+    }
+
+
 def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feature_cols: List[str]) -> Dict:
     market_dir = MODELS_DIR / market_key
     market_dir.mkdir(parents=True, exist_ok=True)
@@ -669,6 +738,13 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 
     X_valid = valid_df[feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0)
     y_valid = valid_df[target_col].astype(int)
+
+    oof_selection = build_temporal_oof_classification_probs(
+        train_df=train_df,
+        feature_cols=feature_cols,
+        target_col=target_col,
+        market_key=market_key,
+    )
 
     scale_pos_weight = get_scale_pos_weight(y_train)
 
@@ -693,12 +769,38 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 
     xgb_valid_probs = xgb_model.predict_proba(X_valid)[:, 1]
     lgbm_valid_probs = lgbm_model.predict_proba(X_valid)[:, 1]
-    ensemble_params = choose_best_ensemble_params(
-        y_valid,
-        xgb_valid_probs,
-        lgbm_valid_probs,
-        market_key,
-    )
+
+    selection_mode = "single_holdout"
+    oof_rows = 0
+    oof_folds_used = 0
+
+    if oof_selection is not None:
+        oof_params = choose_best_ensemble_params(
+            pd.Series(oof_selection["y_true"]),
+            oof_selection["xgb_probs"],
+            oof_selection["lgbm_probs"],
+            market_key,
+        )
+        if float(oof_params.get("score", -999.0)) > -900:
+            ensemble_params = oof_params
+            selection_mode = "oof_timeseries"
+            oof_rows = int(oof_selection.get("oof_rows", 0))
+            oof_folds_used = int(oof_selection.get("folds_used", 0))
+        else:
+            ensemble_params = choose_best_ensemble_params(
+                y_valid,
+                xgb_valid_probs,
+                lgbm_valid_probs,
+                market_key,
+            )
+    else:
+        ensemble_params = choose_best_ensemble_params(
+            y_valid,
+            xgb_valid_probs,
+            lgbm_valid_probs,
+            market_key,
+        )
+
     best_threshold = ensemble_params["threshold"]
     ensemble_valid_probs = (
         ensemble_params["xgb_weight"] * xgb_valid_probs
@@ -745,6 +847,11 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
             "xgboost": float(ensemble_params["xgb_weight"]),
             "lightgbm": float(ensemble_params["lgbm_weight"]),
         },
+        "ensemble_selection": {
+            "mode": selection_mode,
+            "oof_rows": int(oof_rows),
+            "oof_folds_used": int(oof_folds_used),
+        },
         "metrics": {
             "xgboost_valid": xgb_metrics,
             "lightgbm_valid": lgbm_metrics,
@@ -762,6 +869,7 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     print(f"   ✅ Guardado XGB   : {xgb_path}")
     print(f"   ✅ Guardado LGBM  : {lgbm_path}")
     print(f"   ✅ Threshold ens. : {best_threshold}")
+    print(f"   ✅ Selection mode : {selection_mode}")
     print(f"   ✅ Accuracy ens.  : {ensemble_metrics['accuracy']:.4f}")
     print(f"   ✅ LogLoss ens.   : {ensemble_metrics['logloss']:.4f}")
     print(f"   ✅ ROC AUC ens.   : {ensemble_metrics['roc_auc']:.4f}")
