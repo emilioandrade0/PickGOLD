@@ -869,6 +869,9 @@ def _build_public_board_status(sport: str, target_date: Optional[str] = None, sn
     raw_history_date = _iso_to_date(snapshot.get("raw_history_updated_at"))
     upcoming_schedule_date = _iso_to_date(snapshot.get("upcoming_schedule_updated_at"))
     latest_prediction_update_date = _iso_to_date(snapshot.get("latest_prediction_updated_at"))
+    # Some pipelines can be fresh even when no upcoming schedule CSV is produced
+    # (for example, NBA/EuroLeague after the daily refresh with no pending games).
+    missing_upcoming_tolerated = sport in {"nba", "euroleague"}
 
     today_local = datetime.now().date().isoformat()
     selected_date = target_date or today_local
@@ -889,14 +892,16 @@ def _build_public_board_status(sport: str, target_date: Optional[str] = None, sn
             message = f"La pestana no tiene snapshot para {selected_date}. El ultimo board disponible es {latest_prediction_date}."
         else:
             message = f"La pestana todavia no tiene un snapshot disponible para {selected_date}."
-    elif not raw_history_date or not upcoming_schedule_date:
+    elif not raw_history_date or (not upcoming_schedule_date and not missing_upcoming_tolerated):
         freshness = "stale"
         title = "Fuentes incompletas"
         message = "Este deporte todavia no tiene sus archivos base completos. Conviene correr la actualizacion completa antes de confiar en el board."
-    elif raw_history_date < today_local or upcoming_schedule_date < today_local:
+    elif raw_history_date < today_local or (upcoming_schedule_date and upcoming_schedule_date < today_local):
         freshness = "stale"
         title = "Fuentes desactualizadas"
-        message = f"Los datos base de este deporte no se actualizan desde {min(raw_history_date, upcoming_schedule_date)}. Conviene refrescar el pipeline completo."
+        stale_dates = [d for d in [raw_history_date, upcoming_schedule_date] if d]
+        stale_since = min(stale_dates) if stale_dates else today_local
+        message = f"Los datos base de este deporte no se actualizan desde {stale_since}. Conviene refrescar el pipeline completo."
     elif latest_prediction_date and latest_prediction_date < today_local:
         freshness = "stale"
         title = "Datos desactualizados"

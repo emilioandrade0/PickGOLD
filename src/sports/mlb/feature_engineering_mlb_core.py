@@ -27,8 +27,11 @@ USE_EXTERNAL_PRIOR = int(np.clip(float(os.getenv("NBA_MLB_USE_EXTERNAL_PRIOR", "
 DISABLE_EXTERNAL_PRIOR_BLOCK = int(
     np.clip(float(os.getenv("NBA_MLB_DISABLE_EXTERNAL_PRIOR", "0") or 0.0), 0.0, 1.0)
 )
+DISABLE_PREV_SEASON_BLEND_BLOCK = int(
+    np.clip(float(os.getenv("NBA_MLB_DISABLE_PREV_SEASON_BLEND", "1") or 0.0), 0.0, 1.0)
+)
 DISABLE_UMPIRE_EXPANDED_BLOCK = int(
-    np.clip(float(os.getenv("NBA_MLB_DISABLE_UMPIRE_EXPANDED", "0") or 0.0), 0.0, 1.0)
+    np.clip(float(os.getenv("NBA_MLB_DISABLE_UMPIRE_EXPANDED", "1") or 0.0), 0.0, 1.0)
 )
 
 RAW_DATA = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
@@ -739,7 +742,7 @@ def add_prev_season_blend_features(df: pd.DataFrame) -> pd.DataFrame:
             )
         return out_df
 
-    if int(np.clip(float(os.getenv("NBA_MLB_DISABLE_PREV_SEASON_BLEND", "0") or 0.0), 0.0, 1.0)) > 0:
+    if DISABLE_PREV_SEASON_BLEND_BLOCK > 0:
         neutral_defaults = {
             "home_games_in_season_before": 0.0,
             "away_games_in_season_before": 0.0,
@@ -1333,6 +1336,101 @@ def build_bullpen_proxy_features(df: pd.DataFrame) -> pd.DataFrame:
     return wide
 
 
+def add_series_context_features(df: pd.DataFrame) -> pd.DataFrame:
+    work = df[["game_id", "date_dt", "season", "home_team", "away_team", "home_runs_total", "away_runs_total"]].copy()
+    home_team_str = work["home_team"].astype(str)
+    away_team_str = work["away_team"].astype(str)
+    team_low = home_team_str.where(home_team_str <= away_team_str, away_team_str)
+    team_high = home_team_str.where(home_team_str > away_team_str, away_team_str)
+    work["series_pair_key"] = work["season"].astype(str) + "|" + team_low + "|" + team_high
+    work = work.sort_values(["series_pair_key", "date_dt", "game_id"]).reset_index(drop=True)
+    date_gap = work.groupby("series_pair_key")["date_dt"].diff().dt.days.fillna(99)
+    new_series = (date_gap > 3).astype(int)
+    work["series_id"] = work["series_pair_key"] + "|" + new_series.groupby(work["series_pair_key"]).cumsum().astype(str)
+    work["home_margin"] = _safe_numeric(work["home_runs_total"], 0.0) - _safe_numeric(work["away_runs_total"], 0.0)
+    work["home_win_flag"] = (work["home_margin"] > 0).astype(int)
+    work["series_game_number"] = (work.groupby("series_id").cumcount() + 1).astype(float)
+    work["series_run_diff_so_far"] = (work.groupby("series_id")["home_margin"].cumsum() - work["home_margin"]).astype(float)
+    work["did_home_win_previous_game_in_series"] = work.groupby("series_id")["home_win_flag"].shift(1).fillna(0).astype(float)
+    return df.merge(
+        work[["game_id", "series_game_number", "series_run_diff_so_far", "did_home_win_previous_game_in_series"]],
+        on="game_id",
+        how="left",
+    )
+
+
+def add_matchup_history_features(df: pd.DataFrame) -> pd.DataFrame:
+    work = df[[
+        "game_id", "date_dt", "season", "home_team", "away_team",
+        "home_runs_total", "away_runs_total",
+    ]].copy()
+    work["home_team"] = work["home_team"].astype(str)
+    work["away_team"] = work["away_team"].astype(str)
+    team_low = work["home_team"].where(work["home_team"] <= work["away_team"], work["away_team"])
+    team_high = work["home_team"].where(work["home_team"] > work["away_team"], work["away_team"])
+    work["matchup_pair_key"] = team_low + "|" + team_high
+    work = work.sort_values(["matchup_pair_key", "date_dt", "game_id"]).reset_index(drop=True)
+
+    hist_win_pct = []
+    hist_run_diff = []
+    season_win_pct = []
+
+    overall_state: dict[str, dict[str, float]] = {}
+    season_state: dict[tuple[int, str], dict[str, float]] = {}
+
+    for _, row in work.iterrows():
+        pair_key = str(row["matchup_pair_key"])
+        season_key = (int(row["season"]), pair_key)
+        home_team = str(row["home_team"])
+        away_team = str(row["away_team"])
+        home_margin = float(_safe_numeric(pd.Series([row["home_runs_total"]]), 0.0).iloc[0]) - float(
+            _safe_numeric(pd.Series([row["away_runs_total"]]), 0.0).iloc[0]
+        )
+
+        pair_overall = overall_state.get(pair_key, {"games": 0.0, "home_team_wins": {}, "home_team_run_diff": {}})
+        pair_season = season_state.get(season_key, {"games": 0.0, "home_team_wins": {}})
+
+        overall_games = float(pair_overall["games"])
+        home_prev_wins = float(pair_overall["home_team_wins"].get(home_team, 0.0))
+        home_prev_run_diff = float(pair_overall["home_team_run_diff"].get(home_team, 0.0))
+        season_games = float(pair_season["games"])
+        season_prev_wins = float(pair_season["home_team_wins"].get(home_team, 0.0))
+
+        hist_win_pct.append(home_prev_wins / overall_games if overall_games > 0 else 0.5)
+        hist_run_diff.append(home_prev_run_diff / overall_games if overall_games > 0 else 0.0)
+        season_win_pct.append(season_prev_wins / season_games if season_games > 0 else 0.5)
+
+        home_win = 1.0 if home_margin > 0 else 0.0
+        away_win = 1.0 - home_win
+
+        pair_overall["games"] = overall_games + 1.0
+        pair_overall["home_team_wins"][home_team] = home_prev_wins + home_win
+        pair_overall["home_team_wins"][away_team] = float(pair_overall["home_team_wins"].get(away_team, 0.0)) + away_win
+        pair_overall["home_team_run_diff"][home_team] = home_prev_run_diff + home_margin
+        pair_overall["home_team_run_diff"][away_team] = float(pair_overall["home_team_run_diff"].get(away_team, 0.0)) - home_margin
+        overall_state[pair_key] = pair_overall
+
+        pair_season["games"] = season_games + 1.0
+        pair_season["home_team_wins"][home_team] = season_prev_wins + home_win
+        pair_season["home_team_wins"][away_team] = float(pair_season["home_team_wins"].get(away_team, 0.0)) + away_win
+        season_state[season_key] = pair_season
+
+    work["home_vs_away_matchup_win_pct_pre"] = pd.Series(hist_win_pct, index=work.index, dtype=float)
+    work["home_vs_away_matchup_run_diff_pre"] = pd.Series(hist_run_diff, index=work.index, dtype=float)
+    work["home_vs_away_in_season_record_pre"] = pd.Series(season_win_pct, index=work.index, dtype=float)
+
+    return df.merge(
+        work[[
+            "game_id",
+            "home_vs_away_matchup_win_pct_pre",
+            "home_vs_away_matchup_run_diff_pre",
+            "home_vs_away_in_season_record_pre",
+        ]],
+        on="game_id",
+        how="left",
+    )
+
+
 # =========================
 # Main builder
 # =========================
@@ -1352,6 +1450,8 @@ def build_features() -> pd.DataFrame:
     home_surface_features, away_surface_features = calculate_surface_split_features(df)
     pitcher_features = build_pitcher_game_table(df)
     bullpen_features = build_bullpen_proxy_features(df)
+    df = add_series_context_features(df)
+    df = add_matchup_history_features(df)
 
     # Home team rolling
     df = pd.merge(
@@ -1638,6 +1738,10 @@ def build_features() -> pd.DataFrame:
     # Core differentials
     # =========================
     df["diff_elo"] = df["home_elo_pre"] - df["away_elo_pre"]
+    df["elo_sum"] = df["home_elo_pre"] + df["away_elo_pre"]
+    df["elo_gap_abs"] = df["diff_elo"].abs()
+    home_fav_flag = pd.to_numeric(df.get("home_is_favorite", 0.0), errors="coerce").fillna(0.0).clip(0.0, 1.0)
+    df["favorite_elo_gap_signed"] = np.where(home_fav_flag >= 0.5, df["diff_elo"], -df["diff_elo"])
 
     df["diff_rest_days"] = df["home_rest_days"] - df["away_rest_days"]
     df["diff_is_b2b"] = df["home_is_b2b"] - df["away_is_b2b"]
@@ -1693,6 +1797,8 @@ def build_features() -> pd.DataFrame:
     df["away_form_power"] = df["away_win_pct_L10"] * df["away_run_diff_L10"]
     df["diff_form_power"] = df["home_form_power"] - df["away_form_power"]
     df["diff_signed_win_streak"] = df["home_signed_win_streak"] - df["away_signed_win_streak"]
+    df["elo_form_interaction"] = df["diff_elo"] * df["diff_win_pct_L10"]
+    df["elo_rest_interaction"] = df["diff_elo"] * df["diff_rest_days"]
 
     # =========================
     # Mean reversion / upset-risk
@@ -1803,6 +1909,7 @@ def build_features() -> pd.DataFrame:
     df["diff_pitcher_recent_quality_score"] = (
         df["home_pitcher_recent_quality_score"] - df["away_pitcher_recent_quality_score"]
     )
+    df["elo_pitcher_alignment"] = df["diff_elo"] * df["diff_pitcher_recent_quality_score"]
 
     # =========================
     # New: bullpen differentials
@@ -2012,6 +2119,15 @@ def build_features() -> pd.DataFrame:
         "home_elo_pre",
         "away_elo_pre",
         "diff_elo",
+        "elo_sum",
+        "elo_gap_abs",
+        "favorite_elo_gap_signed",
+        "elo_form_interaction",
+        "elo_rest_interaction",
+        "elo_pitcher_alignment",
+        "series_game_number",
+        "series_run_diff_so_far",
+        "did_home_win_previous_game_in_series",
 
         "home_rest_days",
         "away_rest_days",

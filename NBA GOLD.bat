@@ -45,9 +45,6 @@ if errorlevel 1 goto :fail
 call :run_sport "EuroLeague" "%ROOT%\src\data_ingest_euroleague.py" "%ROOT%\src\data\euroleague\raw\euroleague_advanced_history.csv" "%ROOT%\src\feature_engineering_euroleague.py" "%ROOT%\src\train_models_euroleague.py" "%ROOT%\src\predict_today_euroleague.py"
 if errorlevel 1 goto :fail
 
-call :run_sport "NCAA Baseball" "%ROOT%\src\data_ingest_ncaa_baseball.py" "%ROOT%\src\data\ncaa_baseball\raw\ncaa_baseball_advanced_history.csv" "%ROOT%\src\feature_engineering_ncaa_baseball.py" "%ROOT%\src\train_models_ncaa_baseball.py" "%ROOT%\src\predict_today_ncaa_baseball.py"
-if errorlevel 1 goto :fail
-
 echo.
 echo [ODDS] Ejecutando automatizacion de odds/spreads/lines...
 echo [ODDS] run_odds_automation.py
@@ -84,10 +81,6 @@ echo [HIST] EuroLeague - historical_predictions_euroleague.py
 %PY% "%ROOT%\src\historical_predictions_euroleague.py"
 if errorlevel 1 goto :fail
 
-echo [HIST] NCAA Baseball - historical_predictions_ncaa_baseball.py
-%PY% "%ROOT%\src\historical_predictions_ncaa_baseball.py"
-if errorlevel 1 goto :fail
-
 echo.
 echo [META] Reentrenando meta-modelo Best Picks...
 echo [META] train_best_picks_meta_model.py
@@ -120,8 +113,6 @@ if errorlevel 1 goto :fail
 %PY% "%ROOT%\src\predict_today_laliga.py"
 if errorlevel 1 goto :fail
 %PY% "%ROOT%\src\predict_today_euroleague.py"
-if errorlevel 1 goto :fail
-%PY% "%ROOT%\src\predict_today_ncaa_baseball.py"
 if errorlevel 1 goto :fail
 
 echo.
@@ -165,10 +156,6 @@ if errorlevel 1 goto :fail
 
 echo [CHECK] EuroLeague
 %CHECK_PS% "for($i=0;$i -lt 5;$i++){try{$r=Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/api/euroleague/predictions/today' -TimeoutSec 8; if($r.StatusCode -eq 200){exit 0}}catch{}; Start-Sleep -Seconds 2}; exit 1"
-if errorlevel 1 goto :fail
-
-echo [CHECK] NCAA Baseball
-%CHECK_PS% "for($i=0;$i -lt 5;$i++){try{$r=Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/api/ncaa_baseball/predictions/today' -TimeoutSec 8; if($r.StatusCode -eq 200){exit 0}}catch{}; Start-Sleep -Seconds 2}; exit 1"
 if errorlevel 1 goto :fail
 
 echo [CHECK] Insights Summary

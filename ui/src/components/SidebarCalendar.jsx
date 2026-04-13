@@ -62,11 +62,10 @@ export default function SidebarCalendar({
     { label: "LaLiga", path: "/laliga" },
     { label: "Bundesliga", path: "/bundesliga" },
     { label: "Ligue 1", path: "/ligue1" },
-    { label: "EuroLeague", path: "/euroleague" },
+    { label: "EuroLeague Basquetball", path: "/euroleague" },
     { label: "KBO", path: "/kbo" },
-    { label: "Tennis", path: "/tennis" },
-    { label: "Triple-A", path: "/triple-a" },
-    { label: "NCAA", path: "/ncaa-baseball" },
+    { label: "Tennis WTA", path: "/tennis" },
+    { label: "NCAA Triple-A", path: "/triple-a" },
   ]), []);
 
   if (!isDashboardPro) {
@@ -164,7 +163,7 @@ export default function SidebarCalendar({
       <div className="mb-3 flex items-center justify-between gap-2">
         {!compact && (
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-amber-200/80">{sportLabel || "Dashboard"}</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-amber-200/80">{sportLabel || "PickGold"}</p>
             <p className="mt-1 text-base font-semibold text-white">Panel</p>
           </div>
         )}
@@ -179,10 +178,10 @@ export default function SidebarCalendar({
       </div>
 
       <div className="space-y-1 border-b border-white/10 pb-3">
-        <SidebarLink to="/live" label="Dashboard" icon="▦" compact={compact} />
-        <SidebarLink to="/resumen-dia" label="Eventos" icon="◉" compact={compact} />
-        <SidebarLink to="/best-picks" label="Picks" icon="◌" compact={compact} />
-        <SidebarLink to="/estadisticas" label="Estadísticas" icon="⌁" compact={compact} />
+        <SidebarLink to="/live" label="En Vivo" icon="▦" compact={compact} />
+        <SidebarLink to="/resumen-dia" label="Eventos Del Dia" icon="◉" compact={compact} />
+        <SidebarLink to="/best-picks" label="Picks Del Dia" icon="◌" compact={compact} />
+        <SidebarLink to="/estadisticas" label="Rachas Por Equipo" icon="⌁" compact={compact} />
         <SidebarLink to="/insights" label="Insights" icon="◍" compact={compact} />
         <SidebarLink to="/admin/approve-users" label="Configuración" icon="⚙" compact={compact} />
       </div>

@@ -167,8 +167,8 @@ export default function AuthPage({ onAuthenticated }) {
             </div>
 
             <h1 className="mt-8 max-w-4xl text-5xl font-light leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              crea tu cuenta
-              <span className="block">o inicia sesion.</span>
+              Hola!
+              <span className="block">Bienvenido a PickGold.</span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/72">
@@ -329,7 +329,7 @@ export default function AuthPage({ onAuthenticated }) {
             </form>
 
             <p className="mt-5 text-xs leading-6 text-white/45">
-              Solo para mayores de 18 anos. Contenido con fines informativos; apuesta con responsabilidad.
+              Solo para mayores de 18 años. Contenido con fines informativos; apuesta con responsabilidad.
             </p>
           </section>
         </div>

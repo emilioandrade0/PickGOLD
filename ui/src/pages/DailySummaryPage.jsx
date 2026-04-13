@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import DetailModal from "../components/DetailModal.jsx";
+import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { fetchAvailableDates, fetchPredictionsByDate } from "../services/api.js";
 import { resolveEventTeams, resolveSidePick } from "../utils/teams.js";
 import { expandTeamCodeInText, getTeamDisplayName } from "../utils/teamNames.js";
@@ -14,7 +15,6 @@ const SPORTS = [
   { key: "tennis", label: "Tennis", path: "/tennis" },
   { key: "kbo", label: "KBO", path: "/kbo" },
   { key: "nhl", label: "NHL", path: "/nhl" },
-  { key: "ncaa_baseball", label: "NCAA Baseball", path: "/ncaa-baseball" },
   { key: "euroleague", label: "EuroLeague", path: "/euroleague" },
   { key: "liga_mx", label: "Liga MX", path: "/liga-mx" },
   { key: "laliga", label: "LaLiga", path: "/laliga" },
@@ -169,8 +169,12 @@ function parseTimeValue(event) {
 }
 
 export default function DailySummaryPage() {
+  const { uiTheme } = useAppSettings();
+  const isDashboardPro = uiTheme === "dashboard_pro";
   const navigate = useNavigate();
   const [eventsBySport, setEventsBySport] = useState({});
+  const [expandedSports, setExpandedSports] = useState({});
+  const [dashboardSidebarCompact, setDashboardSidebarCompact] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -291,9 +295,26 @@ export default function DailySummaryPage() {
   );
   const hitRate = settledEvents > 0 ? (wonEvents / settledEvents) * 100 : 0;
 
+  useEffect(() => {
+    setExpandedSports((prev) => {
+      const next = {};
+      sportsWithData.forEach((sport) => {
+        next[sport.key] = prev[sport.key] ?? false;
+      });
+      return next;
+    });
+  }, [sportsWithData]);
+
+  function toggleSportSection(sportKey) {
+    setExpandedSports((prev) => ({
+      ...prev,
+      [sportKey]: !prev[sportKey],
+    }));
+  }
+
   return (
     <main className="mx-auto max-w-[1780px] px-4 py-8 xl:px-6 2xl:px-8">
-      <div className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)] 2xl:grid-cols-[310px_minmax(0,1fr)]">
+      <div className={isDashboardPro ? (dashboardSidebarCompact ? "grid gap-6 xl:grid-cols-[78px_minmax(0,1fr)]" : "grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]") : "grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)] 2xl:grid-cols-[310px_minmax(0,1fr)]"}>
         <SidebarCalendar
           calendarMonth={calendarMonth}
           setCalendarMonth={setCalendarMonth}
@@ -306,6 +327,8 @@ export default function DailySummaryPage() {
           title="Calendario resumen"
           subtitle="Revisa resultados y picks de cualquier fecha historica."
           todayButtonLabel="Cargar hoy"
+          compactMode={dashboardSidebarCompact}
+          onCompactChange={setDashboardSidebarCompact}
         />
 
         <section className="min-w-0">
@@ -331,7 +354,7 @@ export default function DailySummaryPage() {
                 <p className="mt-2 text-3xl font-semibold text-white">{totalEvents}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Liquidados</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Terminados</p>
                 <p className="mt-2 text-3xl font-semibold text-amber-200">{settledEvents}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -339,7 +362,7 @@ export default function DailySummaryPage() {
                 <p className="mt-2 text-3xl font-semibold text-emerald-300">{wonEvents}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">% Acierto FG</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">% de Acierto</p>
                 <p className="mt-2 text-3xl font-semibold text-cyan-200">{hitRate.toFixed(1)}%</p>
                 <p className="mt-1 text-xs text-white/50">{lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString()}` : ""}</p>
               </div>
@@ -356,94 +379,121 @@ export default function DailySummaryPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {sportsWithData.map((sport) => (
-                <section
-                  key={sport.key}
-                  className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,30,0.96),rgba(10,15,24,0.98))] shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
-                >
-                  <div className="flex items-center justify-between gap-4 border-b border-white/10 bg-emerald-500/10 px-4 py-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-emerald-100">
-                      {sport.label} - {eventsBySport[sport.key].length} eventos
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`${sport.path}?date=${selectedDate}`)}
-                      className="text-xs font-semibold text-emerald-100/85 underline underline-offset-4 transition hover:text-white"
-                    >
-                      Abrir board
-                    </button>
-                  </div>
+              {sportsWithData.map((sport) => {
+                const sportEvents = eventsBySport[sport.key] || [];
+                const sportWon = sportEvents.filter((event) => toHitValue(event.full_game_hit) === true).length;
+                const sportLost = sportEvents.filter((event) => toHitValue(event.full_game_hit) === false).length;
+                const isExpanded = expandedSports[sport.key] === true;
 
-                  <div className="space-y-2 p-3">
-                    {eventsBySport[sport.key].map((event) => {
-                      const teams = resolveEventTeams(event);
-                      const picks = resolveSummaryPicks(event, sport.key, teams);
-                      const fullHit = toHitValue(event.full_game_hit);
-                      const finalScore = String(event.final_score_text || "").trim();
-                      const finalState = hasFinalResult(event);
-
-                      return (
-                        <div
-                          key={`${sport.key}-${event.game_id || `${event.date}-${event.time}-${teams.homeTeam}`}`}
-                          className={`cursor-pointer rounded-2xl border bg-white/[0.02] px-4 py-3 transition hover:bg-white/[0.045] ${rowBorderClass(event)}`}
-                          onClick={() => setActiveEvent(event)}
-                        >
-                          <div className="grid gap-4 xl:grid-cols-[190px_minmax(0,1fr)_minmax(340px,430px)] xl:items-center">
-                            <div>
-                              <p className="text-sm font-semibold text-white/90">{event.time || "Sin hora"}</p>
-                              <p className="mt-1 text-xs text-white/55">{event.date}</p>
-                              <p className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${
-                                fullHit === true
-                                  ? "border-emerald-400/45 bg-emerald-500/12 text-emerald-100"
-                                  : fullHit === false
-                                    ? "border-rose-400/45 bg-rose-500/12 text-rose-100"
-                                    : "border-white/15 bg-white/[0.045] text-white/75"
-                              }`}>
-                                {fullHit === true ? "FG ACIERTO" : fullHit === false ? "FG FALLO" : "FG PENDIENTE"}
-                              </p>
-                            </div>
-
-                            <div className="space-y-2">
-                              <TeamCell sportKey={sport.key} abbr={teams.awayTeam} side="away" />
-                              <TeamCell sportKey={sport.key} abbr={teams.homeTeam} side="home" />
-                              {finalState && finalScore && (
-                                <p className="text-xs font-semibold text-white/80">Final: {finalScore}</p>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`${sport.path}?date=${event.date}`);
-                                }}
-                                className="rounded-xl border border-cyan-300/35 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
-                              >
-                                Ver board
-                              </button>
-                              {picks.length === 0 ? (
-                                <span className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70">
-                                  Sin picks detectados
-                                </span>
-                              ) : (
-                                picks.map((pick) => (
-                                  <span
-                                    key={`${event.game_id || event.time}-${pick.label}`}
-                                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${pickBadgeTone(pick.hit)}`}
-                                  >
-                                    {pick.label}: {pick.value}
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                          </div>
+                return (
+                  <section
+                    key={sport.key}
+                    className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,30,0.96),rgba(10,15,24,0.98))] shadow-[0_16px_40px_rgba(0,0,0,0.22)]"
+                  >
+                    <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-emerald-500/10 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleSportSection(sport.key)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-300/35 bg-emerald-400/10 text-[11px] text-emerald-100 transition ${isExpanded ? "rotate-180" : ""}`}>
+                          v
+                        </span>
+                        <h3 className="truncate text-sm font-semibold uppercase tracking-[0.14em] text-emerald-100">
+                          {sport.label} - {sportEvents.length} eventos
+                        </h3>
+                        <div className="ml-auto flex items-center gap-2">
+                          <span className="rounded-full border border-emerald-400/45 bg-emerald-500/12 px-2 py-1 text-[10px] font-semibold text-emerald-100">
+                            G: {sportWon}
+                          </span>
+                          <span className="rounded-full border border-rose-400/45 bg-rose-500/12 px-2 py-1 text-[10px] font-semibold text-rose-100">
+                            P: {sportLost}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => navigate(`${sport.path}?date=${selectedDate}`)}
+                        className="shrink-0 text-xs font-semibold text-emerald-100/85 underline underline-offset-4 transition hover:text-white"
+                      >
+                        Abrir board
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="space-y-2 p-3">
+                        {sportEvents.map((event) => {
+                          const teams = resolveEventTeams(event);
+                          const picks = resolveSummaryPicks(event, sport.key, teams);
+                          const fullHit = toHitValue(event.full_game_hit);
+                          const finalScore = String(event.final_score_text || "").trim();
+                          const finalState = hasFinalResult(event);
+
+                          return (
+                            <div
+                              key={`${sport.key}-${event.game_id || `${event.date}-${event.time}-${teams.homeTeam}`}`}
+                              className={`cursor-pointer rounded-2xl border bg-white/[0.02] px-4 py-3 transition hover:bg-white/[0.045] ${rowBorderClass(event)}`}
+                              onClick={() => setActiveEvent(event)}
+                            >
+                              <div className="grid gap-4 xl:grid-cols-[190px_minmax(0,1fr)_minmax(340px,430px)] xl:items-center">
+                                <div>
+                                  <p className="text-sm font-semibold text-white/90">{event.time || "Sin hora"}</p>
+                                  <p className="mt-1 text-xs text-white/55">{event.date}</p>
+                                  <p className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${
+                                    fullHit === true
+                                      ? "border-emerald-400/45 bg-emerald-500/12 text-emerald-100"
+                                      : fullHit === false
+                                        ? "border-rose-400/45 bg-rose-500/12 text-rose-100"
+                                        : "border-white/15 bg-white/[0.045] text-white/75"
+                                  }`}>
+                                    {fullHit === true ? "FG ACIERTO" : fullHit === false ? "FG FALLO" : "FG PENDIENTE"}
+                                  </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <TeamCell sportKey={sport.key} abbr={teams.awayTeam} side="away" />
+                                  <TeamCell sportKey={sport.key} abbr={teams.homeTeam} side="home" />
+                                  {finalState && finalScore && (
+                                    <p className="text-xs font-semibold text-white/80">Final: {finalScore}</p>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`${sport.path}?date=${event.date}`);
+                                    }}
+                                    className="rounded-xl border border-cyan-300/35 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
+                                  >
+                                    Ver board
+                                  </button>
+                                  {picks.length === 0 ? (
+                                    <span className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70">
+                                      Sin picks detectados
+                                    </span>
+                                  ) : (
+                                    picks.map((pick) => (
+                                      <span
+                                        key={`${event.game_id || event.time}-${pick.label}`}
+                                        className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${pickBadgeTone(pick.hit)}`}
+                                      >
+                                        {pick.label}: {pick.value}
+                                      </span>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </section>

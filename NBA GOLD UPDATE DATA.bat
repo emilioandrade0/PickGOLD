@@ -45,15 +45,8 @@ if errorlevel 1 goto :fail
 call :run_sport "EuroLeague" "%ROOT%\src\data_ingest_euroleague.py" "%ROOT%\src\data\euroleague\raw\euroleague_advanced_history.csv" "%ROOT%\src\feature_engineering_euroleague.py" "%ROOT%\src\train_models_euroleague.py" "%ROOT%\src\predict_today_euroleague.py"
 if errorlevel 1 goto :fail
 
-call :run_sport "NCAA Baseball" "%ROOT%\src\data_ingest_ncaa_baseball.py" "%ROOT%\src\data\ncaa_baseball\raw\ncaa_baseball_advanced_history.csv" "%ROOT%\src\feature_engineering_ncaa_baseball.py" "%ROOT%\src\train_models_ncaa_baseball.py" "%ROOT%\src\predict_today_ncaa_baseball.py"
-if errorlevel 1 goto :fail
-
 echo [EXTRA] EuroLeague - historical_predictions_euroleague.py
 %PY% "%ROOT%\src\historical_predictions_euroleague.py"
-if errorlevel 1 goto :fail
-
-echo [EXTRA] NCAA Baseball - historical_predictions_ncaa_baseball.py
-%PY% "%ROOT%\src\historical_predictions_ncaa_baseball.py"
 if errorlevel 1 goto :fail
 
 echo.
@@ -82,8 +75,6 @@ if errorlevel 1 goto :fail
 %PY% "%ROOT%\src\predict_today_laliga.py"
 if errorlevel 1 goto :fail
 %PY% "%ROOT%\src\predict_today_euroleague.py"
-if errorlevel 1 goto :fail
-%PY% "%ROOT%\src\predict_today_ncaa_baseball.py"
 if errorlevel 1 goto :fail
 
 echo [CHECK] Verificacion rapida API source files (sin levantar servidor)

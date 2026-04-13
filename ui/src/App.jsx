@@ -8,7 +8,6 @@ import TripleAPage from "./pages/TripleAPage.jsx";
 import TennisPage from "./pages/TennisPage.jsx";
 import KBOPage from "./pages/KBOPage.jsx";
 import NHLPage from "./pages/NHLPage.jsx";
-import NCAABaseballPage from "./pages/NCAABaseballPage.jsx";
 import EuroLeaguePage from "./pages/EuroLeaguePage.jsx";
 import LigaMXPage from "./pages/LigaMXPage.jsx";
 import LaLigaPage from "./pages/LaLigaPage.jsx";
@@ -146,7 +145,6 @@ export default function App() {
         <Route path="/tennis" element={<TennisPage />} />
         <Route path="/kbo" element={<KBOPage />} />
         <Route path="/nhl" element={<NHLPage />} />
-        <Route path="/ncaa-baseball" element={<NCAABaseballPage />} />
         <Route path="/euroleague" element={<EuroLeaguePage />} />
         <Route path="/liga-mx" element={<LigaMXPage />} />
         <Route path="/laliga" element={<LaLigaPage />} />

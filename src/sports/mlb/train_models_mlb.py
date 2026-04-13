@@ -357,6 +357,53 @@ def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
     all_feature_cols = get_feature_columns(df)
     all_cols = set(all_feature_cols)
     preferred = MARKET_FEATURE_PRIORITY.get(market_key, [])
+
+    if market_key == "full_game":
+        ablation_mode = str(os.getenv("NBA_MLB_FULL_GAME_ABLATION", "everything") or "everything").strip().lower()
+        baseball_only = [
+            "diff_elo", "home_elo_pre", "away_elo_pre",
+            "diff_rest_days", "diff_games_last_5_days",
+            "diff_win_pct_L10", "diff_run_diff_L10",
+            "diff_runs_scored_L5", "diff_runs_allowed_L5",
+            "diff_win_pct_L10_blend", "diff_run_diff_L10_blend",
+            "diff_runs_scored_L5_blend", "diff_runs_allowed_L5_blend",
+            "diff_runs_scored_std_L10", "diff_runs_allowed_std_L10",
+            "diff_surface_win_pct_L5", "diff_surface_run_diff_L5", "diff_surface_edge",
+            "diff_win_pct_L10_vs_league", "diff_run_diff_L10_vs_league",
+            "diff_fatigue_index", "diff_form_power",
+            "diff_pitcher_rest_days", "diff_pitcher_era_L5", "diff_pitcher_whip_L5",
+            "diff_pitcher_k_bb_L5", "diff_pitcher_quality_start_rate_L10",
+            "diff_pitcher_blowup_rate_L10", "diff_pitcher_era_trend",
+            "diff_pitcher_whip_trend", "diff_pitcher_recent_quality_score",
+            "diff_bullpen_runs_allowed_L5", "diff_bullpen_runs_allowed_L10", "diff_bullpen_load_L3",
+            "diff_offense_vs_pitcher", "diff_pitcher_data_available", "both_pitchers_available",
+        ]
+        market_basic = baseball_only + [
+            "home_is_favorite",
+            "odds_over_under",
+            "market_missing",
+        ]
+        market_full = baseball_only + [
+            "home_is_favorite", "odds_over_under",
+            "open_line", "current_line", "line_movement",
+            "open_total", "current_total", "total_movement",
+            "current_home_moneyline", "current_away_moneyline", "current_total_line",
+            "bookmakers_count", "snapshot_count",
+            "market_moneyline_gap", "market_total_delta", "market_line_velocity",
+            "market_missing", "market_micro_missing",
+        ]
+        ablation_map = {
+            "everything": preferred,
+            "baseball_only": baseball_only,
+            "market_basic": market_basic,
+            "market_full": market_full,
+        }
+        if ablation_mode in ablation_map:
+            preferred = ablation_map[ablation_mode]
+            print(f"   🧪 Full-game ablation mode: {ablation_mode}")
+        else:
+            print(f"   ⚠️ NBA_MLB_FULL_GAME_ABLATION desconocido: {ablation_mode}; usando everything")
+
     selected = [c for c in preferred if c in all_cols]
 
     # fallback de seguridad

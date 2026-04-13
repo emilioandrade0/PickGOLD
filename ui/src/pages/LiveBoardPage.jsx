@@ -13,7 +13,6 @@ const LIVE_SPORTS = [
   { key: "tennis", label: "Tennis", path: "/tennis" },
   { key: "kbo", label: "KBO", path: "/kbo" },
   { key: "nhl", label: "NHL", path: "/nhl" },
-  { key: "ncaa_baseball", label: "NCAA Baseball", path: "/ncaa-baseball" },
   { key: "euroleague", label: "EuroLeague", path: "/euroleague" },
   { key: "liga_mx", label: "Liga MX", path: "/liga-mx" },
   { key: "laliga", label: "LaLiga", path: "/laliga" },

@@ -39,9 +39,9 @@ This repository includes `render.yaml` for one-click deployment.
 
 `ui/vercel.json` is already configured for SPA route rewrites.
 
-## 3) GitHub hourly refresh automation
+## 3) GitHub daily refresh automation
 
-The workflow file `.github/workflows/hourly-refresh.yml` runs every hour.
+The workflow file `.github/workflows/hourly-refresh.yml` runs once per day at 12:00 AM (Ciudad de Mexico time).
 
 Set repository secrets:
 - `THEODDSAPI_KEY` (required)
@@ -49,7 +49,7 @@ Set repository secrets:
 - `THEODDSAPI_DAYS_AHEAD` (optional)
 
 Then run once manually from GitHub Actions:
-1. Actions -> `Hourly Data Refresh`
+1. Actions -> `Daily Data Refresh`
 2. Click `Run workflow`
 3. Confirm it completes successfully
 

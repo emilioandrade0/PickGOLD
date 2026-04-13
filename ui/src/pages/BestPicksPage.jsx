@@ -136,7 +136,9 @@ function SportSection({ section, socialMode }) {
 }
 
 export default function BestPicksPage() {
-  const { socialMode } = useAppSettings();
+  const { socialMode, uiTheme } = useAppSettings();
+  const isDashboardPro = uiTheme === "dashboard_pro";
+  const [dashboardSidebarCompact, setDashboardSidebarCompact] = useState(false);
   const [bestPicksData, setBestPicksData] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
@@ -261,7 +263,7 @@ export default function BestPicksPage() {
       {!loading && error && <div className="rounded-3xl border border-rose-400/50 bg-rose-500/10 p-8 text-center text-rose-100">{error}</div>}
 
       {!loading && !error && (
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className={isDashboardPro ? (dashboardSidebarCompact ? "grid gap-6 lg:grid-cols-[78px_minmax(0,1fr)]" : "grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]") : "grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"}>
           <SidebarCalendar
             calendarMonth={calendarMonth}
             setCalendarMonth={setCalendarMonth}
@@ -274,6 +276,9 @@ export default function BestPicksPage() {
             title="Calendario Best Picks"
             subtitle="Consulta snapshots diarios del top global y del top por deporte."
             todayButtonLabel="Recargar snapshot de hoy"
+            sportLabel="Best Picks"
+            compactMode={dashboardSidebarCompact}
+            onCompactChange={setDashboardSidebarCompact}
           />
 
           <section className="min-w-0 space-y-6">

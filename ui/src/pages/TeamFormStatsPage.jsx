@@ -9,7 +9,6 @@ const SPORTS = [
   { key: "tennis", label: "Tennis" },
   { key: "kbo", label: "KBO" },
   { key: "nhl", label: "NHL" },
-  { key: "ncaa_baseball", label: "NCAA Baseball" },
   { key: "euroleague", label: "EuroLeague" },
   { key: "liga_mx", label: "Liga MX" },
   { key: "laliga", label: "LaLiga" },

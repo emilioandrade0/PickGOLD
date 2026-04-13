@@ -13,7 +13,6 @@ function getSportTitle(pathname, socialMode) {
   if (pathname.startsWith("/kbo")) return "KBO";
   if (pathname.startsWith("/mlb")) return "MLB";
   if (pathname.startsWith("/nhl")) return "NHL";
-  if (pathname.startsWith("/ncaa-baseball")) return "NCAA Baseball";
   if (pathname.startsWith("/euroleague")) return "EuroLeague";
   if (pathname.startsWith("/liga-mx")) return "Liga MX";
   if (pathname.startsWith("/laliga")) return "LaLiga";

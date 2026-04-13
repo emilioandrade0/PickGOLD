@@ -2,145 +2,145 @@
   "market_key": "over_25",
   "target_col": "TARGET_over_25",
   "problem_type": "binary",
-  "train_rows": 1449,
-  "valid_rows": 363,
+  "train_rows": 1456,
+  "valid_rows": 365,
   "feature_count": 94,
   "catboost_feature_count": 0,
-  "ensemble_threshold": 0.35,
+  "ensemble_threshold": 0.37,
   "ensemble_weights": {
-    "xgboost": 0.35,
-    "lightgbm_primary": 0.55,
-    "lightgbm_secondary": 0.1
+    "xgboost": 0.2,
+    "lightgbm_primary": 0.8,
+    "lightgbm_secondary": 0.0
   },
   "catboost_feature_columns": [],
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.5344352617079889,
-      "logloss": 0.7509864034073676,
-      "roc_auc": 0.5285916098519747
+      "accuracy": 0.5287671232876713,
+      "logloss": 0.7579071792642127,
+      "roc_auc": 0.5143830201301466
     },
     "lightgbm_valid": {
-      "accuracy": 0.5234159779614325,
-      "logloss": 0.8135889079913454,
-      "roc_auc": 0.5378662244333886
+      "accuracy": 0.5150684931506849,
+      "logloss": 0.8359571591813089,
+      "roc_auc": 0.5164203612479474
     },
     "lightgbm_secondary_valid": {
-      "accuracy": 0.5261707988980716,
-      "logloss": 0.8303311069474515,
-      "roc_auc": 0.5176279098335483
+      "accuracy": 0.4821917808219178,
+      "logloss": 0.8426111231804835,
+      "roc_auc": 0.5036793772425956
     },
     "ensemble_valid": {
-      "accuracy": 0.5647382920110193,
-      "logloss": 0.7742906280155238,
-      "roc_auc": 0.5361771389963762
+      "accuracy": 0.5643835616438356,
+      "logloss": 0.805776066359228,
+      "roc_auc": 0.5169068904701088
     }
   },
   "confidence_profile": {
-    "acc_conf_055": 0.5808580858085809,
-    "acc_conf_060": 0.5958333333333333,
-    "acc_conf_065": 0.5625,
-    "acc_conf_070": 0.5507246376811594
+    "acc_conf_055": 0.5732899022801303,
+    "acc_conf_060": 0.5725490196078431,
+    "acc_conf_065": 0.5520833333333334,
+    "acc_conf_070": 0.5100671140939598
   },
   "top_features": [
     {
-      "feature": "home_elo_pre",
-      "importance": 185.67072001906732
+      "feature": "match_parity_elo",
+      "importance": 210.0042548427979
     },
     {
-      "feature": "match_parity_elo",
-      "importance": 185.33750383928418
+      "feature": "home_elo_pre",
+      "importance": 181.33754614771655
     },
     {
       "feature": "away_elo_pre",
-      "importance": 167.33713530780128
-    },
-    {
-      "feature": "diff_elo",
-      "importance": 162.33762444928288
-    },
-    {
-      "feature": "diff_form_power",
-      "importance": 153.00384476563582
-    },
-    {
-      "feature": "diff_surface_goal_diff_L5",
-      "importance": 149.0042804526165
-    },
-    {
-      "feature": "diff_goals_allowed_L5",
-      "importance": 145.67102417660257
+      "importance": 167.0040851055334
     },
     {
       "feature": "diff_momentum_goal_diff",
-      "importance": 142.00396194619438
+      "importance": 153.6710948313897
     },
     {
-      "feature": "diff_over_25_rate_L10",
-      "importance": 134.67138427930573
+      "feature": "diff_elo",
+      "importance": 153.0041066305712
     },
     {
-      "feature": "diff_surface_over_25_rate_L10",
-      "importance": 134.00439095528176
+      "feature": "diff_goals_allowed_L5",
+      "importance": 151.00437303446233
     },
     {
-      "feature": "match_parity_goal_diff",
-      "importance": 131.00432574562728
+      "feature": "diff_surface_goal_diff_L5",
+      "importance": 150.67145707427213
+    },
+    {
+      "feature": "diff_form_power",
+      "importance": 135.6705512103314
     },
     {
       "feature": "away_form_power",
-      "importance": 129.67173964933804
+      "importance": 133.33861995488405
     },
     {
-      "feature": "away_momentum_goal_diff",
-      "importance": 129.337793068029
-    },
-    {
-      "feature": "home_form_power",
-      "importance": 125.67086650710553
+      "feature": "diff_over_25_rate_L10",
+      "importance": 128.33791458203146
     },
     {
       "feature": "away_away_only_over_25_rate_L10",
-      "importance": 119.33804982590179
+      "importance": 126.33853780974944
     },
     {
-      "feature": "home_home_only_goal_diff_L5",
-      "importance": 110.67094178590924
+      "feature": "home_form_power",
+      "importance": 126.33779893691342
     },
     {
-      "feature": "diff_surface_edge",
-      "importance": 108.67070741982509
+      "feature": "away_momentum_goal_diff",
+      "importance": 117.00481628223012
+    },
+    {
+      "feature": "diff_surface_over_25_rate_L10",
+      "importance": 117.00452790843944
     },
     {
       "feature": "diff_btts_rate_L10",
-      "importance": 105.67083548381925
+      "importance": 116.33750009567787
+    },
+    {
+      "feature": "diff_surface_edge",
+      "importance": 114.3373365343238
+    },
+    {
+      "feature": "match_parity_goal_diff",
+      "importance": 109.67041171342134
     },
     {
       "feature": "home_btts_rate_L10",
-      "importance": 104.0042632870997
+      "importance": 107.33775462023914
+    },
+    {
+      "feature": "home_home_only_goal_diff_L5",
+      "importance": 99.33752689169098
     },
     {
       "feature": "diff_goals_scored_L5",
-      "importance": 97.00398172096659
-    },
-    {
-      "feature": "diff_goal_diff_L5",
-      "importance": 90.33804162653784
-    },
-    {
-      "feature": "away_surface_edge",
-      "importance": 89.337738857915
+      "importance": 90.6709281054015
     },
     {
       "feature": "away_away_only_goal_diff_L5",
-      "importance": 88.67115087869267
+      "importance": 90.6708811459442
     },
     {
-      "feature": "home_goal_diff_L10",
-      "importance": 87.33777916493516
+      "feature": "diff_surface_btts_rate_L10",
+      "importance": 89.33697101318587
     },
     {
-      "feature": "draw_pressure_avg",
-      "importance": 87.33746618467073
+      "feature": "home_goals_allowed_L5",
+      "importance": 89.00473422495027
+    },
+    {
+      "feature": "diff_goal_diff_L5",
+      "importance": 87.33771442590903
+    },
+    {
+      "feature": "away_btts_rate_L10",
+      "importance": 87.0055312005182
     }
   ]
 }

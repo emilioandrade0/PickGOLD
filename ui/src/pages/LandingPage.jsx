@@ -158,13 +158,13 @@ export default function LandingPage() {
         <div className="mt-12 rounded-[28px] border border-white/10 bg-white/[0.03] p-5 sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/65">Que desbloquea cada plan</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/65">Planes</p>
               <h3 className="mt-3 text-2xl font-semibold text-white">
-                El usuario entiende rapido por que subir de nivel.
+                Elige tu plan.
               </h3>
             </div>
             <p className="max-w-md text-sm leading-6 text-white/46">
-              Sin promesas vacias: solo acceso claro, valor visible y una escalera logica de upgrade.
+              PickGold
             </p>
           </div>
 

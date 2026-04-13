@@ -3,7 +3,7 @@
     "market": "full_game",
     "target_col": "TARGET_full_game",
     "problem_type": "binary",
-    "threshold": 0.46,
+    "threshold": 0.55,
     "feature_columns": [
       "away_elo_pre",
       "away_games_last_3",
@@ -96,11 +96,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1288,
+    "n_rows": 1303,
     "n_features": 90,
-    "valid_accuracy": 0.5193798449612403,
-    "valid_logloss": 0.7906468519903757,
-    "valid_auc": 0.515045739046702,
+    "valid_accuracy": 0.5095785440613027,
+    "valid_logloss": 0.8075430872432957,
+    "valid_auc": 0.5015268968757342,
     "classes": [
       0,
       1
@@ -110,7 +110,7 @@
     "market": "handicap_1_5",
     "target_col": "TARGET_spread_1_5",
     "problem_type": "binary",
-    "threshold": 0.45000000000000007,
+    "threshold": 0.5000000000000001,
     "feature_columns": [
       "away_elo_pre",
       "away_games_last_3",
@@ -249,11 +249,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1288,
+    "n_rows": 1303,
     "n_features": 136,
-    "valid_accuracy": 0.7015503875968992,
-    "valid_logloss": 0.706367618239694,
-    "valid_auc": 0.5485714285714286,
+    "valid_accuracy": 0.6896551724137931,
+    "valid_logloss": 0.7179762243481663,
+    "valid_auc": 0.5211881727755825,
     "classes": [
       0,
       1
@@ -402,11 +402,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1288,
+    "n_rows": 1303,
     "n_features": 136,
-    "valid_accuracy": 0.5503875968992248,
-    "valid_logloss": 0.8284034001635265,
-    "valid_auc": 0.4585995085995086,
+    "valid_accuracy": 0.5555555555555556,
+    "valid_logloss": 0.7981854666278125,
+    "valid_auc": 0.4828619367209972,
     "classes": [
       0,
       1
@@ -555,11 +555,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1288,
+    "n_rows": 1303,
     "n_features": 136,
-    "valid_accuracy": 0.5155038759689923,
-    "valid_logloss": 0.7800938748277332,
-    "valid_auc": 0.4746763023185787,
+    "valid_accuracy": 0.5287356321839081,
+    "valid_logloss": 0.7798716102991576,
+    "valid_auc": 0.48095238095238096,
     "classes": [
       0,
       1
@@ -569,7 +569,7 @@
     "market": "home_over_2_5",
     "target_col": "TARGET_home_over_25",
     "problem_type": "binary",
-    "threshold": 0.38,
+    "threshold": 0.35,
     "feature_columns": [
       "away_elo_pre",
       "away_games_last_3",
@@ -708,11 +708,11 @@
       "win_rate_l10_diff",
       "win_rate_l5_diff"
     ],
-    "n_rows": 1288,
+    "n_rows": 1303,
     "n_features": 136,
-    "valid_accuracy": 0.5775193798449613,
-    "valid_logloss": 0.8174545654699366,
-    "valid_auc": 0.5009708737864078,
+    "valid_accuracy": 0.5593869731800766,
+    "valid_logloss": 0.8274533181108884,
+    "valid_auc": 0.5043694623133876,
     "classes": [
       0,
       1
@@ -733,12 +733,12 @@
       "base_x_gap",
       "market_x_gap"
     ],
-    "threshold": 0.46,
-    "valid_rows": 258,
-    "valid_accuracy_base": 0.5193798449612403,
-    "valid_accuracy_v2": 0.5,
-    "valid_delta_v2_vs_base_pp": -1.9379844961240345,
-    "base_full_game_threshold": 0.46,
+    "threshold": 0.45,
+    "valid_rows": 261,
+    "valid_accuracy_base": 0.5095785440613027,
+    "valid_accuracy_v2": 0.4827586206896552,
+    "valid_delta_v2_vs_base_pp": -2.681992337164746,
+    "base_full_game_threshold": 0.55,
     "spread_model_available": true
   }
 }

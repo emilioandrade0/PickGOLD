@@ -1,7 +1,7 @@
 {
   "date": "2026-04-24",
   "sport": "laliga",
-  "generated_at": "2026-04-10T15:50:16.167678",
+  "generated_at": "2026-04-12T23:28:07.106101",
   "games": [
     {
       "game_id": "748457",
@@ -11,11 +11,11 @@
       "home_team": "BET",
       "away_team": "RMA",
       "full_game_pick": "BET",
-      "full_game_confidence": 61,
-      "full_game_tier": "STRONG",
-      "base_probability": 0.605879,
-      "adjusted_probability": 0.561809,
-      "adjustment_amount": -0.044069,
+      "full_game_confidence": 55,
+      "full_game_tier": "NORMAL",
+      "base_probability": 0.54569,
+      "adjusted_probability": 0.52039,
+      "adjustment_amount": -0.0253,
       "adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -100,20 +100,28 @@
           "category": "reliability"
         }
       ],
-      "detected_patterns": [],
-      "pattern_edge": 0.0,
+      "detected_patterns": [
+        {
+          "name": "over_environment",
+          "strength": 0.07,
+          "direction": "positive",
+          "reliability": 0.7,
+          "reason": "Both teams show over-scoring context."
+        }
+      ],
+      "pattern_edge": 0.049,
       "recommended_pick": "BET",
-      "recommended_confidence": 56,
-      "recommended_score": 56.2,
-      "recommended": true,
+      "recommended_confidence": 52,
+      "recommended_score": 52.4,
+      "recommended": false,
       "spread_pick": "DNB BET",
       "spread_market": "DNB / 1X",
-      "total_pick": "UNDER 2.5",
-      "total_confidence": 79,
+      "total_pick": "OVER 2.5",
+      "total_confidence": 57,
       "total_action": "JUGAR",
-      "total_base_probability": 0.210427,
-      "total_adjusted_probability": 0.250467,
-      "total_adjustment_amount": 0.04004,
+      "total_base_probability": 0.573558,
+      "total_adjusted_probability": 0.600123,
+      "total_adjustment_amount": 0.026565,
       "total_adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -161,24 +169,24 @@
           "category": "reliability"
         }
       ],
-      "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 75.0,
+      "total_recommended_pick": "OVER 2.5",
+      "total_recommended_score": 60.4,
       "odds_over_under": 2.5,
-      "home_price": NaN,
-      "draw_price": NaN,
-      "away_price": NaN,
+      "home_price": null,
+      "draw_price": null,
+      "away_price": null,
       "closing_moneyline_odds": NaN,
       "home_moneyline_odds": NaN,
       "away_moneyline_odds": NaN,
       "closing_spread_odds": NaN,
       "closing_total_odds": NaN,
       "odds_data_quality": "fallback",
-      "btts_pick": "BTTS YES",
-      "btts_confidence": 50,
-      "btts_tier": "PASS",
-      "btts_base_probability": 0.499207,
-      "btts_adjusted_probability": 0.519297,
-      "btts_adjustment_amount": 0.020091,
+      "btts_pick": "BTTS NO",
+      "btts_confidence": 83,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.166683,
+      "btts_adjusted_probability": 0.206723,
+      "btts_adjustment_amount": 0.04004,
       "btts_adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -226,16 +234,16 @@
           "category": "reliability"
         }
       ],
-      "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 51.9,
+      "btts_recommended_pick": "BTTS NO",
+      "btts_recommended_score": 79.7,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
-      "corners_confidence": 81,
-      "corners_model_prob_over": 0.193206,
+      "corners_confidence": 52,
+      "corners_model_prob_over": 0.4751,
       "corners_recommended_pick": "UNDER 9.5",
-      "corners_recommended_score": 80.7,
-      "corners_action": "JUGAR",
+      "corners_recommended_score": 52.9,
+      "corners_action": "PASS",
       "status_state": "pre",
       "status_description": "nan"
     }

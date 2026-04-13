@@ -90,6 +90,7 @@ export default function AdminUserApproval() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [runningSport, setRunningSport] = useState("");
+  const [expandedSports, setExpandedSports] = useState({});
   const [passwordDrafts, setPasswordDrafts] = useState({});
   const [activeSection, setActiveSection] = useState("overview");
   const [snapshotMonth, setSnapshotMonth] = useState(() => currentMonthYmd());
@@ -185,6 +186,18 @@ export default function AdminUserApproval() {
     }
     return map;
   }, [marketAccuracy]);
+
+  useEffect(() => {
+    setExpandedSports((prev) => {
+      const next = {};
+      for (const sport of sportUpdates || []) {
+        const key = sport?.sport;
+        if (!key) continue;
+        next[key] = prev[key] ?? false;
+      }
+      return next;
+    });
+  }, [sportUpdates]);
 
   useEffect(() => {
     if (!anyUpdateRunning) return undefined;
@@ -305,6 +318,13 @@ export default function AdminUserApproval() {
     }
   }
 
+  function toggleSportExpanded(sportKey) {
+    setExpandedSports((prev) => ({
+      ...prev,
+      [sportKey]: !prev[sportKey],
+    }));
+  }
+
   async function handleToggleSocialMode() {
     setAppSettingsBusy(true);
     setError("");
@@ -420,9 +440,9 @@ export default function AdminUserApproval() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/75">Admin control</p>
-          <h2 className="mt-2 text-2xl font-semibold">Aprobacion de usuarios</h2>
+          <h2 className="mt-2 text-2xl font-semibold">Configuración</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/68">
-            Aqui definimos rol, acceso y validamos que datos usa cada board antes de publicar cambios en produccion.
+            Board de estado de la app.
           </p>
         </div>
         <button
@@ -603,17 +623,28 @@ export default function AdminUserApproval() {
             const steps = Array.isArray(sport.steps) ? sport.steps : [];
             const accuracyRow = marketAccuracyBySport[sport.sport] || null;
             const markets = Array.isArray(accuracyRow?.markets) ? accuracyRow.markets : [];
+            const isExpanded = expandedSports[sport.sport] === true;
             return (
               <div key={sport.sport} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.14)]">
+                <button
+                  type="button"
+                  onClick={() => toggleSportExpanded(sport.sport)}
+                  className="flex w-full items-center gap-3 text-left"
+                >
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/15 bg-white/[0.05] text-xs text-white/80">
+                    {isExpanded ? "-" : "+"}
+                  </span>
+                  <h4 className="text-lg font-semibold">{sport.label}</h4>
+                  <span className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1 text-xs text-white/70">{sport.board_route}</span>
+                  <span className={`ml-auto rounded-full border px-3 py-1 text-xs font-semibold ${isRunning ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100" : sport.board_status?.freshness === "ok" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : sport.board_status?.freshness === "stale" ? "border-amber-300/30 bg-amber-300/10 text-amber-200" : "border-rose-400/30 bg-rose-400/10 text-rose-200"}`}>
+                    {isRunning ? `En progreso ${Number(updateState.percent || 0)}%` : sport.board_status?.freshness === "ok" ? "LIVE" : sport.board_status?.freshness === "stale" ? "Desactualizado" : "Fuentes incompletas"}
+                  </span>
+                </button>
+
+                {isExpanded && (
+                <div className="mt-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h4 className="text-lg font-semibold">{sport.label}</h4>
-                      <span className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1 text-xs text-white/70">{sport.board_route}</span>
-                      <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${isRunning ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100" : sport.board_status?.freshness === "ok" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : sport.board_status?.freshness === "stale" ? "border-amber-300/30 bg-amber-300/10 text-amber-200" : "border-rose-400/30 bg-rose-400/10 text-rose-200"}`}>
-                        {isRunning ? `En progreso ${Number(updateState.percent || 0)}%` : sport.board_status?.freshness === "ok" ? "LIVE" : sport.board_status?.freshness === "stale" ? "Desactualizado" : "Fuentes incompletas"}
-                      </span>
-                    </div>
 
                     {sport.board_status?.freshness !== "ok" && !isRunning && (
                       <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${sport.board_status?.freshness === "stale" ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-rose-400/25 bg-rose-400/10 text-rose-200"}`}>
@@ -713,6 +744,8 @@ export default function AdminUserApproval() {
                     </button>
                   </div>
                 </div>
+              </div>
+              )}
               </div>
             );
           })}

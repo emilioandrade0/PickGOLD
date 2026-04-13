@@ -1,12 +1,13 @@
-name: Hourly Data Refresh
+name: Daily Data Refresh
 
 on:
   schedule:
-    - cron: "5 * * * *"
+    # GitHub Actions cron uses UTC. 06:00 UTC = 00:00 America/Mexico_City (UTC-6).
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 concurrency:
-  group: hourly-refresh
+  group: daily-refresh
   cancel-in-progress: false
 
 permissions:
@@ -37,7 +38,7 @@ jobs:
         run: |
           python -m playwright install --with-deps chromium
 
-      - name: Run hourly refresh pipeline
+      - name: Run daily refresh pipeline
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: '1'
@@ -56,6 +57,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
-            git commit -m "chore: hourly data refresh"
+            git commit -m "chore: daily data refresh"
             git push
           fi

@@ -1,13 +1,18 @@
 {
   "market_key": "f5",
   "target_col": "TARGET_home_win_f5",
-  "train_rows": 1831,
-  "valid_rows": 458,
+  "train_rows": 2158,
+  "valid_rows": 540,
   "feature_count": 8,
   "ensemble_threshold": 0.45,
   "ensemble_weights": {
     "xgboost": 0.2,
     "lightgbm": 0.8
+  },
+  "ensemble_selection": {
+    "mode": "single_holdout",
+    "oof_rows": 0,
+    "oof_folds_used": 0
   },
   "metrics": {
     "xgboost_valid": {

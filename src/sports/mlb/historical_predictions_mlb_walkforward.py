@@ -972,6 +972,7 @@ def summarize_pitcher_momentum_analysis(detail_df: pd.DataFrame) -> Dict[str, Di
 
 def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
     all_feature_cols = get_feature_columns(df)
+    full_game_ablation_mode = str(os.getenv("NBA_MLB_FULL_GAME_ABLATION", "everything") or "everything").strip().lower()
 
     # Conservador: ajusta un poco por mercado sin romper compatibilidad
     yrfi_keep = [
@@ -1013,6 +1014,53 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
         "market_moneyline_gap", "market_total_delta", "market_line_velocity", "market_missing",
         "market_micro_missing", "both_pitchers_available",
     ]
+
+    full_game_baseball_only = [
+        "diff_elo", "home_elo_pre", "away_elo_pre",
+        "diff_rest_days", "diff_games_last_5_days",
+        "diff_win_pct_L10", "diff_run_diff_L10",
+        "diff_runs_scored_L5", "diff_runs_allowed_L5",
+        "diff_win_pct_L10_blend", "diff_run_diff_L10_blend",
+        "diff_runs_scored_L5_blend", "diff_runs_allowed_L5_blend",
+        "diff_runs_scored_std_L10", "diff_runs_allowed_std_L10",
+        "diff_surface_win_pct_L5", "diff_surface_run_diff_L5", "diff_surface_edge",
+        "diff_win_pct_L10_vs_league", "diff_run_diff_L10_vs_league",
+        "diff_fatigue_index", "diff_form_power",
+        "diff_pitcher_data_available", "diff_pitcher_rest_days",
+        "diff_pitcher_runs_allowed_L5", "diff_pitcher_runs_allowed_L10",
+        "diff_pitcher_start_win_rate_L10",
+        "diff_bullpen_runs_allowed_L5", "diff_bullpen_runs_allowed_L10", "diff_bullpen_load_L3",
+        "diff_offense_vs_pitcher",
+        "both_pitchers_available",
+    ]
+
+    full_game_market_basic = full_game_baseball_only + [
+        "home_is_favorite",
+        "odds_over_under",
+        "market_missing",
+    ]
+
+    full_game_market_full = full_game_baseball_only + [
+        "home_is_favorite", "odds_over_under",
+        "open_line", "current_line", "line_movement",
+        "open_total", "current_total", "total_movement",
+        "current_home_moneyline", "current_away_moneyline", "current_total_line",
+        "bookmakers_count", "snapshot_count",
+        "market_moneyline_gap", "market_total_delta", "market_line_velocity",
+        "market_missing", "market_micro_missing",
+    ]
+
+    full_game_ablation_map = {
+        "everything": full_game_keep,
+        "baseball_only": full_game_baseball_only,
+        "market_basic": full_game_market_basic,
+        "market_full": full_game_market_full,
+    }
+    full_game_keep = full_game_ablation_map.get(full_game_ablation_mode, full_game_keep)
+    if full_game_ablation_mode not in full_game_ablation_map:
+        print(f"   ⚠️ NBA_MLB_FULL_GAME_ABLATION desconocido: {full_game_ablation_mode}; usando everything")
+    else:
+        print(f"   🧪 Full-game ablation mode: {full_game_ablation_mode} ({len(full_game_keep)} columnas objetivo)")
 
     f5_keep = [
         "diff_elo", "diff_rest_days", "diff_win_pct_L5", "diff_run_diff_L5", "diff_f5_win_pct_L5",
