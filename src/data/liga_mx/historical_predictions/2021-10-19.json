@@ -108,6 +108,43 @@
         "category": "reliability"
       }
     ],
+    "h1_over15_line": 1.5,
+    "h1_over15_pick": "UNDER 1.5",
+    "h1_over15_confidence": 89,
+    "h1_over15_recommended_pick": "UNDER 1.5",
+    "h1_over15_recommended_confidence": 89,
+    "h1_over15_base_probability": 0.112997,
+    "h1_over15_adjusted_probability": 0.112997,
+    "h1_over15_adjustment_amount": 0.0,
+    "h1_over15_adjustment_breakdown": [
+      {
+        "event_name": "away_good_form",
+        "direction": "positive",
+        "strength": 0.02,
+        "sign": 1.0,
+        "contribution": 0.015,
+        "explanation": "Visita con buena forma reciente.",
+        "category": "form"
+      },
+      {
+        "event_name": "home_team_cold_attack",
+        "direction": "negative",
+        "strength": 0.02,
+        "sign": -1.0,
+        "contribution": -0.015,
+        "explanation": "Ataque local en baja.",
+        "category": "attack_defense"
+      },
+      {
+        "event_name": "low_h2h_sample",
+        "direction": "neutral",
+        "strength": 0.0,
+        "sign": 0.0,
+        "contribution": 0.0,
+        "explanation": "Muestra H2H baja; peso H2H reducido.",
+        "category": "reliability"
+      }
+    ],
     "btts_pick": "BTTS NO",
     "btts_recommended_pick": "BTTS NO",
     "btts_base_probability": 0.100446,
@@ -156,6 +193,9 @@
     "correct_full_game_adjusted": 0,
     "correct_total_base": 1,
     "correct_total_adjusted": 1,
+    "correct_h1_over15_base": 1,
+    "correct_h1_over15_adjusted": 1,
+    "h1_over15_hit": 1,
     "correct_btts_base": 1,
     "correct_btts_adjusted": 1,
     "correct_corners_base": 1,
@@ -164,6 +204,7 @@
     "correct_ht_adjusted": 0,
     "actual_full_game_class": 1,
     "actual_ht_class": 1,
+    "actual_h1_over_15": 0,
     "fg_prob_away_base": 0.40582387659794716,
     "fg_prob_home_base": 0.32831090168633903,
     "fg_prob_draw_base": 0.2658652217157138,
@@ -264,6 +305,34 @@
         "category": "reliability"
       }
     ],
+    "h1_over15_line": 1.5,
+    "h1_over15_pick": "UNDER 1.5",
+    "h1_over15_confidence": 83,
+    "h1_over15_recommended_pick": "UNDER 1.5",
+    "h1_over15_recommended_confidence": 82,
+    "h1_over15_base_probability": 0.169718,
+    "h1_over15_adjusted_probability": 0.183031,
+    "h1_over15_adjustment_amount": 0.013313,
+    "h1_over15_adjustment_breakdown": [
+      {
+        "event_name": "home_good_form",
+        "direction": "positive",
+        "strength": 0.02,
+        "sign": 1.0,
+        "contribution": 0.015,
+        "explanation": "Local con buena forma reciente.",
+        "category": "form"
+      },
+      {
+        "event_name": "low_h2h_sample",
+        "direction": "neutral",
+        "strength": 0.0,
+        "sign": 0.0,
+        "contribution": 0.0,
+        "explanation": "Muestra H2H baja; peso H2H reducido.",
+        "category": "reliability"
+      }
+    ],
     "btts_pick": "BTTS NO",
     "btts_recommended_pick": "BTTS NO",
     "btts_base_probability": 0.144997,
@@ -303,6 +372,9 @@
     "correct_full_game_adjusted": 0,
     "correct_total_base": 1,
     "correct_total_adjusted": 1,
+    "correct_h1_over15_base": 1,
+    "correct_h1_over15_adjusted": 1,
+    "h1_over15_hit": 1,
     "correct_btts_base": 1,
     "correct_btts_adjusted": 1,
     "correct_corners_base": 1,
@@ -311,6 +383,7 @@
     "correct_ht_adjusted": 1,
     "actual_full_game_class": 2,
     "actual_ht_class": 2,
+    "actual_h1_over_15": 0,
     "fg_prob_away_base": 0.4193295690723338,
     "fg_prob_home_base": 0.3496027717034021,
     "fg_prob_draw_base": 0.23106765922426412,
@@ -386,6 +459,25 @@
         "category": "reliability"
       }
     ],
+    "h1_over15_line": 1.5,
+    "h1_over15_pick": "UNDER 1.5",
+    "h1_over15_confidence": 86,
+    "h1_over15_recommended_pick": "UNDER 1.5",
+    "h1_over15_recommended_confidence": 86,
+    "h1_over15_base_probability": 0.136357,
+    "h1_over15_adjusted_probability": 0.136357,
+    "h1_over15_adjustment_amount": 0.0,
+    "h1_over15_adjustment_breakdown": [
+      {
+        "event_name": "low_h2h_sample",
+        "direction": "neutral",
+        "strength": 0.0,
+        "sign": 0.0,
+        "contribution": 0.0,
+        "explanation": "Muestra H2H baja; peso H2H reducido.",
+        "category": "reliability"
+      }
+    ],
     "btts_pick": "BTTS NO",
     "btts_recommended_pick": "BTTS NO",
     "btts_base_probability": 0.090015,
@@ -416,6 +508,9 @@
     "correct_full_game_adjusted": 1,
     "correct_total_base": 1,
     "correct_total_adjusted": 1,
+    "correct_h1_over15_base": 1,
+    "correct_h1_over15_adjusted": 1,
+    "h1_over15_hit": 1,
     "correct_btts_base": 1,
     "correct_btts_adjusted": 1,
     "correct_corners_base": 1,
@@ -424,6 +519,7 @@
     "correct_ht_adjusted": 0,
     "actual_full_game_class": 1,
     "actual_ht_class": 2,
+    "actual_h1_over_15": 0,
     "fg_prob_away_base": 0.18506329016768056,
     "fg_prob_home_base": 0.6555435271873371,
     "fg_prob_draw_base": 0.15939318264498234,
@@ -499,6 +595,25 @@
         "category": "reliability"
       }
     ],
+    "h1_over15_line": 1.5,
+    "h1_over15_pick": "UNDER 1.5",
+    "h1_over15_confidence": 87,
+    "h1_over15_recommended_pick": "UNDER 1.5",
+    "h1_over15_recommended_confidence": 87,
+    "h1_over15_base_probability": 0.13102,
+    "h1_over15_adjusted_probability": 0.13102,
+    "h1_over15_adjustment_amount": 0.0,
+    "h1_over15_adjustment_breakdown": [
+      {
+        "event_name": "low_h2h_sample",
+        "direction": "neutral",
+        "strength": 0.0,
+        "sign": 0.0,
+        "contribution": 0.0,
+        "explanation": "Muestra H2H baja; peso H2H reducido.",
+        "category": "reliability"
+      }
+    ],
     "btts_pick": "BTTS YES",
     "btts_recommended_pick": "BTTS YES",
     "btts_base_probability": 0.9396,
@@ -529,6 +644,9 @@
     "correct_full_game_adjusted": 1,
     "correct_total_base": 1,
     "correct_total_adjusted": 1,
+    "correct_h1_over15_base": 1,
+    "correct_h1_over15_adjusted": 1,
+    "h1_over15_hit": 1,
     "correct_btts_base": 1,
     "correct_btts_adjusted": 1,
     "correct_corners_base": 1,
@@ -537,6 +655,7 @@
     "correct_ht_adjusted": 0,
     "actual_full_game_class": 1,
     "actual_ht_class": 2,
+    "actual_h1_over_15": 0,
     "fg_prob_away_base": 0.16541040094855858,
     "fg_prob_home_base": 0.7104478929969499,
     "fg_prob_draw_base": 0.1241417060544915,

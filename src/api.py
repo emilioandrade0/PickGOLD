@@ -88,6 +88,7 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 NBA_RAW_HISTORY = BASE_DIR / "data" / "raw" / "nba_advanced_history.csv"
+WNBA_RAW_HISTORY = BASE_DIR / "data" / "wnba" / "raw" / "wnba_advanced_history.csv"
 MLB_RAW_HISTORY = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
 NHL_RAW_HISTORY = BASE_DIR / "data" / "nhl" / "raw" / "nhl_advanced_history.csv"
 LIGA_MX_RAW_HISTORY = BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_advanced_history.csv"
@@ -105,6 +106,10 @@ SPORT_RAW_FILES = {
     "nba": {
         "raw_history": NBA_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "raw" / "nba_upcoming_schedule.csv",
+    },
+    "wnba": {
+        "raw_history": WNBA_RAW_HISTORY,
+        "upcoming_schedule": BASE_DIR / "data" / "wnba" / "raw" / "wnba_upcoming_schedule.csv",
     },
     "mlb": {
         "raw_history": MLB_RAW_HISTORY,
@@ -159,6 +164,7 @@ TEAM_FORM_SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 ESPN_SCOREBOARD_URLS = {
     "nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+    "wnba": "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard",
     "mlb": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
     "kbo": "https://site.api.espn.com/apis/site/v2/sports/baseball/kbo/scoreboard",
     "nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
@@ -173,6 +179,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "predictions",
         "historical_dir": BASE_DIR / "data" / "historical_predictions",
         "label": "NBA",
+    },
+    "wnba": {
+        "predictions_dir": BASE_DIR / "data" / "wnba" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "wnba" / "historical_predictions",
+        "label": "WNBA",
     },
     "mlb": {
         "predictions_dir": BASE_DIR / "data" / "mlb" / "predictions",
@@ -266,6 +277,17 @@ SPORT_UPDATE_PIPELINES = {
             {"key": "train", "label": "Entrenamiento NBA", "script": BASE_DIR / "sports" / "nba" / "train_models.py"},
             {"key": "historical", "label": "Hist?ricas NBA", "script": BASE_DIR / "sports" / "nba" / "historical_predictions.py"},
             {"key": "today", "label": "Predicciones de hoy NBA", "script": BASE_DIR / "sports" / "nba" / "predict_today.py"},
+        ],
+        "env": {},
+    },
+    "wnba": {
+        "label": "WNBA",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta WNBA", "script": BASE_DIR / "sports" / "wnba" / "data_ingest.py"},
+            {"key": "features", "label": "Features WNBA", "script": BASE_DIR / "sports" / "wnba" / "feature_engineering.py"},
+            {"key": "train", "label": "Entrenamiento WNBA", "script": BASE_DIR / "sports" / "wnba" / "train_models.py"},
+            {"key": "historical", "label": "Hist?ricas WNBA", "script": BASE_DIR / "sports" / "wnba" / "historical_predictions.py"},
+            {"key": "today", "label": "Predicciones de hoy WNBA", "script": BASE_DIR / "sports" / "wnba" / "predict_today.py"},
         ],
         "env": {},
     },
@@ -579,6 +601,7 @@ def _build_admin_sport_pipeline_snapshot(sport: str) -> dict:
 def _admin_market_label(market_key: str) -> str:
     labels = {
         "full_game": "Full Game",
+        "h1_over_15": "1H O/U 1.5",
         "over_25": "Over 2.5",
         "btts": "BTTS",
         "corners_over_95": "Corners O/U 9.5",
@@ -636,6 +659,7 @@ def _historical_market_accuracy_fallback(sport: str, max_files: int = 180) -> di
     # Candidate hit flags by market across legacy/current schemas.
     market_hit_candidates = {
         "full_game": ["correct_full_game_adjusted", "correct_full_game", "full_game_hit", "moneyline_hit", "pick_hit"],
+        "h1_over_15": ["correct_h1_over15_adjusted", "correct_h1_over15_base", "h1_over15_hit"],
         "over_25": ["correct_total_adjusted", "correct_total", "totals_hit", "over_under_hit"],
         "btts": ["correct_btts_adjusted", "correct_btts", "btts_hit"],
         "corners_over_95": ["correct_corners_adjusted", "correct_corners", "corners_hit"],
@@ -871,7 +895,7 @@ def _build_public_board_status(sport: str, target_date: Optional[str] = None, sn
     latest_prediction_update_date = _iso_to_date(snapshot.get("latest_prediction_updated_at"))
     # Some pipelines can be fresh even when no upcoming schedule CSV is produced
     # (for example, NBA/EuroLeague after the daily refresh with no pending games).
-    missing_upcoming_tolerated = sport in {"nba", "euroleague"}
+    missing_upcoming_tolerated = sport in {"nba", "wnba", "euroleague"}
 
     today_local = datetime.now().date().isoformat()
     selected_date = target_date or today_local
@@ -1864,8 +1888,8 @@ def evaluate_mlb_q1_pick(pick: str, home_r1: int, away_r1: int):
 
 
 def build_results_lookup_for_sport(sport: str):
-    if sport == "nba":
-        file_path = NBA_RAW_HISTORY
+    if sport in {"nba", "wnba"}:
+        file_path = NBA_RAW_HISTORY if sport == "nba" else WNBA_RAW_HISTORY
         use_cols = [
             "game_id", "date", "home_team", "away_team",
             "home_pts_total", "away_pts_total", "home_q1", "away_q1", "home_q2", "away_q2", "home_q3", "away_q3", "home_q4", "away_q4",
@@ -1902,22 +1926,22 @@ def build_results_lookup_for_sport(sport: str):
     elif sport == "liga_mx":
         file_path = LIGA_MX_RAW_HISTORY
         use_cols = [
-            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
+            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_ht_score", "away_ht_score", "home_corners", "away_corners", "total_corners",
         ]
     elif sport == "laliga":
         file_path = LALIGA_RAW_HISTORY
         use_cols = [
-            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
+            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_ht_score", "away_ht_score", "home_corners", "away_corners", "total_corners",
         ]
     elif sport == "bundesliga":
         file_path = BUNDESLIGA_RAW_HISTORY
         use_cols = [
-            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
+            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_ht_score", "away_ht_score", "home_corners", "away_corners", "total_corners",
         ]
     elif sport == "ligue1":
         file_path = LIGUE1_RAW_HISTORY
         use_cols = [
-            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_corners", "away_corners", "total_corners",
+            "game_id", "date", "home_team", "away_team", "home_score", "away_score", "home_ht_score", "away_ht_score", "home_corners", "away_corners", "total_corners",
         ]
     elif sport == "euroleague":
         file_path = EUROLEAGUE_RAW_HISTORY
@@ -1937,11 +1961,57 @@ def build_results_lookup_for_sport(sport: str):
     except Exception:
         return {}
 
-    selected_cols = [c for c in (use_cols + optional_status_cols) if c in header_cols]
+    inning_score_cols = []
+    if sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"}:
+        inning_col_pattern = re.compile(r"^(home|away)_r\d+$", re.IGNORECASE)
+        inning_score_cols = [c for c in header_cols if inning_col_pattern.match(str(c))]
+
+    selected_cols = [c for c in (use_cols + inning_score_cols + optional_status_cols) if c in header_cols]
     try:
         df = pd.read_csv(file_path, usecols=selected_cols)
     except Exception:
         return {}
+
+    def _series_int(series: pd.Series, column: str):
+        if column not in series.index:
+            return None
+        value = series.get(column)
+        if pd.isna(value):
+            return None
+        try:
+            return int(value)
+        except Exception:
+            try:
+                return int(float(value))
+            except Exception:
+                return None
+
+    def _build_inning_scores(series: pd.Series, prefix: str):
+        scores = []
+        for inning in range(1, 20):
+            column = f"{prefix}_r{inning}"
+            if column not in series.index:
+                continue
+            scores.append(_series_int(series, column))
+        while scores and scores[-1] is None:
+            scores.pop()
+        return scores
+
+    def _build_soccer_segment_scores(series: pd.Series, home_score_value, away_score_value):
+        home_ht = _series_int(series, "home_ht_score")
+        away_ht = _series_int(series, "away_ht_score")
+        if home_ht is None or away_ht is None:
+            return None, None
+
+        try:
+            home_second = int(home_score_value) - int(home_ht)
+            away_second = int(away_score_value) - int(away_ht)
+        except Exception:
+            return None, None
+
+        home_second = max(0, home_second)
+        away_second = max(0, away_second)
+        return [home_ht, home_second], [away_ht, away_second]
 
     lookup = {}
     for _, row in df.iterrows():
@@ -1972,7 +2042,7 @@ def build_results_lookup_for_sport(sport: str):
             home_team = str(row["home_team"])
             away_team = str(row["away_team"])
 
-            if sport in {"nba", "euroleague"}:
+            if sport in {"nba", "wnba", "euroleague"}:
                 home_score = int(row["home_pts_total"])
                 away_score = int(row["away_pts_total"])
                 home_q1_score = int(row["home_q1"])
@@ -1985,19 +2055,41 @@ def build_results_lookup_for_sport(sport: str):
                 away_q4_score = int(row["away_q4"]) if "away_q4" in row and not pd.isna(row["away_q4"]) else None
                 home_f5_score = None
                 away_f5_score = None
+                home_inning_scores = None
+                away_inning_scores = None
             elif sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"}:
                 home_score = int(row["home_runs_total"])
                 away_score = int(row["away_runs_total"])
-                home_q1_score = int(row["home_r1"])
-                away_q1_score = int(row["away_r1"])
+                home_q1_score = _series_int(row, "home_r1")
+                away_q1_score = _series_int(row, "away_r1")
                 home_q2_score = None
                 away_q2_score = None
                 home_q3_score = None
                 away_q3_score = None
                 home_q4_score = None
                 away_q4_score = None
-                home_f5_score = int(row["home_runs_f5"])
-                away_f5_score = int(row["away_runs_f5"])
+                home_f5_score = _series_int(row, "home_runs_f5")
+                away_f5_score = _series_int(row, "away_runs_f5")
+                home_inning_scores = _build_inning_scores(row, "home")
+                away_inning_scores = _build_inning_scores(row, "away")
+                home_segment_scores = None
+                away_segment_scores = None
+            elif sport in {"liga_mx", "laliga", "bundesliga", "ligue1"}:
+                home_score = int(row["home_score"])
+                away_score = int(row["away_score"])
+                home_q1_score = None
+                away_q1_score = None
+                home_q2_score = None
+                away_q2_score = None
+                home_q3_score = None
+                away_q3_score = None
+                home_q4_score = None
+                away_q4_score = None
+                home_f5_score = None
+                away_f5_score = None
+                home_inning_scores = None
+                away_inning_scores = None
+                home_segment_scores, away_segment_scores = _build_soccer_segment_scores(row, home_score, away_score)
             else:
                 home_score = int(row["home_score"])
                 away_score = int(row["away_score"])
@@ -2011,6 +2103,10 @@ def build_results_lookup_for_sport(sport: str):
                 away_q4_score = None
                 home_f5_score = None
                 away_f5_score = None
+                home_inning_scores = None
+                away_inning_scores = None
+                home_segment_scores = None
+                away_segment_scores = None
 
             if (not has_explicit_status) and home_score == 0 and away_score == 0:
                 continue
@@ -2061,6 +2157,14 @@ def build_results_lookup_for_sport(sport: str):
                 "full_game_winner": full_game_winner,
                 "q1_winner": q1_winner,
             }
+            if home_inning_scores:
+                payload["home_inning_scores"] = home_inning_scores
+            if away_inning_scores:
+                payload["away_inning_scores"] = away_inning_scores
+            if home_segment_scores:
+                payload["home_segment_scores"] = home_segment_scores
+            if away_segment_scores:
+                payload["away_segment_scores"] = away_segment_scores
             lookup[game_id] = payload
             lookup[(str(row["date"]), away_team, home_team)] = payload
         except Exception:
@@ -2198,6 +2302,64 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         except Exception:
             return None
 
+    def _extract_linescore_values(linescores):
+        if not isinstance(linescores, list):
+            return []
+        values = []
+        for item in linescores:
+            if isinstance(item, dict):
+                values.append(
+                    _to_int_or_none(
+                        item.get("value")
+                        if item.get("value") not in (None, "")
+                        else (
+                            item.get("displayValue")
+                            if item.get("displayValue") not in (None, "")
+                            else item.get("score")
+                        )
+                    )
+                )
+            else:
+                values.append(_to_int_or_none(item))
+        while values and values[-1] is None:
+            values.pop()
+        return values
+
+    def _fetch_espn_summary_linescores(base_url: str, game_id: str):
+        try:
+            if not base_url or not game_id:
+                return [], []
+            summary_base = str(base_url).rsplit("/scoreboard", 1)[0]
+            if not summary_base:
+                return [], []
+            summary_url = f"{summary_base}/summary?event={game_id}"
+            payload = requests.get(
+                summary_url,
+                timeout=20,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; NBA-GOLD/1.0)",
+                    "Accept": "application/json",
+                },
+            ).json() or {}
+            competitions = (((payload.get("header") or {}).get("competitions")) or [])
+            if not competitions:
+                return [], []
+            competitors = (competitions[0] or {}).get("competitors") or []
+            home = next((c for c in competitors if str(c.get("homeAway", "")).lower() == "home"), None)
+            away = next((c for c in competitors if str(c.get("homeAway", "")).lower() == "away"), None)
+            if not home or not away:
+                return [], []
+            return _extract_linescore_values(home.get("linescores")), _extract_linescore_values(away.get("linescores"))
+        except Exception:
+            return [], []
+
+    def _score_at(values, index):
+        if not isinstance(values, list):
+            return None
+        if index < 0 or index >= len(values):
+            return None
+        return values[index]
+
     def _fetch_live_lookup_espn(target_sport: str, target_date: str):
         base_url = ESPN_SCOREBOARD_URLS.get(target_sport)
         if not base_url:
@@ -2233,30 +2395,42 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 if state not in {"pre", "in", "post"}:
                     state = "pre"
 
-                out[game_id] = {
+                home_linescores = _extract_linescore_values(home.get("linescores"))
+                away_linescores = _extract_linescore_values(away.get("linescores"))
+                if (
+                    target_sport in {"liga_mx", "laliga", "bundesliga", "ligue1"}
+                    and (not home_linescores or not away_linescores)
+                ):
+                    summary_home, summary_away = _fetch_espn_summary_linescores(base_url, game_id)
+                    if summary_home:
+                        home_linescores = summary_home
+                    if summary_away:
+                        away_linescores = summary_away
+
+                payload = {
                     "status_state": state,
                     "status_description": str(stype.get("description") or status.get("displayClock") or "").strip(),
                     "status_detail": str(stype.get("shortDetail") or stype.get("detail") or "").strip(),
                     "status_completed": 1 if bool(stype.get("completed")) else 0,
                     "home_score": int(float(home.get("score", 0) or 0)),
                     "away_score": int(float(away.get("score", 0) or 0)),
-                    "home_q1_score": _to_int_or_none((home.get("linescores") or [{}])[0].get("value"))
-                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 0 else None,
-                    "away_q1_score": _to_int_or_none((away.get("linescores") or [{}])[0].get("value"))
-                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 0 else None,
-                    "home_q2_score": _to_int_or_none((home.get("linescores") or [{}, {}])[1].get("value"))
-                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 1 else None,
-                    "away_q2_score": _to_int_or_none((away.get("linescores") or [{}, {}])[1].get("value"))
-                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 1 else None,
-                    "home_q3_score": _to_int_or_none((home.get("linescores") or [{}, {}, {}])[2].get("value"))
-                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 2 else None,
-                    "away_q3_score": _to_int_or_none((away.get("linescores") or [{}, {}, {}])[2].get("value"))
-                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 2 else None,
-                    "home_q4_score": _to_int_or_none((home.get("linescores") or [{}, {}, {}, {}])[3].get("value"))
-                    if isinstance(home.get("linescores"), list) and len(home.get("linescores") or []) > 3 else None,
-                    "away_q4_score": _to_int_or_none((away.get("linescores") or [{}, {}, {}, {}])[3].get("value"))
-                    if isinstance(away.get("linescores"), list) and len(away.get("linescores") or []) > 3 else None,
+                    "home_q1_score": _score_at(home_linescores, 0),
+                    "away_q1_score": _score_at(away_linescores, 0),
+                    "home_q2_score": _score_at(home_linescores, 1),
+                    "away_q2_score": _score_at(away_linescores, 1),
+                    "home_q3_score": _score_at(home_linescores, 2),
+                    "away_q3_score": _score_at(away_linescores, 2),
+                    "home_q4_score": _score_at(home_linescores, 3),
+                    "away_q4_score": _score_at(away_linescores, 3),
                 }
+                if home_linescores:
+                    payload["home_segment_scores"] = home_linescores
+                if away_linescores:
+                    payload["away_segment_scores"] = away_linescores
+                if target_sport in {"mlb", "kbo"}:
+                    payload["home_inning_scores"] = home_linescores
+                    payload["away_inning_scores"] = away_linescores
+                out[game_id] = payload
             except Exception:
                 continue
         return out
@@ -2378,8 +2552,20 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     detailed = str(status.get("detailedState") or "").strip() or ("Final" if abstract == "final" else "Scheduled")
                     home = ((game.get("teams") or {}).get("home") or {})
                     away = ((game.get("teams") or {}).get("away") or {})
+                    linescore = game.get("linescore") or {}
+                    innings = linescore.get("innings") or []
+                    home_inning_scores = []
+                    away_inning_scores = []
+                    if isinstance(innings, list):
+                        for inning in innings:
+                            home_inning_scores.append(_to_int_or_none(((inning.get("home") or {}).get("runs"))))
+                            away_inning_scores.append(_to_int_or_none(((inning.get("away") or {}).get("runs"))))
+                    while home_inning_scores and home_inning_scores[-1] is None:
+                        home_inning_scores.pop()
+                    while away_inning_scores and away_inning_scores[-1] is None:
+                        away_inning_scores.pop()
                     state = "post" if abstract == "final" else ("in" if abstract == "live" else "pre")
-                    out[game_id] = {
+                    payload = {
                         "status_state": state,
                         "status_description": detailed,
                         "status_detail": detailed,
@@ -2387,6 +2573,11 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                         "home_score": int(float(home.get("score") or 0)),
                         "away_score": int(float(away.get("score") or 0)),
                     }
+                    if home_inning_scores:
+                        payload["home_inning_scores"] = home_inning_scores
+                    if away_inning_scores:
+                        payload["away_inning_scores"] = away_inning_scores
+                    out[game_id] = payload
                 except Exception:
                     continue
         return out
@@ -2397,7 +2588,11 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         except Exception:
             return {}
 
-        if abs((target_dt - date.today()).days) > 1:
+        allowed_days = 1
+        if target_sport in {"liga_mx", "laliga", "bundesliga", "ligue1"}:
+            allowed_days = 7
+
+        if abs((target_dt - date.today()).days) > allowed_days:
             return {}
         if target_sport in ESPN_SCOREBOARD_URLS:
             return _fetch_live_lookup_espn(target_sport, target_date)
@@ -2650,6 +2845,12 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     return str(value).strip()
             return ""
 
+        def _first_valid_value(values):
+            for value in values:
+                if value not in (None, "", "nan"):
+                    return value
+            return None
+
         home_team = str(item.get("home_team") or "").strip().upper()
         away_team = str(item.get("away_team") or "").strip().upper()
         market = str(item.get("market") or "").strip().upper()
@@ -2667,6 +2868,120 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
         resolved_pick = _first_valid_pick(candidate_picks)
         if resolved_pick:
             item["full_game_pick"] = resolved_pick
+
+        # Liga MX/LaLiga/Bundesliga/Ligue 1 pipelines may emit halftime fields as
+        # ht_* instead of h1_*. Normalize aliases so frontend cards stay consistent.
+        if sport in {"liga_mx", "laliga", "bundesliga", "ligue1"}:
+            resolved_h1_pick = _first_valid_pick([
+                item.get("h1_pick"),
+                item.get("h1_recommended_pick"),
+                item.get("ht_recommended_pick"),
+                item.get("ht_pick"),
+                item.get("first_half_recommended_pick"),
+                item.get("first_half_pick"),
+                item.get("half_time_pick"),
+            ])
+            if resolved_h1_pick:
+                item["h1_pick"] = resolved_h1_pick
+
+            h1_conf = _first_valid_value([
+                item.get("h1_confidence"),
+                item.get("ht_confidence"),
+                item.get("first_half_confidence"),
+                item.get("half_time_confidence"),
+            ])
+            if h1_conf is not None:
+                item["h1_confidence"] = h1_conf
+
+            h1_action = _first_valid_value([
+                item.get("h1_action"),
+                item.get("ht_action"),
+                item.get("first_half_action"),
+                item.get("half_time_action"),
+            ])
+            if h1_action is not None:
+                item["h1_action"] = h1_action
+
+            h1_hit_alias = _to_bool_or_none(_first_valid_value([
+                item.get("h1_hit"),
+                item.get("first_half_hit"),
+                item.get("correct_ht_adjusted"),
+                item.get("correct_ht"),
+                item.get("ht_result_hit"),
+            ]))
+            if h1_hit_alias is not None:
+                item["h1_hit"] = h1_hit_alias
+
+            resolved_h1_over15_pick = _first_valid_pick([
+                item.get("h1_over15_pick"),
+                item.get("h1_over15_base_pick"),
+                item.get("first_half_over15_pick"),
+                item.get("first_half_total_pick"),
+                item.get("ht_over15_pick"),
+                item.get("ht_total_pick"),
+            ])
+            if resolved_h1_over15_pick:
+                item["h1_over15_pick"] = resolved_h1_over15_pick
+
+            resolved_h1_over15_recommended_pick = _first_valid_pick([
+                item.get("h1_over15_recommended_pick"),
+                item.get("first_half_over15_recommended_pick"),
+                item.get("first_half_total_recommended_pick"),
+                item.get("ht_over15_recommended_pick"),
+                item.get("ht_total_recommended_pick"),
+                item.get("h1_over15_pick"),
+            ])
+            if resolved_h1_over15_recommended_pick:
+                item["h1_over15_recommended_pick"] = resolved_h1_over15_recommended_pick
+
+            h1_over15_conf = _first_valid_value([
+                item.get("h1_over15_confidence"),
+                item.get("first_half_over15_confidence"),
+                item.get("first_half_total_confidence"),
+                item.get("ht_over15_confidence"),
+                item.get("ht_total_confidence"),
+            ])
+            if h1_over15_conf is not None:
+                item["h1_over15_confidence"] = h1_over15_conf
+
+            h1_over15_action = _first_valid_value([
+                item.get("h1_over15_action"),
+                item.get("first_half_over15_action"),
+                item.get("first_half_total_action"),
+                item.get("ht_over15_action"),
+                item.get("ht_total_action"),
+            ])
+            if h1_over15_action is not None:
+                item["h1_over15_action"] = h1_over15_action
+
+            h1_over15_hit_alias = _to_bool_or_none(_first_valid_value([
+                item.get("h1_over15_hit"),
+                item.get("correct_h1_over15_adjusted"),
+                item.get("correct_h1_over15_base"),
+                item.get("first_half_over15_hit"),
+                item.get("first_half_total_hit"),
+                item.get("ht_over15_hit"),
+                item.get("ht_total_hit"),
+            ]))
+            if h1_over15_hit_alias is not None:
+                item["h1_over15_hit"] = h1_over15_hit_alias
+
+            if item.get("h1_over15_line") in (None, "", "nan"):
+                item["h1_over15_line"] = 1.5
+
+            # In soccer UI the "1er Tiempo" card currently uses q1_* fields.
+            # Mirror h1_* into q1_* when q1_* is absent to prevent N/A cards.
+            if _is_pending_pick(item.get("q1_pick")) and not _is_pending_pick(item.get("h1_pick")):
+                item["q1_pick"] = item.get("h1_pick")
+
+            if item.get("q1_confidence") in (None, "", "nan") and item.get("h1_confidence") not in (None, "", "nan"):
+                item["q1_confidence"] = item.get("h1_confidence")
+
+            if item.get("q1_action") in (None, "", "nan") and item.get("h1_action") not in (None, "", "nan"):
+                item["q1_action"] = item.get("h1_action")
+
+            if _to_bool_or_none(item.get("q1_hit")) is None and _to_bool_or_none(item.get("h1_hit")) is not None:
+                item["q1_hit"] = _to_bool_or_none(item.get("h1_hit"))
 
         if item.get("full_game_confidence") in (None, "", "nan"):
             for key in ("moneyline_confidence", "confidence"):
@@ -2789,8 +3104,15 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             total_hit = _to_bool_or_none(item.get("correct_total"))
         q1_hit = _to_bool_or_none(item.get("q1_hit"))
         h1_hit = _to_bool_or_none(item.get("h1_hit"))
+        h1_over15_hit = _to_bool_or_none(item.get("h1_over15_hit"))
+        if h1_over15_hit is None:
+            h1_over15_hit = _to_bool_or_none(item.get("correct_h1_over15_adjusted"))
+        if h1_over15_hit is None:
+            h1_over15_hit = _to_bool_or_none(item.get("correct_h1_over15_base"))
+        if h1_over15_hit is not None:
+            item["h1_over15_hit"] = h1_over15_hit
 
-        has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit, h1_hit))
+        has_any_hit = any(v is not None for v in (full_game_hit, spread_hit, total_hit, q1_hit, h1_hit, h1_over15_hit))
         if not has_any_hit:
             return False
 
@@ -2847,7 +3169,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     home_r1=int(home_q1_score),
                     away_r1=int(away_q1_score),
                 )
-            elif sport in {"nba", "euroleague"} and home_q1_score is not None and away_q1_score is not None:
+            elif sport in {"nba", "wnba", "euroleague"} and home_q1_score is not None and away_q1_score is not None:
                 q1_winner = _winner_from_score(home_team, away_team, int(home_q1_score), int(away_q1_score))
                 item["q1_result_winner"] = q1_winner
                 item["q1_hit"] = evaluate_team_pick(
@@ -2921,6 +3243,25 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             if total_hit is not None:
                 item["correct_total"] = total_hit
 
+        h1_over15_existing = _to_bool_or_none(item.get("correct_h1_over15_adjusted"))
+        if h1_over15_existing is None:
+            h1_over15_existing = _to_bool_or_none(item.get("correct_h1_over15_base"))
+        if h1_over15_existing is None and home_q1_score is not None and away_q1_score is not None:
+            h1_total = int(home_q1_score) + int(away_q1_score)
+            h1_over15_line = item.get("h1_over15_line", 1.5)
+
+            h1_over15_pick_adj = str(item.get("h1_over15_recommended_pick") or item.get("h1_over15_pick") or "").strip()
+            h1_over15_hit_adj = _evaluate_total_pick(h1_over15_pick_adj, h1_total, h1_over15_line)
+            if h1_over15_hit_adj is not None:
+                item["correct_h1_over15_adjusted"] = h1_over15_hit_adj
+                item["h1_over15_hit"] = h1_over15_hit_adj
+
+            if _to_bool_or_none(item.get("correct_h1_over15_base")) is None:
+                h1_over15_pick_base = str(item.get("h1_over15_pick") or "").strip()
+                h1_over15_hit_base = _evaluate_total_pick(h1_over15_pick_base, h1_total, h1_over15_line)
+                if h1_over15_hit_base is not None:
+                    item["correct_h1_over15_base"] = h1_over15_hit_base
+
         btts_existing = _to_bool_or_none(item.get("correct_btts_adjusted"))
         if btts_existing is None:
             btts_existing = _to_bool_or_none(item.get("correct_btts"))
@@ -2980,6 +3321,14 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             item["status_completed"] = int(live.get("status_completed", 0) or 0)
             item["home_score"] = live.get("home_score", item.get("home_score"))
             item["away_score"] = live.get("away_score", item.get("away_score"))
+            if isinstance(live.get("home_segment_scores"), list):
+                item["home_segment_scores"] = live.get("home_segment_scores")
+            if isinstance(live.get("away_segment_scores"), list):
+                item["away_segment_scores"] = live.get("away_segment_scores")
+            if isinstance(live.get("home_inning_scores"), list):
+                item["home_inning_scores"] = live.get("home_inning_scores")
+            if isinstance(live.get("away_inning_scores"), list):
+                item["away_inning_scores"] = live.get("away_inning_scores")
             if live.get("home_q1_score") is not None:
                 item["home_q1_score"] = live.get("home_q1_score")
             if live.get("away_q1_score") is not None:
@@ -3113,6 +3462,14 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             item["home_q4_score"] = result["home_q4_score"]
         if result.get("away_q4_score") is not None:
             item["away_q4_score"] = result["away_q4_score"]
+        if isinstance(result.get("home_segment_scores"), list):
+            item["home_segment_scores"] = result["home_segment_scores"]
+        if isinstance(result.get("away_segment_scores"), list):
+            item["away_segment_scores"] = result["away_segment_scores"]
+        if isinstance(result.get("home_inning_scores"), list):
+            item["home_inning_scores"] = result["home_inning_scores"]
+        if isinstance(result.get("away_inning_scores"), list):
+            item["away_inning_scores"] = result["away_inning_scores"]
 
         item["full_game_result_winner"] = result["full_game_winner"]
         if result["q1_winner"] is not None:
@@ -3144,7 +3501,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"}:
+    if sport in {"nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -3648,7 +4005,7 @@ def _admin_capture_team_form_snapshot(date_str: str, window_games: int = 8, forc
     if (not force) and existing is not None and (not _snapshot_has_pending(existing)):
         return existing
 
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
 
     form_payload = build_team_form_summary(
         sports=sports,
@@ -4217,7 +4574,7 @@ def build_sport_insights_summary(sport: str):
 
 
 def build_tier_performance_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
     tracked_tiers = ["ELITE", "PREMIUM", "STRONG"]
     rows = []
 
@@ -4361,6 +4718,7 @@ def _event_prob_for_market(event: dict, market: str):
         ],
         "q1_yrfi": ["q1_calibrated_prob_yes", "q1_model_prob_yes", "q1_calibrated_prob_home", "q1_confidence"],
         "spread": ["spread_calibrated_prob_pick", "spread_model_prob_pick", "spread_confidence"],
+        "h1_over_15": ["h1_over15_adjusted_probability", "h1_over15_base_probability", "h1_over15_confidence"],
         "total": ["total_adjusted_probability", "total_base_probability", "total_confidence"],
         "btts": ["btts_adjusted_probability", "btts_base_probability", "btts_confidence"],
         "f5": ["extra_f5_calibrated_prob_home", "extra_f5_model_prob_home", "extra_f5_confidence"],
@@ -4395,6 +4753,7 @@ def _event_hit_for_market(event: dict, market: str):
         "q1_yrfi": ["q1_hit"],
         "first_half": ["h1_hit"],
         "spread": ["correct_spread"],
+        "h1_over_15": ["correct_h1_over15_adjusted", "correct_h1_over15_base", "h1_over15_hit"],
         "total": ["correct_total_adjusted", "correct_total"],
         "btts": ["correct_btts_adjusted", "correct_btts"],
         "f5": ["correct_home_win_f5", "correct_f5"],
@@ -4574,7 +4933,7 @@ def _log_loss(probs: list[float], outcomes: list[int]):
 
 
 def build_probability_calibration_profiles():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
     markets = ["full_game", "q1_yrfi", "spread", "total", "btts", "f5", "home_over", "corners"]
 
     grouped = {}
@@ -4735,10 +5094,15 @@ def merge_result_hints_from_historical(events: list, historical_file: Path):
         "correct_spread",
         "correct_total",
         "correct_total_adjusted",
+        "correct_h1_over15_base",
+        "correct_h1_over15_adjusted",
+        "h1_over15_hit",
         "q1_hit",
         "h1_hit",
         "actual_result",
         "final_score_text",
+        "home_segment_scores",
+        "away_segment_scores",
     ]
 
     merged = []
@@ -4808,6 +5172,7 @@ def _best_picks_snapshot_file(date_str: str, ranking_mode: str = "balanced"):
 def _best_picks_sports():
     return [
         "nba",
+        "wnba",
         "mlb",
         "kbo",
         "nhl",
@@ -5144,6 +5509,7 @@ def _best_pick_market_hit(row: dict):
         "q1_yrfi": ["q1_hit"],
         "q1": ["q1_hit"],
         "h1": ["h1_hit"],
+        "h1_over_15": ["correct_h1_over15_adjusted", "correct_h1_over15_base", "h1_over15_hit"],
         "btts": ["correct_btts_adjusted", "correct_btts"],
         "f5": ["correct_f5"],
         "home_over": ["correct_home_over"],
@@ -5163,6 +5529,9 @@ def _best_pick_market_hit(row: dict):
         "correct_spread",
         "correct_total_adjusted",
         "correct_total",
+        "correct_h1_over15_adjusted",
+        "correct_h1_over15_base",
+        "h1_over15_hit",
         "q1_hit",
         "h1_hit",
         "correct_btts_adjusted",
@@ -5231,6 +5600,14 @@ def _best_picks_with_results(payload: dict):
             row["away_q4_score"] = historical_result.get("away_q4_score")
             row["home_f5_score"] = historical_result.get("home_f5_score")
             row["away_f5_score"] = historical_result.get("away_f5_score")
+            if isinstance(historical_result.get("home_segment_scores"), list):
+                row["home_segment_scores"] = historical_result.get("home_segment_scores")
+            if isinstance(historical_result.get("away_segment_scores"), list):
+                row["away_segment_scores"] = historical_result.get("away_segment_scores")
+            if isinstance(historical_result.get("home_inning_scores"), list):
+                row["home_inning_scores"] = historical_result.get("home_inning_scores")
+            if isinstance(historical_result.get("away_inning_scores"), list):
+                row["away_inning_scores"] = historical_result.get("away_inning_scores")
             row["status_state"] = 'post'
             row["status_description"] = 'Final'
             row["status_completed"] = 1
@@ -5335,6 +5712,9 @@ def _best_picks_with_results(payload: dict):
         "correct_spread",
         "correct_total",
         "correct_total_adjusted",
+        "correct_h1_over15_base",
+        "correct_h1_over15_adjusted",
+        "h1_over15_hit",
         "q1_hit",
         "h1_hit",
         "actual_result",
@@ -5348,6 +5728,10 @@ def _best_picks_with_results(payload: dict):
         "away_score",
         "home_q1_score",
         "away_q1_score",
+        "home_segment_scores",
+        "away_segment_scores",
+        "home_inning_scores",
+        "away_inning_scores",
         "full_game_result_winner",
         "q1_result_winner",
         "correct_btts",
@@ -5511,7 +5895,7 @@ def admin_sport_updates(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
     sports = [
         _build_admin_sport_pipeline_snapshot(sport)
-        for sport in ["nba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
+        for sport in ["nba", "wnba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
     ]
     return {"ok": True, "sports": sports}
 
@@ -5528,6 +5912,7 @@ def admin_market_accuracy_report(authorization: Optional[str] = Header(default=N
     sports = []
     for sport in [
         "nba",
+        "wnba",
         "mlb",
         "tennis",
         "kbo",
@@ -5706,7 +6091,7 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
 
 @app.get("/api/insights/summary")
 def get_insights_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
     summaries = [build_sport_insights_summary(s) for s in sports]
 
     return {
@@ -5721,7 +6106,7 @@ def get_team_form_insights(
     min_games: int = 3,
     force_refresh: bool = False,
 ):
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
     window = max(3, min(int(window_games), 20))
     min_sample = max(2, min(int(min_games), window))
     fingerprint = _team_form_sources_fingerprint(sports)
@@ -5800,6 +6185,14 @@ def get_weekday_scoring_insights():
             key="nba",
             label="NBA",
             raw_file=NBA_RAW_HISTORY,
+            home_col="home_pts_total",
+            away_col="away_pts_total",
+            metric_label="Puntos Totales",
+        ),
+        SportScoringConfig(
+            key="wnba",
+            label="WNBA",
+            raw_file=WNBA_RAW_HISTORY,
             home_col="home_pts_total",
             away_col="away_pts_total",
             metric_label="Puntos Totales",

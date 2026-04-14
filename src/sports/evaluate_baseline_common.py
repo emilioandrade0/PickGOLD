@@ -166,6 +166,323 @@ def _to_bool(value):
     return None
 
 
+TIER_ORDER = ["ELITE", "PREMIUM", "STRONG", "NORMAL"]
+
+
+def _normalize_tier_label(value):
+    txt = str(value or "").strip().upper()
+    if txt in {"ELITE", "PREMIUM", "STRONG", "NORMAL"}:
+        return txt
+    if txt == "PASS":
+        return "NORMAL"
+    return ""
+
+
+def _infer_tier_from_confidence(confidence):
+    try:
+        score = float(confidence)
+    except Exception:
+        return ""
+    if pd.isna(score):
+        return ""
+    if 0.0 <= score <= 1.0:
+        score *= 100.0
+    if score >= 80.0:
+        return "ELITE"
+    if score >= 65.0:
+        return "PREMIUM"
+    if score >= 55.0:
+        return "STRONG"
+    return "NORMAL"
+
+
+def _resolve_row_tier(row: pd.Series):
+    for key in [
+        "tier",
+        "full_game_tier",
+        "market_tier",
+        "pick_tier",
+    ]:
+        tier = _normalize_tier_label(row.get(key))
+        if tier:
+            return tier
+
+    for key in [
+        "confidence",
+        "recommended_confidence",
+        "full_game_confidence",
+    ]:
+        tier = _infer_tier_from_confidence(row.get(key))
+        if tier:
+            return tier
+    return "NORMAL"
+
+
+def _aggregate_tier_stats(df: pd.DataFrame):
+    if df.empty:
+        return {}
+
+    grouped = (
+        df.groupby("_tier", dropna=False)["_hit"]
+        .agg(["sum", "count"])
+        .reset_index()
+    )
+
+    out = {}
+    for _, row in grouped.iterrows():
+        tier = _normalize_tier_label(row.get("_tier"))
+        if not tier:
+            continue
+        wins = int(row.get("sum", 0) or 0)
+        total = int(row.get("count", 0) or 0)
+        if total <= 0:
+            continue
+        out[tier] = {"wins": wins, "total": total}
+    return out
+
+
+def _best_tier(stats):
+    best = None
+    for tier in TIER_ORDER:
+        rec = stats.get(tier)
+        if not rec or rec["total"] <= 0:
+            continue
+        acc = rec["wins"] / rec["total"]
+        if best is None or acc > best["accuracy"] or (acc == best["accuracy"] and rec["total"] > best["total"]):
+            best = {
+                "tier": tier,
+                "wins": rec["wins"],
+                "total": rec["total"],
+                "accuracy": acc,
+            }
+    return best
+
+
+def _format_tier_line(stats):
+    chunks = []
+    for tier in TIER_ORDER:
+        rec = stats.get(tier)
+        if not rec or rec["total"] <= 0:
+            continue
+        acc = 100.0 * rec["wins"] / rec["total"]
+        chunks.append(f"{tier} {acc:.2f}% ({rec['wins']}/{rec['total']})")
+    return " | ".join(chunks) if chunks else "N/A"
+
+
+def _safe_probability_confidence(probability):
+    try:
+        prob = float(probability)
+    except Exception:
+        return None
+    if pd.isna(prob):
+        return None
+    if 0.0 <= prob <= 1.0:
+        return 100.0 * max(prob, 1.0 - prob)
+    if 1.0 < prob <= 100.0:
+        prob = prob / 100.0
+        return 100.0 * max(prob, 1.0 - prob)
+    return None
+
+
+def _safe_multiclass_confidence(values):
+    probs = []
+    for value in values:
+        try:
+            p = float(value)
+        except Exception:
+            continue
+        if pd.isna(p):
+            continue
+        if 0.0 <= p <= 1.0:
+            probs.append(p)
+        elif 1.0 < p <= 100.0:
+            probs.append(p / 100.0)
+    if not probs:
+        return None
+    return 100.0 * max(probs)
+
+
+def _resolve_ligamx_row_tier(row: dict, market_key: str, mode: str):
+    mode = str(mode or "base").strip().lower()
+    if mode not in {"base", "adjusted"}:
+        mode = "base"
+
+    if market_key == "full_game":
+        if mode == "base":
+            tier = _normalize_tier_label(row.get("full_game_tier"))
+            if tier:
+                return tier
+            tier = _infer_tier_from_confidence(row.get("full_game_confidence"))
+            if tier:
+                return tier
+            tier = _infer_tier_from_confidence(_safe_probability_confidence(row.get("base_probability")))
+            return tier or "NORMAL"
+
+        tier = _infer_tier_from_confidence(row.get("recommended_confidence"))
+        if tier:
+            return tier
+        tier = _infer_tier_from_confidence(_safe_probability_confidence(row.get("adjusted_probability")))
+        if tier:
+            return tier
+        fallback = _normalize_tier_label(row.get("full_game_tier"))
+        return fallback or "NORMAL"
+
+    if market_key == "ou":
+        prob_key = "total_base_probability" if mode == "base" else "total_adjusted_probability"
+        tier = _infer_tier_from_confidence(_safe_probability_confidence(row.get(prob_key)))
+        return tier or "NORMAL"
+
+    if market_key == "h1ou15":
+        conf_key = "h1_over15_confidence" if mode == "base" else "h1_over15_recommended_confidence"
+        tier = _infer_tier_from_confidence(row.get(conf_key))
+        if tier:
+            return tier
+        prob_key = "h1_over15_base_probability" if mode == "base" else "h1_over15_adjusted_probability"
+        tier = _infer_tier_from_confidence(_safe_probability_confidence(row.get(prob_key)))
+        return tier or "NORMAL"
+
+    if market_key == "btts":
+        prob_key = "btts_base_probability" if mode == "base" else "btts_adjusted_probability"
+        tier = _infer_tier_from_confidence(_safe_probability_confidence(row.get(prob_key)))
+        return tier or "NORMAL"
+
+    if market_key == "corners":
+        prob_key = "corners_base_probability" if mode == "base" else "corners_adjusted_probability"
+        tier = _infer_tier_from_confidence(_safe_probability_confidence(row.get(prob_key)))
+        return tier or "NORMAL"
+
+    if market_key == "ht":
+        conf_key = "ht_confidence" if mode == "base" else "ht_recommended_confidence"
+        tier = _infer_tier_from_confidence(row.get(conf_key))
+        if tier:
+            return tier
+        suffix = "base" if mode == "base" else "adjusted"
+        tier = _infer_tier_from_confidence(
+            _safe_multiclass_confidence(
+                [
+                    row.get(f"ht_prob_away_{suffix}"),
+                    row.get(f"ht_prob_home_{suffix}"),
+                    row.get(f"ht_prob_draw_{suffix}"),
+                ]
+            )
+        )
+        return tier or "NORMAL"
+
+    return "NORMAL"
+
+
+def _update_ligamx_tier_counter(market_tiers: dict, row: dict, market_key: str, mode: str, hit):
+    tier = _resolve_ligamx_row_tier(row=row, market_key=market_key, mode=mode)
+    tier = _normalize_tier_label(tier) or "NORMAL"
+    market_bucket = market_tiers.setdefault(market_key, {}).setdefault(mode, {})
+    rec = market_bucket.setdefault(tier, [0, 0])
+    rec[1] += 1
+    rec[0] += int(bool(hit))
+
+
+def _tier_counter_to_stats(counter: dict):
+    stats = {}
+    for tier_name, rec in (counter or {}).items():
+        tier = _normalize_tier_label(tier_name)
+        if not tier:
+            continue
+        wins = int((rec or [0, 0])[0] or 0)
+        total = int((rec or [0, 0])[1] or 0)
+        if total <= 0:
+            continue
+        curr = stats.setdefault(tier, {"wins": 0, "total": 0})
+        curr["wins"] += wins
+        curr["total"] += total
+    return stats
+
+
+def _compute_mlb_tier_accuracy_from_walkforward(base_dir: Path):
+    walkforward_dir = base_dir / "src" / "data" / "mlb" / "walkforward"
+    market_defs = [
+        ("full_game", "FULL GAME"),
+        ("yrfi", "YRFI"),
+        ("f5", "F5"),
+        ("run_line", "RUN LINE"),
+        ("totals", "TOTALS"),
+    ]
+
+    report = {}
+    for market_key, market_label in market_defs:
+        detail_path = walkforward_dir / market_key / "walkforward_predictions_detail.csv"
+        if not detail_path.exists():
+            report[market_key] = {
+                "label": market_label,
+                "rows": 0,
+                "global": {},
+                "published_rows": 0,
+                "published": {},
+            }
+            continue
+
+        try:
+            df = pd.read_csv(detail_path)
+        except Exception:
+            report[market_key] = {
+                "label": market_label,
+                "rows": 0,
+                "global": {},
+                "published_rows": 0,
+                "published": {},
+            }
+            continue
+
+        if "pred_label" not in df.columns or "y_true" not in df.columns:
+            report[market_key] = {
+                "label": market_label,
+                "rows": 0,
+                "global": {},
+                "published_rows": 0,
+                "published": {},
+            }
+            continue
+
+        pred = pd.to_numeric(df["pred_label"], errors="coerce")
+        truth = pd.to_numeric(df["y_true"], errors="coerce")
+        valid = df[pred.notna() & truth.notna()].copy()
+        if valid.empty:
+            report[market_key] = {
+                "label": market_label,
+                "rows": 0,
+                "global": {},
+                "published_rows": 0,
+                "published": {},
+            }
+            continue
+
+        valid_pred = pd.to_numeric(valid["pred_label"], errors="coerce").round().astype(int)
+        valid_true = pd.to_numeric(valid["y_true"], errors="coerce").round().astype(int)
+        valid["_hit"] = (valid_pred == valid_true).astype(int)
+        valid["_tier"] = valid.apply(_resolve_row_tier, axis=1)
+
+        global_stats = _aggregate_tier_stats(valid)
+
+        published_stats = {}
+        published_rows = 0
+        if "publish_pick" in valid.columns:
+            published_mask = pd.to_numeric(valid["publish_pick"], errors="coerce").fillna(0) > 0
+            published_df = valid[published_mask].copy()
+            published_rows = int(len(published_df))
+            if published_rows > 0:
+                published_stats = _aggregate_tier_stats(published_df)
+
+        report[market_key] = {
+            "label": market_label,
+            "rows": int(len(valid)),
+            "global": global_stats,
+            "global_best": _best_tier(global_stats),
+            "published_rows": published_rows,
+            "published": published_stats,
+            "published_best": _best_tier(published_stats),
+        }
+
+    return report
+
+
 def _safe_rows_from_json(path: Path):
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -262,6 +579,8 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
         "full_adj": [0, 0],
         "ou_base": [0, 0],
         "ou_adj": [0, 0],
+        "h1ou15_base": [0, 0],
+        "h1ou15_adj": [0, 0],
         "btts_base": [0, 0],
         "btts_adj": [0, 0],
         "corners_base": [0, 0],
@@ -269,7 +588,18 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
         "ht_base": [0, 0],
         "ht_adj": [0, 0],
     }
-    tiers = {}
+    market_labels = {
+        "full_game": "FULL GAME",
+        "ou": "OVER/UNDER GOLES",
+        "h1ou15": "OVER/UNDER 1T 1.5",
+        "btts": "BTTS",
+        "corners": "CORNERS O/U",
+        "ht": "RESULTADO HT",
+    }
+    market_tiers = {
+        market_key: {"base": {}, "adjusted": {}}
+        for market_key in market_labels
+    }
     total_rows = 0
     with_actual = 0
 
@@ -307,11 +637,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if fg_base_hit is not None:
                 counters["full_base"][1] += 1
                 counters["full_base"][0] += int(fg_base_hit)
-                tier = str(r.get("full_game_tier", "PASS")).upper()
-                if tier not in tiers:
-                    tiers[tier] = [0, 0]
-                tiers[tier][1] += 1
-                tiers[tier][0] += int(fg_base_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="full_game",
+                    mode="base",
+                    hit=fg_base_hit,
+                )
 
             fg_adj_hit = _to_bool(r.get("correct_full_game_adjusted"))
             if fg_adj_hit is None:
@@ -322,6 +654,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if fg_adj_hit is not None:
                 counters["full_adj"][1] += 1
                 counters["full_adj"][0] += int(fg_adj_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="full_game",
+                    mode="adjusted",
+                    hit=fg_adj_hit,
+                )
 
             # Over/Under goals
             ou_base_hit = _to_bool(r.get("correct_total_base"))
@@ -333,6 +672,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if ou_base_hit is not None:
                 counters["ou_base"][1] += 1
                 counters["ou_base"][0] += int(ou_base_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="ou",
+                    mode="base",
+                    hit=ou_base_hit,
+                )
 
             ou_adj_hit = _to_bool(r.get("correct_total_adjusted"))
             if ou_adj_hit is None:
@@ -343,6 +689,48 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if ou_adj_hit is not None:
                 counters["ou_adj"][1] += 1
                 counters["ou_adj"][0] += int(ou_adj_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="ou",
+                    mode="adjusted",
+                    hit=ou_adj_hit,
+                )
+
+            # First-half O/U 1.5 goals
+            h1ou15_base_hit = _to_bool(r.get("correct_h1_over15_base"))
+            if h1ou15_base_hit is None:
+                pred = _parse_over_under_pick(r.get("h1_over15_pick"))
+                actual = _parse_yes_no_actual(r.get("actual_h1_over_15"))
+                if pred is not None and actual is not None:
+                    h1ou15_base_hit = pred == actual
+            if h1ou15_base_hit is not None:
+                counters["h1ou15_base"][1] += 1
+                counters["h1ou15_base"][0] += int(h1ou15_base_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="h1ou15",
+                    mode="base",
+                    hit=h1ou15_base_hit,
+                )
+
+            h1ou15_adj_hit = _to_bool(r.get("correct_h1_over15_adjusted"))
+            if h1ou15_adj_hit is None:
+                pred = _parse_over_under_pick(r.get("h1_over15_recommended_pick"))
+                actual = _parse_yes_no_actual(r.get("actual_h1_over_15"))
+                if pred is not None and actual is not None:
+                    h1ou15_adj_hit = pred == actual
+            if h1ou15_adj_hit is not None:
+                counters["h1ou15_adj"][1] += 1
+                counters["h1ou15_adj"][0] += int(h1ou15_adj_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="h1ou15",
+                    mode="adjusted",
+                    hit=h1ou15_adj_hit,
+                )
 
             # BTTS
             btts_base_hit = _to_bool(r.get("correct_btts_base"))
@@ -354,6 +742,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if btts_base_hit is not None:
                 counters["btts_base"][1] += 1
                 counters["btts_base"][0] += int(btts_base_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="btts",
+                    mode="base",
+                    hit=btts_base_hit,
+                )
 
             btts_adj_hit = _to_bool(r.get("correct_btts_adjusted"))
             if btts_adj_hit is None:
@@ -364,6 +759,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if btts_adj_hit is not None:
                 counters["btts_adj"][1] += 1
                 counters["btts_adj"][0] += int(btts_adj_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="btts",
+                    mode="adjusted",
+                    hit=btts_adj_hit,
+                )
 
             # Corners O/U
             corners_base_hit = _to_bool(r.get("correct_corners_base"))
@@ -375,6 +777,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if corners_base_hit is not None:
                 counters["corners_base"][1] += 1
                 counters["corners_base"][0] += int(corners_base_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="corners",
+                    mode="base",
+                    hit=corners_base_hit,
+                )
 
             corners_adj_hit = _to_bool(r.get("correct_corners_adjusted"))
             if corners_adj_hit is None:
@@ -385,17 +794,38 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if corners_adj_hit is not None:
                 counters["corners_adj"][1] += 1
                 counters["corners_adj"][0] += int(corners_adj_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="corners",
+                    mode="adjusted",
+                    hit=corners_adj_hit,
+                )
 
             # Medio tiempo (si existe data en JSON)
             ht_base_hit = _to_bool(r.get("correct_ht_base"))
             if ht_base_hit is not None:
                 counters["ht_base"][1] += 1
                 counters["ht_base"][0] += int(ht_base_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="ht",
+                    mode="base",
+                    hit=ht_base_hit,
+                )
 
             ht_adj_hit = _to_bool(r.get("correct_ht_adjusted"))
             if ht_adj_hit is not None:
                 counters["ht_adj"][1] += 1
                 counters["ht_adj"][0] += int(ht_adj_hit)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="ht",
+                    mode="adjusted",
+                    hit=ht_adj_hit,
+                )
 
             ht_actual = _parse_team_result_value(
                 r.get("actual_ht_result") or r.get("halftime_actual_result") or r.get("h1_actual_result")
@@ -406,6 +836,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if ht_base_hit is None and ht_actual is not None and ht_base_pick is not None:
                 counters["ht_base"][1] += 1
                 counters["ht_base"][0] += int(ht_base_pick == ht_actual)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="ht",
+                    mode="base",
+                    hit=(ht_base_pick == ht_actual),
+                )
 
             ht_adj_pick = _parse_team_result_value(
                 r.get("ht_recommended_pick") or r.get("half_time_recommended_pick") or r.get("h1_recommended_pick")
@@ -413,6 +850,13 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
             if ht_adj_hit is None and ht_actual is not None and ht_adj_pick is not None:
                 counters["ht_adj"][1] += 1
                 counters["ht_adj"][0] += int(ht_adj_pick == ht_actual)
+                _update_ligamx_tier_counter(
+                    market_tiers=market_tiers,
+                    row=r,
+                    market_key="ht",
+                    mode="adjusted",
+                    hit=(ht_adj_pick == ht_actual),
+                )
 
     def _pct(h, t):
         return (100.0 * h / t) if t > 0 else None
@@ -439,6 +883,8 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
     for key, title in [
         ("ou_base", "OVER/UNDER GOLES Base"),
         ("ou_adj", "OVER/UNDER GOLES Adjusted"),
+        ("h1ou15_base", "OVER/UNDER 1T 1.5 Base"),
+        ("h1ou15_adj", "OVER/UNDER 1T 1.5 Adjusted"),
         ("btts_base", "BTTS Base"),
         ("btts_adj", "BTTS Adjusted"),
         ("corners_base", "CORNERS O/U Base"),
@@ -455,10 +901,47 @@ def _evaluate_ligamx_markets(base_dir: Path, label: str, pred_dir: Path):
 
     print("-" * 66)
     print("ACCURACY POR TIER (FULL GAME BASE)")
-    for tier_name in sorted(tiers.keys()):
-        h, t = tiers[tier_name]
-        tier_acc = (100.0 * h / t) if t > 0 else 0.0
-        print(f"   {tier_name.ljust(8)} : {tier_acc:.2f}% ({h}/{t})")
+    full_game_base_stats = _tier_counter_to_stats(market_tiers.get("full_game", {}).get("base", {}))
+    if not full_game_base_stats:
+        print("   N/A")
+    else:
+        for tier_name in TIER_ORDER:
+            rec = full_game_base_stats.get(tier_name)
+            if not rec or rec["total"] <= 0:
+                continue
+            tier_acc = (100.0 * rec["wins"] / rec["total"]) if rec["total"] > 0 else 0.0
+            print(f"   {tier_name.ljust(8)} : {tier_acc:.2f}% ({rec['wins']}/{rec['total']})")
+
+    def _print_market_tier_blocks(section_title: str, mode: str):
+        print("-" * 66)
+        print(section_title)
+        for market_key in ["full_game", "ou", "h1ou15", "btts", "corners", "ht"]:
+            stats = _tier_counter_to_stats(market_tiers.get(market_key, {}).get(mode, {}))
+            label_txt = market_labels.get(market_key, market_key.upper())
+            print(f"   {label_txt}")
+            if not stats:
+                print("      N/A")
+                print("      " + ("-" * 50))
+                continue
+
+            for tier_name in TIER_ORDER:
+                rec = stats.get(tier_name)
+                if not rec or rec["total"] <= 0:
+                    continue
+                tier_acc = (100.0 * rec["wins"] / rec["total"]) if rec["total"] > 0 else 0.0
+                print(f"      {tier_name.ljust(8)} : {tier_acc:6.2f}% ({rec['wins']}/{rec['total']})")
+
+            best = _best_tier(stats)
+            if best:
+                print(
+                    "      "
+                    + f"MEJOR    : {best['tier']} {100.0 * best['accuracy']:.2f}% "
+                    + f"({best['wins']}/{best['total']})"
+                )
+            print("      " + ("-" * 50))
+
+    _print_market_tier_blocks("ACCURACY POR ETIQUETA Y MERCADO (BASE)", mode="base")
+    _print_market_tier_blocks("ACCURACY POR ETIQUETA Y MERCADO (ADJUSTED/PUBLICADO)", mode="adjusted")
     print("=" * 66)
     return True
 
@@ -734,15 +1217,20 @@ def _evaluate_nhl_markets(base_dir: Path, label: str, raw_path: Path, pred_dir: 
     return True
 
 
-def _evaluate_mlb_from_walkforward(base_dir: Path):
+def _evaluate_mlb_from_walkforward(base_dir: Path, return_reason: bool = False):
+    def _ret(ok: bool, reason: str | None = None):
+        if return_reason:
+            return ok, reason
+        return ok
+
     summary_path = base_dir / "src" / "data" / "mlb" / "walkforward" / "walkforward_summary_mlb.json"
     if not summary_path.exists():
-        return False
+        return _ret(False, f"No existe walk-forward summary en {summary_path}")
 
     try:
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
     except Exception:
-        return False
+        return _ret(False, f"No se pudo parsear JSON de {summary_path}")
 
     full_game = summary.get("full_game") or {}
     yrfi = summary.get("yrfi") or {}
@@ -750,7 +1238,7 @@ def _evaluate_mlb_from_walkforward(base_dir: Path):
     totals = summary.get("totals") or {}
     run_line = summary.get("run_line") or {}
     if not full_game:
-        return False
+        return _ret(False, "El summary no contiene la clave full_game")
 
     total_rows = int(full_game.get("rows", 0) or 0)
     full_acc = _safe_pct(full_game.get("accuracy", 0.0))
@@ -768,6 +1256,7 @@ def _evaluate_mlb_from_walkforward(base_dir: Path):
     run_line_acc = _safe_pct(run_line.get("accuracy", 0.0))
     run_line_pub_acc = _safe_pct(run_line.get("published_accuracy", 0.0))
     run_line_pub_cov = _safe_pct(run_line.get("published_coverage", 0.0))
+    market_tier_report = _compute_mlb_tier_accuracy_from_walkforward(base_dir)
 
     print("=" * 54)
     print(f"REPORTE ACCURACY BASE - MLB (WALK-FORWARD, MUESTRA: {total_rows} JUEGOS)")
@@ -792,9 +1281,47 @@ def _evaluate_mlb_from_walkforward(base_dir: Path):
             continue
         bucket_acc = _safe_pct(bucket.get("published_accuracy", 0.0))
         print(f"   {bucket_name.ljust(8)} : {bucket_acc:.2f}% ({_format_ratio_from_pct(bucket_acc, published_rows)})")
+
+    if market_tier_report:
+        print("-" * 54)
+        print("ACCURACY POR ETIQUETA Y MERCADO (GLOBAL)")
+        for market_key in ["full_game", "yrfi", "f5", "run_line", "totals"]:
+            block = market_tier_report.get(market_key) or {}
+            label = block.get("label", market_key.upper())
+            rows = int(block.get("rows", 0) or 0)
+            stats = block.get("global") or {}
+            best = block.get("global_best")
+            if rows <= 0 or not stats:
+                print(f"   {label.ljust(12)}: N/A")
+                continue
+            best_text = ""
+            if best:
+                best_acc = 100.0 * best["accuracy"]
+                best_text = f" | Mejor {best['tier']} {best_acc:.2f}% ({best['wins']}/{best['total']})"
+            print(f"   {label.ljust(12)}: {_format_tier_line(stats)}{best_text}")
+
+        has_published = any((market_tier_report.get(k) or {}).get("published_rows", 0) > 0 for k in market_tier_report)
+        if has_published:
+            print("-" * 54)
+            print("ACCURACY POR ETIQUETA Y MERCADO (PUBLICADO)")
+            for market_key in ["full_game", "yrfi", "f5", "run_line", "totals"]:
+                block = market_tier_report.get(market_key) or {}
+                label = block.get("label", market_key.upper())
+                rows = int(block.get("published_rows", 0) or 0)
+                stats = block.get("published") or {}
+                best = block.get("published_best")
+                if rows <= 0 or not stats:
+                    print(f"   {label.ljust(12)}: N/A")
+                    continue
+                best_text = ""
+                if best:
+                    best_acc = 100.0 * best["accuracy"]
+                    best_text = f" | Mejor {best['tier']} {best_acc:.2f}% ({best['wins']}/{best['total']})"
+                print(f"   {label.ljust(12)}: {_format_tier_line(stats)}{best_text}")
+
     print("=" * 54)
     print(f"Fuente: {summary_path}")
-    return True
+    return _ret(True, None)
 
 
 def _parse_actual_row(row: pd.Series):
@@ -875,8 +1402,11 @@ def evaluate_for_sport(sport_key: str):
     label = SPORT_CONFIG[sport_key]["label"]
 
     # MLB usa walk-forward como referencia seria; los JSON historicos legacy pueden inflar el baseline.
-    if sport_key == "mlb" and _evaluate_mlb_from_walkforward(base_dir):
-        return
+    if sport_key == "mlb":
+        wf_ok, wf_reason = _evaluate_mlb_from_walkforward(base_dir, return_reason=True)
+        if wf_ok:
+            return
+        print(f"AVISO MLB: no se pudo usar walk-forward ({wf_reason}). Se usa fallback legacy (JSON historicos).")
 
     if sport_key == "ligamx":
         _, pred_dir = _resolve_paths(base_dir, sport_key)

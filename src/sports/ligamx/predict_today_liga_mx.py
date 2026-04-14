@@ -120,12 +120,13 @@ def load_market_assets(market_key: str, market_sources: dict):
 
 
 def predict_market(df: pd.DataFrame, market_key: str, market_sources: dict):
-    """Predice probabilidades usando ensemble: XGB + LGBM Primary + LGBM Secondary + CatBoost (Dinámico)."""
+    """Predice probabilidades usando ensemble: XGB + LGBM Primary + LGBM Secondary + CatBoost."""
     xgb, lgbm, lgbm_secondary, catboost, feature_columns, metadata, threshold = load_market_assets(
         market_key,
         market_sources,
     )
 
+    # feature_columns puede ser dict o list
     if isinstance(feature_columns, dict):
         feat_list = feature_columns.get("features", [])
     else:
@@ -135,90 +136,45 @@ def predict_market(df: pd.DataFrame, market_key: str, market_sources: dict):
     weights = _resolve_ensemble_weights(metadata, catboost_available=(catboost is not None))
 
     if market_key == "full_game":
-        # 1. Obtener predicciones base
+        # Multiclass weighted ensemble.
         xgb_probs = _model_predict_proba(xgb, X, market_key)
         lgbm_probs = _model_predict_proba(lgbm, X, market_key)
         lgbm_sec_probs = _model_predict_proba(lgbm_secondary, X, market_key)
-        
-        # 2. Pesos por defecto
-        w_xgb = weights.get("xgboost", 0.33)
-        w_lgbm = weights.get("lightgbm_primary", 0.33)
-        w_lgbm_sec = weights.get("lightgbm_secondary", 0.33)
-        w_cat = weights.get("catboost", 0.0) if catboost is not None else 0.0
-
-        # 3. STACKING HEURÍSTICO DINÁMICO (Contexto Liga MX V3)
-        cat_probs = None
+        probs = (
+            weights["xgboost"] * xgb_probs
+            + weights["lightgbm_primary"] * lgbm_probs
+            + weights["lightgbm_secondary"] * lgbm_sec_probs
+        )
         if catboost is not None:
             cat_cols = metadata.get("catboost_feature_columns") or feat_list
             cat_cols = [c for c in cat_cols if c in df.columns]
             X_cat = df[cat_cols].copy()
             for c in ["season", "home_team", "away_team"]:
                 if c in X_cat.columns:
-                    X_cat[c] = X_cat[c].astype(str).fillna("UNK")
+                    X_cat[c] = X_cat[c].astype(str)
+            for c in X_cat.columns:
+                if X_cat[c].dtype == object:
+                    X_cat[c] = X_cat[c].fillna("UNK")
             X_cat = X_cat.replace([np.inf, -np.inf], np.nan).fillna(0)
-            
-            cat_probs = np.asarray(catboost.predict_proba(X_cat), dtype=float)
-
-            # Lógica de transferencia de cargas (Iteramos por si hay más de 1 fila, aunque usualmente es df_day)
-            # Para simplificar, tomamos el valor promedio o el primero del batch
-            diff_alt = abs(df.get("diff_altitude_visitor", pd.Series([0.0])).mean())
-            is_closing = df.get("is_tournament_closing", pd.Series([0])).max()
-
-            # Si hay un salto físico drástico (> 1000m) o estamos en cierre de torneo
-            if diff_alt >= 1000 or is_closing == 1:
-                # Damos más peso a CatBoost para manejar el contexto atípico
-                w_cat = min(w_cat + 0.25, 0.40)
-                w_xgb = max(w_xgb - 0.10, 0.10)
-                w_lgbm = max(w_lgbm - 0.10, 0.10)
-                w_lgbm_sec = max(w_lgbm_sec - 0.05, 0.10)
-
-        # 4. Normalizar pesos
-        total_weight = max(1e-9, w_xgb + w_lgbm + w_lgbm_sec + w_cat)
-        w_xgb /= total_weight
-        w_lgbm /= total_weight
-        w_lgbm_sec /= total_weight
-        w_cat /= total_weight
-
-        # 5. Ensamblar
-        probs = (w_xgb * xgb_probs) + (w_lgbm * lgbm_probs) + (w_lgbm_sec * lgbm_sec_probs)
-        if cat_probs is not None:
-            probs += (w_cat * cat_probs)
-
-        # 6. Escalar el Empate
+            probs = probs + weights["catboost"] * np.asarray(catboost.predict_proba(X_cat), dtype=float)
         draw_scale = float((metadata.get("ensemble_weights", {}) or {}).get("draw_scale", 1.0))
         probs[:, 2] = probs[:, 2] * draw_scale
         probs = np.clip(probs, 1e-9, None)
         probs = probs / probs.sum(axis=1, keepdims=True)
         preds = np.argmax(probs, axis=1)
-        
         return probs, preds, threshold, metadata
 
-    # ---------------------------------------------------------
-    # Binary weighted ensemble (Over 2.5, BTTS, Corners)
-    # ---------------------------------------------------------
+    # Binary weighted ensemble.
     xgb_probs = _model_predict_proba(xgb, X, market_key)[:, 1]
     lgbm_probs = _model_predict_proba(lgbm, X, market_key)[:, 1]
     lgbm_sec_probs = _model_predict_proba(lgbm_secondary, X, market_key)[:, 1]
-    
-    # Pesos estáticos para binarios
-    w_xgb = weights.get("xgboost", 0.33)
-    w_lgbm = weights.get("lightgbm_primary", 0.33)
-    w_lgbm_sec = weights.get("lightgbm_secondary", 0.33)
-    w_cat = weights.get("catboost", 0.0) if catboost is not None else 0.0
-    
-    probs = (w_xgb * xgb_probs) + (w_lgbm * lgbm_probs) + (w_lgbm_sec * lgbm_sec_probs)
-    
+    probs = (
+        weights["xgboost"] * xgb_probs
+        + weights["lightgbm_primary"] * lgbm_probs
+        + weights["lightgbm_secondary"] * lgbm_sec_probs
+    )
     if catboost is not None:
-        cat_cols = metadata.get("catboost_feature_columns") or feat_list
-        cat_cols = [c for c in cat_cols if c in df.columns]
-        X_cat = df[cat_cols].copy()
-        for c in ["season", "home_team", "away_team"]:
-            if c in X_cat.columns:
-                X_cat[c] = X_cat[c].astype(str).fillna("UNK")
-        X_cat = X_cat.replace([np.inf, -np.inf], np.nan).fillna(0)
-        
-        probs = probs + (w_cat * catboost.predict_proba(X_cat)[:, 1])
-        
+        probs = probs + weights["catboost"] * catboost.predict_proba(X)[:, 1]
     preds = (probs >= threshold).astype(int)
     return probs, preds, threshold, metadata
 
@@ -259,9 +215,6 @@ def _american_to_implied_prob(odds_value):
 
     if odds == 0:
         return None
-
-    if odds > 1.0 and odds < 20.0:
-        return 1.0 / odds
 
     if odds > 0:
         return 100.0 / (odds + 100.0)
@@ -829,15 +782,19 @@ def build_output_rows(
 ):
     """Construye las predicciones finales usando los modelos ML."""
     fg_probs, fg_preds, _, _ = predict_market(df_day, "full_game", market_sources)
-    try:
-        ht_probs, ht_preds, _, _ = predict_market(df_day, "ht_result", market_sources)
-        ht_model_available = True
-    except Exception:
-        ht_probs = np.zeros((len(df_day), 3), dtype=float)
-        ht_probs[:, 2] = 1.0
-        ht_preds = np.full(len(df_day), 2, dtype=int)
-        ht_model_available = False
     over_probs, over_preds, over_threshold, _ = predict_market(df_day, "over_25", market_sources)
+    try:
+        h1_over15_probs, h1_over15_preds, h1_over15_threshold, _ = predict_market(
+            df_day,
+            "h1_over_15",
+            market_sources,
+        )
+        h1_over15_model_available = True
+    except Exception:
+        h1_over15_probs = np.full(len(df_day), np.nan, dtype=float)
+        h1_over15_preds = np.zeros(len(df_day), dtype=int)
+        h1_over15_threshold = 0.5
+        h1_over15_model_available = False
     btts_probs, btts_preds, btts_threshold, _ = predict_market(df_day, "btts", market_sources)
     try:
         corners_probs, corners_preds, corners_threshold, _ = predict_market(
@@ -881,27 +838,20 @@ def build_output_rows(
         
         full_game_conf = confidence_from_prob(fg_prob_pick)
 
-        # HT Result (Multiclass: 0=away_lead, 1=home_lead, 2=draw)
-        ht_pred = int(ht_preds[i]) if ht_model_available else 2
-        ht_probs_arr = ht_probs[i]
-        ht_prob_away = float(ht_probs_arr[0])
-        ht_prob_home = float(ht_probs_arr[1])
-        ht_prob_draw = float(ht_probs_arr[2])
-        if ht_pred == 1:
-            ht_pick = home_team
-            ht_pick_prob = ht_prob_home
-        elif ht_pred == 2:
-            ht_pick = "DRAW"
-            ht_pick_prob = ht_prob_draw
-        else:
-            ht_pick = away_team
-            ht_pick_prob = ht_prob_away
-        ht_conf = confidence_from_prob(ht_pick_prob)
-
         # Over 2.5
         over_prob = float(over_probs[i])
         total_pick = "OVER 2.5" if over_preds[i] == 1 else "UNDER 2.5"
         over_conf = confidence_from_prob(over_prob)
+
+        # First-half Over/Under 1.5
+        if h1_over15_model_available:
+            h1_over15_prob = float(h1_over15_probs[i])
+            h1_over15_pick = "OVER 1.5" if h1_over15_preds[i] == 1 else "UNDER 1.5"
+            h1_over15_conf = confidence_from_prob(h1_over15_prob)
+        else:
+            h1_over15_prob = np.nan
+            h1_over15_pick = "PENDIENTE"
+            h1_over15_conf = None
 
         # BTTS
         btts_prob = float(btts_probs[i])
@@ -911,12 +861,14 @@ def build_output_rows(
         detected_events = []
         full_adj_breakdown = []
         total_adj_breakdown = []
+        h1_over15_adj_breakdown = []
         btts_adj_breakdown = []
 
         fg_prob_home_adj = fg_prob_home_base
         fg_prob_away_adj = fg_prob_away_base
         fg_prob_draw_adj = fg_prob_draw_base
         over_prob_adj = over_prob
+        h1_over15_prob_adj = h1_over15_prob
         btts_prob_adj = btts_prob
 
         if USE_EVENT_ADJUSTMENTS and raw_history_df is not None and not raw_history_df.empty:
@@ -956,10 +908,19 @@ def build_output_rows(
             over_adj_info = apply_probability_adjustment(
                 over_prob, events_over, h2h_features, market_type="over_25"
             )
+            if h1_over15_model_available:
+                h1_over15_adj_info = apply_probability_adjustment(
+                    h1_over15_prob,
+                    events_over,
+                    h2h_features,
+                    market_type="over_25",
+                )
             btts_adj_info = apply_probability_adjustment(
                 btts_prob, events_btts, h2h_features, market_type="btts"
             )
             over_prob_adj = over_adj_info["adjusted_prob"]
+            if h1_over15_model_available:
+                h1_over15_prob_adj = h1_over15_adj_info["adjusted_prob"]
             btts_prob_adj = btts_adj_info["adjusted_prob"]
 
             if full_game_pick == home_team:
@@ -973,6 +934,8 @@ def build_output_rows(
                 full_adj_amount = fg_prob_draw_adj - fg_prob_draw_base
 
             total_adj_breakdown = over_adj_info["adjustment_breakdown"]
+            if h1_over15_model_available:
+                h1_over15_adj_breakdown = h1_over15_adj_info["adjustment_breakdown"]
             btts_adj_breakdown = btts_adj_info["adjustment_breakdown"]
         else:
             if full_game_pick == home_team:
@@ -1034,6 +997,22 @@ def build_output_rows(
         full_game_score = fuse_with_pattern_score(recommendation_score(full_game_adjusted_prob), pattern_edge)
 
         total_recommended_pick = "OVER 2.5" if over_prob_adj >= over_threshold else "UNDER 2.5"
+        if h1_over15_model_available:
+            h1_over15_recommended_pick = "OVER 1.5" if h1_over15_prob_adj >= h1_over15_threshold else "UNDER 1.5"
+            h1_over15_score = fuse_with_pattern_score(recommendation_score(h1_over15_prob_adj), pattern_edge)
+            h1_over15_adj_amount = h1_over15_prob_adj - h1_over15_prob
+            h1_over15_action = "JUGAR" if (h1_over15_conf is not None and h1_over15_conf >= 56) else "PASS"
+            h1_over15_base_probability = round(float(h1_over15_prob), 6)
+            h1_over15_adjusted_probability = round(float(h1_over15_prob_adj), 6)
+            h1_over15_adjustment_amount = round(float(h1_over15_adj_amount), 6)
+            h1_over15_recommended_score = round(float(h1_over15_score), 1)
+        else:
+            h1_over15_recommended_pick = "PENDIENTE"
+            h1_over15_action = "PASS"
+            h1_over15_base_probability = None
+            h1_over15_adjusted_probability = None
+            h1_over15_adjustment_amount = None
+            h1_over15_recommended_score = None
         btts_recommended_pick = "BTTS YES" if btts_prob_adj >= btts_threshold else "BTTS NO"
         total_score = fuse_with_pattern_score(recommendation_score(over_prob_adj), pattern_edge)
         btts_score = fuse_with_pattern_score(recommendation_score(btts_prob_adj), pattern_edge)
@@ -1083,13 +1062,6 @@ def build_output_rows(
                 "full_game_pick": full_game_pick,
                 "full_game_confidence": full_game_conf,
                 "full_game_tier": tier_from_conf(full_game_conf),
-                "ht_pick": ht_pick,
-                "ht_confidence": ht_conf,
-                "ht_tier": tier_from_conf(ht_conf),
-                "ht_prob_away": round(float(ht_prob_away), 6),
-                "ht_prob_home": round(float(ht_prob_home), 6),
-                "ht_prob_draw": round(float(ht_prob_draw), 6),
-                "ht_model_available": bool(ht_model_available),
 
                 "base_probability": round(float(full_game_base_prob), 6),
                 "adjusted_probability": round(float(full_game_adjusted_prob), 6),
@@ -1123,6 +1095,20 @@ def build_output_rows(
                 "total_adjustment_breakdown": total_adj_breakdown,
                 "total_recommended_pick": total_recommended_pick,
                 "total_recommended_score": round(float(total_score), 1),
+
+                "h1_over15_market": "1T O/U 1.5",
+                "h1_over15_line": 1.5,
+                "h1_over15_pick": h1_over15_pick,
+                "h1_over15_confidence": h1_over15_conf,
+                "h1_over15_tier": tier_from_conf(h1_over15_conf) if h1_over15_conf is not None else "PASS",
+                "h1_over15_action": h1_over15_action,
+                "h1_over15_base_probability": h1_over15_base_probability,
+                "h1_over15_adjusted_probability": h1_over15_adjusted_probability,
+                "h1_over15_adjustment_amount": h1_over15_adjustment_amount,
+                "h1_over15_adjustment_breakdown": h1_over15_adj_breakdown,
+                "h1_over15_recommended_pick": h1_over15_recommended_pick,
+                "h1_over15_recommended_score": h1_over15_recommended_score,
+
                 "odds_over_under": schedule_total_line,
                 "closing_moneyline_odds": None if sched_row is None else sched_row.get("closing_moneyline_odds"),
                 "home_moneyline_odds": None if sched_row is None else sched_row.get("home_moneyline_odds"),

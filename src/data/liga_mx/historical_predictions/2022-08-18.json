@@ -108,6 +108,43 @@
         "category": "reliability"
       }
     ],
+    "h1_over15_line": 1.5,
+    "h1_over15_pick": "OVER 1.5",
+    "h1_over15_confidence": 80,
+    "h1_over15_recommended_pick": "OVER 1.5",
+    "h1_over15_recommended_confidence": 80,
+    "h1_over15_base_probability": 0.796132,
+    "h1_over15_adjusted_probability": 0.796132,
+    "h1_over15_adjustment_amount": 0.0,
+    "h1_over15_adjustment_breakdown": [
+      {
+        "event_name": "away_team_cold_attack",
+        "direction": "negative",
+        "strength": 0.02,
+        "sign": -1.0,
+        "contribution": -0.017,
+        "explanation": "Ataque visitante en baja.",
+        "category": "attack_defense"
+      },
+      {
+        "event_name": "away_team_weak_defense",
+        "direction": "negative",
+        "strength": 0.02,
+        "sign": 1.0,
+        "contribution": 0.017,
+        "explanation": "Defensa visitante vulnerable.",
+        "category": "attack_defense"
+      },
+      {
+        "event_name": "low_h2h_sample",
+        "direction": "neutral",
+        "strength": 0.0,
+        "sign": 0.0,
+        "contribution": 0.0,
+        "explanation": "Muestra H2H baja; peso H2H reducido.",
+        "category": "reliability"
+      }
+    ],
     "btts_pick": "BTTS YES",
     "btts_recommended_pick": "BTTS YES",
     "btts_base_probability": 0.892811,
@@ -156,6 +193,9 @@
     "correct_full_game_adjusted": 1,
     "correct_total_base": 1,
     "correct_total_adjusted": 1,
+    "correct_h1_over15_base": 1,
+    "correct_h1_over15_adjusted": 1,
+    "h1_over15_hit": 1,
     "correct_btts_base": 1,
     "correct_btts_adjusted": 1,
     "correct_corners_base": 1,
@@ -164,6 +204,7 @@
     "correct_ht_adjusted": 0,
     "actual_full_game_class": 1,
     "actual_ht_class": 2,
+    "actual_h1_over_15": 1,
     "fg_prob_away_base": 0.30208866310008986,
     "fg_prob_home_base": 0.5612645301950617,
     "fg_prob_draw_base": 0.13664680670484847,
@@ -289,6 +330,43 @@
         "category": "reliability"
       }
     ],
+    "h1_over15_line": 1.5,
+    "h1_over15_pick": "OVER 1.5",
+    "h1_over15_confidence": 77,
+    "h1_over15_recommended_pick": "OVER 1.5",
+    "h1_over15_recommended_confidence": 74,
+    "h1_over15_base_probability": 0.773343,
+    "h1_over15_adjusted_probability": 0.741638,
+    "h1_over15_adjustment_amount": -0.031705,
+    "h1_over15_adjustment_breakdown": [
+      {
+        "event_name": "home_team_cold_attack",
+        "direction": "negative",
+        "strength": 0.02,
+        "sign": -1.0,
+        "contribution": -0.017,
+        "explanation": "Ataque local en baja.",
+        "category": "attack_defense"
+      },
+      {
+        "event_name": "away_team_cold_attack",
+        "direction": "negative",
+        "strength": 0.02,
+        "sign": -1.0,
+        "contribution": -0.017,
+        "explanation": "Ataque visitante en baja.",
+        "category": "attack_defense"
+      },
+      {
+        "event_name": "low_h2h_sample",
+        "direction": "neutral",
+        "strength": 0.0,
+        "sign": 0.0,
+        "contribution": 0.0,
+        "explanation": "Muestra H2H baja; peso H2H reducido.",
+        "category": "reliability"
+      }
+    ],
     "btts_pick": "BTTS YES",
     "btts_recommended_pick": "BTTS YES",
     "btts_base_probability": 0.966103,
@@ -337,6 +415,9 @@
     "correct_full_game_adjusted": 1,
     "correct_total_base": 1,
     "correct_total_adjusted": 1,
+    "correct_h1_over15_base": 1,
+    "correct_h1_over15_adjusted": 1,
+    "h1_over15_hit": 1,
     "correct_btts_base": 1,
     "correct_btts_adjusted": 1,
     "correct_corners_base": 1,
@@ -345,6 +426,7 @@
     "correct_ht_adjusted": 0,
     "actual_full_game_class": 1,
     "actual_ht_class": 0,
+    "actual_h1_over_15": 1,
     "fg_prob_away_base": 0.2763655422856908,
     "fg_prob_home_base": 0.4796214559047773,
     "fg_prob_draw_base": 0.24401300180953195,

@@ -1,45 +1,45 @@
 {
   "rows": 45,
-  "accuracy": 0.5333333333333333,
-  "published_accuracy": 0.4666666666666667,
-  "coverage": 0.3333333333333333,
-  "published_coverage": 0.3333333333333333,
-  "mae": 3.5966159029218514,
-  "rmse": 4.620585486482738,
-  "r2": -0.08397767856125782,
+  "accuracy": 0.5555555555555556,
+  "published_accuracy": 0.45454545454545453,
+  "coverage": 0.24444444444444444,
+  "published_coverage": 0.24444444444444444,
+  "mae": 3.639328423471483,
+  "rmse": 4.626282656401215,
+  "r2": -0.08665240984505873,
   "published_confidence_buckets": {
     "0.53-0.56": {
-      "rows": 2,
+      "rows": 10,
       "coverage": 0.0,
-      "accuracy": 1.0,
+      "accuracy": 0.6,
       "published_rows": 0,
       "published_accuracy": 0.0
     },
     "0.56-0.60": {
-      "rows": 7,
+      "rows": 5,
       "coverage": 0.0,
-      "accuracy": 0.42857142857142855,
+      "accuracy": 0.6,
       "published_rows": 0,
       "published_accuracy": 0.0
     },
     "0.60-0.65": {
-      "rows": 2,
+      "rows": 5,
       "coverage": 0.0,
-      "accuracy": 0.5,
+      "accuracy": 0.6,
       "published_rows": 0,
       "published_accuracy": 0.0
     },
     "0.65+": {
-      "rows": 26,
-      "coverage": 0.5769230769230769,
-      "accuracy": 0.6153846153846154,
-      "published_rows": 15,
-      "published_accuracy": 0.4666666666666667
+      "rows": 23,
+      "coverage": 0.4782608695652174,
+      "accuracy": 0.5217391304347826,
+      "published_rows": 11,
+      "published_accuracy": 0.45454545454545453
     },
     "<=0.53": {
-      "rows": 8,
+      "rows": 2,
       "coverage": 0.0,
-      "accuracy": 0.25,
+      "accuracy": 0.5,
       "published_rows": 0,
       "published_accuracy": 0.0
     }

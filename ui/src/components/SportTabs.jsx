@@ -3,6 +3,7 @@ import { useAppSettings } from "../context/AppSettingsContext.jsx";
 
 const SPORT_TABS = [
   { key: "nba", label: "NBA", path: "/nba" },
+  { key: "wnba", label: "WNBA", path: "/wnba" },
   { key: "mlb", label: "MLB", path: "/mlb" },
   { key: "triple_a", label: "Triple-A", path: "/triple-a" },
   { key: "tennis", label: "Tennis", path: "/tennis" },

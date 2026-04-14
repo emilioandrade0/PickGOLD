@@ -263,6 +263,16 @@ def parse_actual_result(row: pd.Series):
     total_goals = home_score + away_score
     actual_over = 1 if total_goals > 2.5 else 0
     actual_btts = 1 if (home_score > 0 and away_score > 0) else 0
+    total_ht_goals = row.get("total_ht_goals", np.nan)
+    if pd.isna(total_ht_goals):
+        home_ht = row.get("home_ht_score", np.nan)
+        away_ht = row.get("away_ht_score", np.nan)
+        if pd.notna(home_ht) and pd.notna(away_ht):
+            total_ht_goals = float(home_ht) + float(away_ht)
+    if pd.isna(total_ht_goals):
+        actual_h1_over_15 = None
+    else:
+        actual_h1_over_15 = 1 if float(total_ht_goals) > 1.5 else 0
     corners_raw = row.get("TARGET_corners_over_95", 0)
     actual_corners = 0 if pd.isna(corners_raw) else int(corners_raw)
     ht_class_raw = row.get("TARGET_ht_result", np.nan)
@@ -284,6 +294,7 @@ def parse_actual_result(row: pd.Series):
         "actual_result": actual_result,
         "actual_full_game_class": actual_class,
         "actual_over": actual_over,
+        "actual_h1_over_15": actual_h1_over_15,
         "actual_btts": actual_btts,
         "actual_corners": actual_corners,
         "actual_ht_class": actual_ht_class,
@@ -333,6 +344,13 @@ def build_walk_forward_predictions(
         assets["ht_result"] = None
         ht_model_available = False
 
+    try:
+        assets["h1_over_15"] = load_market_assets("h1_over_15", market_sources)
+        h1_over15_model_available = True
+    except Exception:
+        assets["h1_over_15"] = None
+        h1_over15_model_available = False
+
     adj_engine.USE_EVENT_ADJUSTMENTS = USE_EVENT_ADJUSTMENTS
     corners_constant_fallback = _is_constant_binary_asset(assets["corners_over_95"])
 
@@ -350,6 +368,10 @@ def build_walk_forward_predictions(
         else:
             ht_probs_base = np.array([0.0, 0.0, 1.0], dtype=float)
         over_prob_base = float(predict_market_probabilities(row_df, "over_25", assets)[1])
+        if h1_over15_model_available and assets["h1_over_15"] is not None:
+            h1_over15_prob_base = float(predict_market_probabilities(row_df, "h1_over_15", assets)[1])
+        else:
+            h1_over15_prob_base = np.nan
         btts_prob_base = float(predict_market_probabilities(row_df, "btts", assets)[1])
         corners_prob_base = float(predict_market_probabilities(row_df, "corners_over_95", assets)[1])
         if corners_constant_fallback:
@@ -363,24 +385,31 @@ def build_walk_forward_predictions(
         )
 
         over_thr = assets["over_25"]["threshold"]
+        h1_over15_thr = assets["h1_over_15"]["threshold"] if h1_over15_model_available and assets["h1_over_15"] is not None else 0.5
         btts_thr = assets["btts"]["threshold"]
         corners_thr = assets["corners_over_95"]["threshold"]
         if corners_constant_fallback:
             corners_thr = max(corners_thr, 0.86)
 
         over_base_pick = "OVER 2.5" if over_prob_base >= over_thr else "UNDER 2.5"
+        if h1_over15_model_available:
+            h1_over15_base_pick = "OVER 1.5" if h1_over15_prob_base >= h1_over15_thr else "UNDER 1.5"
+        else:
+            h1_over15_base_pick = "PENDIENTE"
         btts_base_pick = "BTTS YES" if btts_prob_base >= btts_thr else "BTTS NO"
         corners_base_pick = "OVER 9.5" if corners_prob_base >= corners_thr else "UNDER 9.5"
 
         fg_probs_adj = np.array(fg_probs_base, dtype=float)
         ht_probs_adj = np.array(ht_probs_base, dtype=float)
         over_prob_adj = over_prob_base
+        h1_over15_prob_adj = h1_over15_prob_base
         btts_prob_adj = btts_prob_base
         corners_prob_adj = corners_prob_base
 
         detected_events = []
         full_game_breakdown = []
         over_breakdown = []
+        h1_over15_breakdown = []
         btts_breakdown = []
         corners_breakdown = []
 
@@ -422,11 +451,20 @@ def build_walk_forward_predictions(
             over_adj_info = apply_probability_adjustment(
                 over_prob_base, events_over, h2h_features, market_type="over_25"
             )
+            if h1_over15_model_available:
+                h1_over15_adj_info = apply_probability_adjustment(
+                    h1_over15_prob_base,
+                    events_over,
+                    h2h_features,
+                    market_type="over_25",
+                )
             btts_adj_info = apply_probability_adjustment(
                 btts_prob_base, events_btts, h2h_features, market_type="btts"
             )
 
             over_prob_adj = float(over_adj_info["adjusted_prob"])
+            if h1_over15_model_available:
+                h1_over15_prob_adj = float(h1_over15_adj_info["adjusted_prob"])
             btts_prob_adj = float(btts_adj_info["adjusted_prob"])
 
             if fg_base_pick == home_team:
@@ -437,6 +475,8 @@ def build_walk_forward_predictions(
                 full_game_breakdown = fg_draw_adj["adjustment_breakdown"]
 
             over_breakdown = over_adj_info["adjustment_breakdown"]
+            if h1_over15_model_available:
+                h1_over15_breakdown = h1_over15_adj_info["adjustment_breakdown"]
             btts_breakdown = btts_adj_info["adjustment_breakdown"]
 
         fg_adj_pick, fg_adj_pick_prob, fg_adj_class = pick_from_multiclass_probs(
@@ -446,6 +486,10 @@ def build_walk_forward_predictions(
             ht_probs_adj, home_team, away_team
         )
         over_adj_pick = "OVER 2.5" if over_prob_adj >= over_thr else "UNDER 2.5"
+        if h1_over15_model_available:
+            h1_over15_adj_pick = "OVER 1.5" if h1_over15_prob_adj >= h1_over15_thr else "UNDER 1.5"
+        else:
+            h1_over15_adj_pick = "PENDIENTE"
         btts_adj_pick = "BTTS YES" if btts_prob_adj >= btts_thr else "BTTS NO"
         corners_adj_pick = "OVER 9.5" if corners_prob_adj >= corners_thr else "UNDER 9.5"
 
@@ -487,6 +531,36 @@ def build_walk_forward_predictions(
                 "total_adjustment_amount": round(float(over_prob_adj - over_prob_base), 6),
                 "total_adjustment_breakdown": over_breakdown,
 
+                "h1_over15_line": 1.5,
+                "h1_over15_pick": h1_over15_base_pick,
+                "h1_over15_confidence": (
+                    probability_to_confidence(h1_over15_prob_base)
+                    if h1_over15_model_available
+                    else None
+                ),
+                "h1_over15_recommended_pick": h1_over15_adj_pick,
+                "h1_over15_recommended_confidence": (
+                    probability_to_confidence(h1_over15_prob_adj)
+                    if h1_over15_model_available
+                    else None
+                ),
+                "h1_over15_base_probability": (
+                    round(float(h1_over15_prob_base), 6)
+                    if h1_over15_model_available
+                    else None
+                ),
+                "h1_over15_adjusted_probability": (
+                    round(float(h1_over15_prob_adj), 6)
+                    if h1_over15_model_available
+                    else None
+                ),
+                "h1_over15_adjustment_amount": (
+                    round(float(h1_over15_prob_adj - h1_over15_prob_base), 6)
+                    if h1_over15_model_available
+                    else None
+                ),
+                "h1_over15_adjustment_breakdown": h1_over15_breakdown,
+
                 "btts_pick": btts_base_pick,
                 "btts_recommended_pick": btts_adj_pick,
                 "btts_base_probability": round(float(btts_prob_base), 6),
@@ -510,6 +584,21 @@ def build_walk_forward_predictions(
                 "correct_full_game_adjusted": 1 if fg_adj_class == actual["actual_full_game_class"] else 0,
                 "correct_total_base": 1 if (1 if "OVER" in over_base_pick else 0) == actual["actual_over"] else 0,
                 "correct_total_adjusted": 1 if (1 if "OVER" in over_adj_pick else 0) == actual["actual_over"] else 0,
+                "correct_h1_over15_base": (
+                    None
+                    if (not h1_over15_model_available) or actual["actual_h1_over_15"] is None
+                    else (1 if (1 if "OVER" in h1_over15_base_pick else 0) == actual["actual_h1_over_15"] else 0)
+                ),
+                "correct_h1_over15_adjusted": (
+                    None
+                    if (not h1_over15_model_available) or actual["actual_h1_over_15"] is None
+                    else (1 if (1 if "OVER" in h1_over15_adj_pick else 0) == actual["actual_h1_over_15"] else 0)
+                ),
+                "h1_over15_hit": (
+                    None
+                    if (not h1_over15_model_available) or actual["actual_h1_over_15"] is None
+                    else (1 if (1 if "OVER" in h1_over15_adj_pick else 0) == actual["actual_h1_over_15"] else 0)
+                ),
                 "correct_btts_base": 1 if (1 if "YES" in btts_base_pick else 0) == actual["actual_btts"] else 0,
                 "correct_btts_adjusted": 1 if (1 if "YES" in btts_adj_pick else 0) == actual["actual_btts"] else 0,
                 "correct_corners_base": 1 if (1 if "OVER" in corners_base_pick else 0) == actual["actual_corners"] else 0,
@@ -527,6 +616,7 @@ def build_walk_forward_predictions(
 
                 "actual_full_game_class": actual["actual_full_game_class"],
                 "actual_ht_class": actual["actual_ht_class"],
+                "actual_h1_over_15": actual["actual_h1_over_15"],
                 "fg_prob_away_base": float(fg_probs_base[0]),
                 "fg_prob_home_base": float(fg_probs_base[1]),
                 "fg_prob_draw_base": float(fg_probs_base[2]),
@@ -567,6 +657,23 @@ def compute_comparative_metrics(predictions: list):
     else:
         df_ht = None
     y_over = df["over_actual"].astype(int).to_numpy()
+    has_h1_over15 = (
+        "actual_h1_over_15" in df.columns
+        and "h1_over15_base_probability" in df.columns
+        and df["actual_h1_over_15"].notna().any()
+        and df["h1_over15_base_probability"].notna().any()
+    )
+    if has_h1_over15:
+        df_h1_over15 = df[
+            df["actual_h1_over_15"].notna()
+            & df["h1_over15_base_probability"].notna()
+            & df["h1_over15_adjusted_probability"].notna()
+        ].copy()
+        y_h1_over15 = df_h1_over15["actual_h1_over_15"].astype(int).to_numpy()
+        h1_over15_base_probs = df_h1_over15["h1_over15_base_probability"].astype(float).to_numpy()
+        h1_over15_adj_probs = df_h1_over15["h1_over15_adjusted_probability"].astype(float).to_numpy()
+    else:
+        df_h1_over15 = None
     y_btts = df["btts_actual"].astype(int).to_numpy()
     y_corners = df["corners_actual"].astype(int).to_numpy()
 
@@ -606,6 +713,14 @@ def compute_comparative_metrics(predictions: list):
             "adjusted_log_loss": float(log_loss(y_corners, corners_adj_probs, labels=[0, 1])),
         },
     }
+    if has_h1_over15 and df_h1_over15 is not None and not df_h1_over15.empty:
+        metrics["h1_over_15"] = {
+            "base_accuracy": float(df_h1_over15["correct_h1_over15_base"].mean()),
+            "adjusted_accuracy": float(df_h1_over15["correct_h1_over15_adjusted"].mean()),
+            "base_log_loss": float(log_loss(y_h1_over15, h1_over15_base_probs, labels=[0, 1])),
+            "adjusted_log_loss": float(log_loss(y_h1_over15, h1_over15_adj_probs, labels=[0, 1])),
+            "rows": int(len(df_h1_over15)),
+        }
     if has_ht:
         metrics["ht_result"] = {
             "base_accuracy": float(accuracy_score(y_ht, np.argmax(ht_base_probs, axis=1))),
@@ -671,7 +786,7 @@ def main():
 
     print("\n[STATS] COMPARATIVA BASE VS ADJUSTED")
     print("=" * 70)
-    for market in ["full_game", "ht_result", "over_25", "btts", "corners_over_95"]:
+    for market in ["full_game", "ht_result", "h1_over_15", "over_25", "btts", "corners_over_95"]:
         m = metrics.get(market, {})
         if not m:
             continue

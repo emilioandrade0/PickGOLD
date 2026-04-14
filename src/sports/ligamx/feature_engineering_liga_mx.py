@@ -102,17 +102,13 @@ def ensure_market_columns(df: pd.DataFrame) -> pd.DataFrame:
 def _american_to_implied_prob_series(odds: pd.Series) -> pd.Series:
     odds = pd.to_numeric(odds, errors="coerce").fillna(0.0)
 
-    # Decimal odds (common in soccer feeds): 1.01 .. 19.99
-    decimal = (odds > 1.0) & (odds < 20.0)
     pos = odds > 0
     neg = odds < 0
 
     out = pd.Series(np.zeros(len(odds), dtype=float), index=odds.index)
-    out.loc[decimal] = 1.0 / odds.loc[decimal]
-    american_pos = pos & ~decimal
-    out.loc[american_pos] = 100.0 / (odds.loc[american_pos] + 100.0)
+    out.loc[pos] = 100.0 / (odds.loc[pos] + 100.0)
     out.loc[neg] = np.abs(odds.loc[neg]) / (np.abs(odds.loc[neg]) + 100.0)
-    out.loc[~(american_pos | neg | decimal)] = 0.5
+    out.loc[~(pos | neg)] = 0.5
     return out.clip(0.01, 0.99)
 
 
@@ -436,10 +432,21 @@ def build_features() -> pd.DataFrame:
 
     df = pd.read_csv(RAW_DATA, dtype={"game_id": str})
 
-    for col in ["home_corners", "away_corners", "total_corners", "home_ht_score", "away_ht_score", "total_ht_goals"]:
+    for col in ["home_corners", "away_corners", "total_corners"]:
         if col not in df.columns:
             df[col] = np.nan
         df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    for col in ["home_ht_score", "away_ht_score", "total_ht_goals"]:
+        if col not in df.columns:
+            df[col] = np.nan
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Fallback when provider omits explicit total halftime goals.
+    missing_ht_total = df["total_ht_goals"].isna()
+    df.loc[missing_ht_total, "total_ht_goals"] = (
+        df.loc[missing_ht_total, "home_ht_score"] + df.loc[missing_ht_total, "away_ht_score"]
+    )
 
     df["date_dt"] = pd.to_datetime(df["date"])
     df = df.sort_values(["date_dt", "game_id"]).reset_index(drop=True)
@@ -454,20 +461,28 @@ def build_features() -> pd.DataFrame:
         [1, 2],
         default=0,
     )  # 1=home_win, 2=draw, 0=away_win
+    df["TARGET_ht_result"] = np.where(
+        df["home_ht_score"].notna() & df["away_ht_score"].notna(),
+        np.select(
+            [
+                df["home_ht_score"] > df["away_ht_score"],
+                df["away_ht_score"] > df["home_ht_score"],
+            ],
+            [1, 0],
+            default=2,
+        ),
+        np.nan,
+    )
+    df["TARGET_h1_over_15"] = np.where(
+        df["total_ht_goals"].notna(),
+        (df["total_ht_goals"] > 1.5).astype(int),
+        np.nan,
+    )
     df["TARGET_over_25"] = (df["total_goals"] > 2.5).astype(int)
     df["TARGET_btts"] = ((df["home_score"] > 0) & (df["away_score"] > 0)).astype(int)
     df["TARGET_corners_over_95"] = np.where(
         df["total_corners"].notna(),
         (df["total_corners"] > 9.5).astype(int),
-        np.nan,
-    )
-    df["TARGET_ht_result"] = np.where(
-        df["home_ht_score"].notna() & df["away_ht_score"].notna(),
-        np.select(
-            [df["home_ht_score"] > df["away_ht_score"], df["home_ht_score"] == df["away_ht_score"]],
-            [1, 2],
-            default=0,
-        ),
         np.nan,
     )
 
@@ -722,13 +737,14 @@ def build_features() -> pd.DataFrame:
         "away_team",
         "home_score",
         "away_score",
+        "is_draw",
+        "total_goals",
         "home_ht_score",
         "away_ht_score",
         "total_ht_goals",
-        "is_draw",
-        "total_goals",
         "TARGET_full_game",
         "TARGET_ht_result",
+        "TARGET_h1_over_15",
         "TARGET_over_25",
         "TARGET_btts",
         "TARGET_corners_over_95",
@@ -902,15 +918,7 @@ def build_features() -> pd.DataFrame:
     nan_cols = df.columns[df.isna().any()].tolist()
     if nan_cols:
         print(f"   Columnas con NaN: {nan_cols}")
-        preserve_nan = {
-            "home_ht_score",
-            "away_ht_score",
-            "total_ht_goals",
-            "TARGET_ht_result",
-            "TARGET_corners_over_95",
-        }
-        fill_cols = [c for c in df.columns if c not in preserve_nan]
-        df.loc[:, fill_cols] = df[fill_cols].fillna(0)
+        df = df.fillna(0)
 
     return df
 
@@ -929,11 +937,13 @@ def main():
     print(f"   - Partidos: {len(df)}")
     print(f"   - Columnas: {len(df.columns)}")
     corners_n = int(df["TARGET_corners_over_95"].notna().sum()) if "TARGET_corners_over_95" in df.columns else 0
-    ht_n = int(df["TARGET_ht_result"].notna().sum()) if "TARGET_ht_result" in df.columns else 0
+    ht_ou_n = int(df["TARGET_h1_over_15"].notna().sum()) if "TARGET_h1_over_15" in df.columns else 0
     print(
         f"   - Targets: {df['TARGET_full_game'].nunique()} full_game, "
+        f"{df['TARGET_ht_result'].nunique()} ht_result, "
+        f"h1_over_15 muestras={ht_ou_n}, "
         f"{df['TARGET_over_25'].nunique()} over_25, {df['TARGET_btts'].nunique()} btts, "
-        f"ht_result muestras={ht_n}, corners_over_95 muestras={corners_n}"
+        f"corners_over_95 muestras={corners_n}"
     )
 
     df.to_csv(OUTPUT_FILE, index=False)

@@ -62,6 +62,29 @@ const NBA_LOGO_OVERRIDES: Record<string, string> = {
   WAS: 'wsh',
 };
 
+const WNBA_ALIASES: Record<string, string> = {
+  NYL: 'NY',
+  LVA: 'LV',
+  PHX: 'PHO',
+  LAS: 'LA',
+};
+
+const WNBA_LOGO_OVERRIDES: Record<string, string> = {
+  ATL: 'atl',
+  CHI: 'chi',
+  CON: 'con',
+  DAL: 'dal',
+  GSV: 'gsv',
+  IND: 'ind',
+  LA: 'la',
+  LV: 'lv',
+  MIN: 'min',
+  NY: 'ny',
+  PHO: 'pho',
+  SEA: 'sea',
+  WAS: 'wsh',
+};
+
 const LIGA_MX_ESPN_CODES: Record<string, string> = {
   AME: '227',
   ATS: '216',
@@ -243,6 +266,11 @@ function normalizeNBAAbbr(abbr: string | null | undefined): string {
   return NBA_ALIASES[normalized] || normalized;
 }
 
+function normalizeWNBAAbbr(abbr: string | null | undefined): string {
+  const normalized = normalizeAbbr(abbr);
+  return WNBA_ALIASES[normalized] || normalized;
+}
+
 export function getMLBLogoUrl(abbr: string | null | undefined): string {
   const normalized = normalizeAbbr(abbr);
   const code = MLB_LOGO_OVERRIDES[normalized] || normalized.toLowerCase();
@@ -253,6 +281,12 @@ export function getNBALogoUrl(abbr: string | null | undefined): string {
   const normalized = normalizeNBAAbbr(abbr);
   const code = NBA_LOGO_OVERRIDES[normalized];
   return code ? `https://a.espncdn.com/i/teamlogos/nba/500/${code}.png` : FALLBACK_LOGO;
+}
+
+export function getWNBALogoUrl(abbr: string | null | undefined): string {
+  const normalized = normalizeWNBAAbbr(abbr);
+  const code = WNBA_LOGO_OVERRIDES[normalized];
+  return code ? `https://a.espncdn.com/i/teamlogos/wnba/500/${code}.png` : FALLBACK_LOGO;
 }
 
 export function getNHLLogo(teamCode: string | null | undefined): string {
@@ -303,6 +337,7 @@ export function getTripleALogo(teamCode: string | null | undefined): string {
 export function getTeamLogoUrl(sportKey: string, abbr: string | null | undefined): string | null {
   if (sportKey === 'mlb') return getMLBLogoUrl(abbr);
   if (sportKey === 'nba') return getNBALogoUrl(abbr);
+  if (sportKey === 'wnba') return getWNBALogoUrl(abbr);
   if (sportKey === 'nhl') return getNHLLogo(abbr);
   if (sportKey === 'liga_mx') return getLigaMXLogo(abbr);
   if (sportKey === 'laliga') return getLaLigaLogo(abbr);

@@ -155,22 +155,77 @@ const LINE_KEYS = {
   total: ["closing_total_line", "odds_over_under"],
 };
 
-function resolveOddsForSecondary(event, label) {
-  const key = String(label || "").toLowerCase();
-  if (key.includes("q1") || key.includes("yrfi")) return resolveOddsValue(event, ODDS_KEYS.q1);
-  if (key.includes("f5")) return resolveOddsValue(event, ODDS_KEYS.f5);
-  if (key.includes("total")) return resolveOddsValue(event, ODDS_KEYS.total);
-  if (key.includes("spread")) return resolveOddsValue(event, ODDS_KEYS.spread);
-  if (key.includes("btts")) return resolveOddsValue(event, ODDS_KEYS.btts);
+const BASEBALL_SPORTS = new Set(["mlb", "kbo", "ncaa_baseball", "triple_a"]);
+const BASKETBALL_SPORTS = new Set(["nba", "wnba", "euroleague"]);
+const HOCKEY_SPORTS = new Set(["nhl"]);
+const SOCCER_SPORTS = new Set(["liga_mx", "laliga", "bundesliga", "ligue1"]);
+
+function normalizeSportKey(sportKey) {
+  return String(sportKey || "").trim().toLowerCase();
+}
+
+function ordinalLabel(index) {
+  if (index === 1) return "1er";
+  if (index === 2) return "2do";
+  if (index === 3) return "3er";
+  if (index === 4) return "4to";
+  return `${index}to`;
+}
+
+function resolveQ1MarketLabel(sportKey) {
+  const normalizedSport = normalizeSportKey(sportKey);
+  if (BASEBALL_SPORTS.has(normalizedSport)) return "1er Inning";
+  if (BASKETBALL_SPORTS.has(normalizedSport)) return "1er Cuarto";
+  if (HOCKEY_SPORTS.has(normalizedSport)) return "1er Periodo";
+  if (SOCCER_SPORTS.has(normalizedSport)) return "1er Tiempo";
+  return "1er Parcial";
+}
+
+function resolveSegmentRowLabel(sportKey, segmentIndex) {
+  const normalizedSport = normalizeSportKey(sportKey);
+
+  if (BASEBALL_SPORTS.has(normalizedSport)) {
+    return `${ordinalLabel(segmentIndex)} Inning`;
+  }
+
+  if (BASKETBALL_SPORTS.has(normalizedSport)) {
+    if (segmentIndex <= 4) return `${ordinalLabel(segmentIndex)} Cuarto`;
+    return `OT ${segmentIndex - 4}`;
+  }
+
+  if (HOCKEY_SPORTS.has(normalizedSport)) {
+    if (segmentIndex <= 3) return `${ordinalLabel(segmentIndex)} Periodo`;
+    return segmentIndex === 4 ? "OT" : `OT ${segmentIndex - 3}`;
+  }
+
+  if (SOCCER_SPORTS.has(normalizedSport)) {
+    if (segmentIndex === 1) return "1er Tiempo";
+    if (segmentIndex === 2) return "2do Tiempo";
+    if (segmentIndex === 3) return "Tiempo Extra 1";
+    if (segmentIndex === 4) return "Tiempo Extra 2";
+    if (segmentIndex === 5) return "Penales";
+    return `Tiempo Extra ${segmentIndex - 2}`;
+  }
+
+  return `Parcial ${segmentIndex}`;
+}
+
+function resolveOddsForSecondary(event, marketKey) {
+  if (marketKey === "q1") return resolveOddsValue(event, ODDS_KEYS.q1);
+  if (marketKey === "f5") return resolveOddsValue(event, ODDS_KEYS.f5);
+  if (marketKey === "total") return resolveOddsValue(event, ODDS_KEYS.total);
+  if (marketKey === "spread") return resolveOddsValue(event, ODDS_KEYS.spread);
+  if (marketKey === "btts") return resolveOddsValue(event, ODDS_KEYS.btts);
+  if (marketKey === "h1_over15") return null;
   return null;
 }
 
-function resolveSecondaryMarket(event, sportKey, teams) {
+function resolveSecondaryMarket(event, sportKey, teams, q1MarketLabel) {
   const q1PickRaw = event.q1_pick;
   if (!isPendingPick(q1PickRaw)) {
-    const q1Label = "Primer Cuarto";
     return {
-      label: q1Label,
+      marketKey: "q1",
+      label: q1MarketLabel,
       pick: expandTeamCodeInText(sportKey, resolveSidePick(q1PickRaw, teams)),
       confidence: event.q1_confidence,
       action: event.q1_action || "N/A",
@@ -178,9 +233,22 @@ function resolveSecondaryMarket(event, sportKey, teams) {
     };
   }
 
+  const h1TotalPickRaw = event.h1_over15_recommended_pick || event.h1_over15_pick;
+  if (!isPendingPick(h1TotalPickRaw)) {
+    return {
+      marketKey: "h1_over15",
+      label: "1T O/U 1.5",
+      pick: String(h1TotalPickRaw),
+      confidence: event.h1_over15_confidence,
+      action: event.h1_over15_action || "N/A",
+      hit: toHitValue(event.h1_over15_hit ?? event.correct_h1_over15_adjusted ?? event.correct_h1_over15_base),
+    };
+  }
+
   const bttsPickRaw = event.btts_recommended_pick || event.btts_pick;
   if (!isPendingPick(bttsPickRaw)) {
     return {
+      marketKey: "btts",
       label: "BTTS",
       pick: expandTeamCodeInText(sportKey, resolveSidePick(bttsPickRaw, teams)),
       confidence: event.btts_confidence,
@@ -192,6 +260,7 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   const f5PickRaw = event.assists_pick || event.f5_pick;
   if (!isPendingPick(f5PickRaw) && String(f5PickRaw).toUpperCase().includes("F5")) {
     return {
+      marketKey: "f5",
       label: "F5",
       pick: expandTeamCodeInText(sportKey, resolveSidePick(f5PickRaw, teams)),
       confidence: event.extra_f5_confidence,
@@ -203,6 +272,7 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   const totalPickRaw = event.total_recommended_pick || event.total_pick;
   if (!isPendingPick(totalPickRaw)) {
     return {
+      marketKey: "total",
       label: "Total O/U",
       pick: expandTeamCodeInText(sportKey, resolveSidePick(totalPickRaw, teams)),
       confidence: event.total_confidence,
@@ -214,6 +284,7 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   const spreadPickRaw = event.spread_pick;
   if (!isPendingPick(spreadPickRaw)) {
     return {
+      marketKey: "spread",
       label: "Spread / ML",
       pick: expandTeamCodeInText(sportKey, resolveSidePick(spreadPickRaw, teams)),
       confidence: event.spread_confidence,
@@ -223,6 +294,7 @@ function resolveSecondaryMarket(event, sportKey, teams) {
   }
 
   return {
+    marketKey: null,
     label: "Predicción secundaria",
     pick: "N/A",
     confidence: "-",
@@ -308,6 +380,17 @@ function resolveFirstHalfCard(event, sportKey, teams) {
   };
 }
 
+function resolveFirstHalfTotalCard(event) {
+  const pickRaw = String(event?.h1_over15_recommended_pick || event?.h1_over15_pick || "").trim();
+  if (isPendingPick(pickRaw)) return null;
+  return {
+    pick: pickRaw,
+    confidence: event?.h1_over15_confidence,
+    action: event?.h1_over15_action || "N/A",
+    hit: toHitValue(event?.h1_over15_hit ?? event?.correct_h1_over15_adjusted ?? event?.correct_h1_over15_base),
+  };
+}
+
 function formatLiveClock(event) {
   const parts = [];
   const shortState = String(event?.status_description || "").trim();
@@ -322,14 +405,121 @@ function quarterValue(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function buildQuarterRows(event) {
-  const rows = [
-    { label: "Q1", home: quarterValue(event?.home_q1_score ?? event?.home_q1), away: quarterValue(event?.away_q1_score ?? event?.away_q1) },
-    { label: "Q2", home: quarterValue(event?.home_q2_score ?? event?.home_q2), away: quarterValue(event?.away_q2_score ?? event?.away_q2) },
-    { label: "Q3", home: quarterValue(event?.home_q3_score ?? event?.home_q3), away: quarterValue(event?.away_q3_score ?? event?.away_q3) },
-    { label: "Q4", home: quarterValue(event?.home_q4_score ?? event?.home_q4), away: quarterValue(event?.away_q4_score ?? event?.away_q4) },
-  ];
+function buildSportSegmentRows(event, sportKey) {
+  const normalizedSport = normalizeSportKey(sportKey);
+  if (BASEBALL_SPORTS.has(normalizedSport)) return [];
+
+  const homeArray = trimTrailingNullScores(parseInningScoreArray(event?.home_segment_scores));
+  const awayArray = trimTrailingNullScores(parseInningScoreArray(event?.away_segment_scores));
+
+  const fallbackHome = trimTrailingNullScores([
+    quarterValue(event?.home_q1_score ?? event?.home_q1),
+    quarterValue(event?.home_q2_score ?? event?.home_q2),
+    quarterValue(event?.home_q3_score ?? event?.home_q3),
+    quarterValue(event?.home_q4_score ?? event?.home_q4),
+  ]);
+  const fallbackAway = trimTrailingNullScores([
+    quarterValue(event?.away_q1_score ?? event?.away_q1),
+    quarterValue(event?.away_q2_score ?? event?.away_q2),
+    quarterValue(event?.away_q3_score ?? event?.away_q3),
+    quarterValue(event?.away_q4_score ?? event?.away_q4),
+  ]);
+
+  const homeRaw = homeArray.length ? homeArray : fallbackHome;
+  const awayRaw = awayArray.length ? awayArray : fallbackAway;
+  const segmentCount = Math.max(homeRaw.length, awayRaw.length);
+  if (!segmentCount) return [];
+
+  const rows = Array.from({ length: segmentCount }, (_, index) => ({
+    label: resolveSegmentRowLabel(sportKey, index + 1),
+    home: index < homeRaw.length ? homeRaw[index] : null,
+    away: index < awayRaw.length ? awayRaw[index] : null,
+  }));
+
   return rows.filter((row) => row.home !== null || row.away !== null);
+}
+
+function parseInningScoreArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => quarterValue(entry));
+  }
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => quarterValue(entry));
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function trimTrailingNullScores(scores) {
+  const out = [...scores];
+  while (out.length && out[out.length - 1] === null) {
+    out.pop();
+  }
+  return out;
+}
+
+function buildInningScoresFromColumns(event, prefix) {
+  const scores = [];
+  for (let inning = 1; inning <= 20; inning += 1) {
+    const key = `${prefix}_r${inning}`;
+    const hasKey = Object.prototype.hasOwnProperty.call(event || {}, key);
+    const value = quarterValue(event?.[key]);
+    if (hasKey || value !== null) {
+      scores.push(value);
+    }
+  }
+  return trimTrailingNullScores(scores);
+}
+
+function sumKnownScores(scores) {
+  const values = (scores || []).filter((value) => Number.isFinite(value));
+  if (!values.length) return null;
+  return values.reduce((acc, value) => acc + value, 0);
+}
+
+function buildBaseballInningTable(event) {
+  const homeFromArray = trimTrailingNullScores(parseInningScoreArray(event?.home_inning_scores));
+  const awayFromArray = trimTrailingNullScores(parseInningScoreArray(event?.away_inning_scores));
+  const homeFromColumns = buildInningScoresFromColumns(event, "home");
+  const awayFromColumns = buildInningScoresFromColumns(event, "away");
+
+  const homeRaw = homeFromArray.length ? homeFromArray : homeFromColumns;
+  const awayRaw = awayFromArray.length ? awayFromArray : awayFromColumns;
+  const inningsCount = Math.max(homeRaw.length, awayRaw.length);
+
+  if (!inningsCount) {
+    return {
+      hasRows: false,
+      innings: [],
+      homeScores: [],
+      awayScores: [],
+      homeTotal: quarterValue(event?.home_score),
+      awayTotal: quarterValue(event?.away_score),
+    };
+  }
+
+  const innings = Array.from({ length: inningsCount }, (_, index) => index + 1);
+  const homeScores = Array.from({ length: inningsCount }, (_, index) => (index < homeRaw.length ? homeRaw[index] : null));
+  const awayScores = Array.from({ length: inningsCount }, (_, index) => (index < awayRaw.length ? awayRaw[index] : null));
+  const parsedHomeTotal = quarterValue(event?.home_score);
+  const parsedAwayTotal = quarterValue(event?.away_score);
+
+  return {
+    hasRows: true,
+    innings,
+    homeScores,
+    awayScores,
+    homeTotal: parsedHomeTotal ?? sumKnownScores(homeScores),
+    awayTotal: parsedAwayTotal ?? sumKnownScores(awayScores),
+  };
 }
 
 function toConfidenceValue(value) {
@@ -346,6 +536,7 @@ function buildBestRecommendedPick({
   totalConfidence,
   q1Pick,
   q1Confidence,
+  q1MarketLabel,
   h1Pick,
   h1Confidence,
   bttsPick,
@@ -357,7 +548,7 @@ function buildBestRecommendedPick({
     { market: "Full Game", pick: fullGamePick, confidence: toConfidenceValue(fullGameConfidence) },
     { market: "Handicap", pick: handicapPick, confidence: toConfidenceValue(spreadConfidence) },
     { market: "Over/Under", pick: totalPick, confidence: toConfidenceValue(totalConfidence) },
-    { market: "Primer Cuarto", pick: q1Pick, confidence: toConfidenceValue(q1Confidence) },
+    { market: q1MarketLabel || "1er Parcial", pick: q1Pick, confidence: toConfidenceValue(q1Confidence) },
     { market: "Primera Mitad", pick: h1Pick, confidence: toConfidenceValue(h1Confidence) },
     { market: "BTTS", pick: bttsPick, confidence: toConfidenceValue(bttsConfidence) },
     { market: "Corners", pick: cornersPick, confidence: toConfidenceValue(cornersConfidence) },
@@ -377,6 +568,9 @@ function marketKeyFromBestPickLabel(label) {
   if (normalized === "handicap") return "spread";
   if (normalized === "over/under") return "total";
   if (normalized === "primer cuarto") return "q1";
+  if (normalized.includes("inning") || normalized.includes("cuarto") || normalized.includes("periodo") || normalized.includes("tiempo")) {
+    return "q1";
+  }
   if (normalized === "primera mitad") return "h1";
   if (normalized === "btts") return "btts";
   if (normalized === "corners") return "corners";
@@ -431,19 +625,43 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const hasLiveScore =
     (event.home_score !== undefined && event.home_score !== null) &&
     (event.away_score !== undefined && event.away_score !== null);
+  const normalizedSportKey = normalizeSportKey(sportKey);
   const liveClock = formatLiveClock(event);
-  const quarterRows = buildQuarterRows(event);
+  const q1MarketLabel = resolveQ1MarketLabel(normalizedSportKey);
+  const isBaseballSport = BASEBALL_SPORTS.has(normalizedSportKey);
+  const segmentRows = buildSportSegmentRows(event, normalizedSportKey);
+  const inningTable = isBaseballSport ? buildBaseballInningTable(event) : null;
+  const hasPartialRows = isBaseballSport ? Boolean(inningTable?.hasRows) : segmentRows.length > 0;
+  const showScoreCard = (isLive || hasResult) && (hasPartialRows || hasLiveScore);
+  const scoreCardClass = isLive
+    ? "rounded-3xl border border-rose-400/45 bg-gradient-to-br from-rose-500/10 via-[#1b1d24] to-black/30 p-5 shadow-[0_0_28px_rgba(251,113,133,0.10)]"
+    : "rounded-3xl border border-emerald-400/35 bg-gradient-to-br from-emerald-500/10 via-[#1b1d24] to-black/30 p-5 shadow-[0_0_24px_rgba(16,185,129,0.08)]";
+  const scoreValueClass = isLive ? "text-rose-100" : "text-emerald-100";
+  const scoreBadgeClass = isLive
+    ? "text-rose-200"
+    : "text-emerald-200";
+  const scorePulseClass = isLive
+    ? "bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.9)]"
+    : "bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.85)]";
+  const scoreStateLabel = isLive ? "Live" : (hasResult ? "Final" : "Marcador");
+  const scoreStateDetail = isLive ? liveClock : (String(event?.status_description || "").trim() || "Final");
+  const awayScoreName = isBaseballSport ? (teams.awayTeam || awayName) : awayName;
+  const homeScoreName = isBaseballSport ? (teams.homeTeam || homeName) : homeName;
 
-  const secondaryMarket = resolveSecondaryMarket(event, sportKey, teams);
+  const secondaryMarket = resolveSecondaryMarket(event, sportKey, teams, q1MarketLabel);
   const firstHalfCard = resolveFirstHalfCard(event, sportKey, teams);
+  const firstHalfTotalCard = resolveFirstHalfTotalCard(event);
   const secondaryLabel = secondaryMarket.label;
   const secondaryPick = secondaryMarket.pick || "N/A";
+  const secondaryMarketKey = secondaryMarket.marketKey;
+  const secondaryTierKey = secondaryMarketKey || "q1";
   const fullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
   const secondaryConfidence = secondaryMarket.confidence ?? "-";
   const secondaryAction = secondaryMarket.action ?? "N/A";
+  const secondaryActionDisplay = normalizeBetAction(secondaryAction);
   const secondaryHit = secondaryMarket.hit ?? null;
   const mainOdds = resolveOddsValue(event, ODDS_KEYS.moneyline);
-  const secondaryOdds = resolveOddsForSecondary(event, secondaryLabel);
+  const secondaryOdds = resolveOddsForSecondary(event, secondaryMarketKey);
   const spreadOdds = resolveOddsValue(event, ODDS_KEYS.spread);
   const totalOdds = resolveOddsValue(event, ODDS_KEYS.total);
   const spreadLine = resolveLineValue(event, LINE_KEYS.spread);
@@ -470,21 +688,38 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const totalLineValue = extractNumericFromText(totalLineDisplay);
   const totalHit = resolveTotalHit(event, totalDirection, totalLineValue);
   const totalPickDisplay = buildTotalPickDisplay(totalPickRaw, totalDirection, totalLineDisplay);
-  const q1PickDisplay = secondaryLabel === "Primer Cuarto" ? secondaryPick : "N/A";
-  const q1ConfidenceDisplay = secondaryLabel === "Primer Cuarto" ? secondaryConfidence : "-";
-  const q1ActionDisplay = secondaryLabel === "Primer Cuarto" ? normalizeBetAction(secondaryAction) : "No apostar";
-  const q1Hit = secondaryLabel === "Primer Cuarto" ? secondaryHit : null;
-  const q1Tier = resolveMarketTier(event, "q1");
+  const q1PickRaw = String(event.q1_pick || "").trim();
+  const q1PickDisplay = !isPendingPick(q1PickRaw)
+    ? (expandTeamCodeInText(sportKey, resolveSidePick(q1PickRaw, teams)) || q1PickRaw)
+    : "N/A";
+  const q1ConfidenceDisplay = !isPendingPick(q1PickRaw) ? event.q1_confidence : null;
+  const secondaryTier = resolveMarketTier(event, secondaryTierKey);
   const h1PickDisplay = firstHalfCard?.pick || "N/A";
   const h1ConfidenceDisplay = firstHalfCard?.confidence ?? "-";
   const h1ActionDisplay = firstHalfCard?.action || "No apostar";
   const h1Hit = firstHalfCard?.hit ?? null;
   const h1Tier = resolveMarketTier(event, "h1");
+  const h1TotalPickDisplay = firstHalfTotalCard?.pick || "N/A";
+  const h1TotalConfidenceDisplay = firstHalfTotalCard?.confidence ?? "-";
+  const h1TotalActionDisplay = firstHalfTotalCard?.action || "No apostar";
+  const h1TotalHit = firstHalfTotalCard?.hit ?? null;
+  const h1TotalTier = resolveMarketTier(event, "total");
   const handicapPickDisplay = spreadPick || "N/A";
   const spreadTier = resolveMarketTier(event, "spread");
   const totalTier = resolveMarketTier(event, "total");
+  const bttsPickRaw = String(event.btts_recommended_pick || event.btts_pick || "").trim();
+  const bttsPickDisplay = !isPendingPick(bttsPickRaw)
+    ? (expandTeamCodeInText(sportKey, resolveSidePick(bttsPickRaw, teams)) || bttsPickRaw)
+    : "N/A";
+  const bttsConfidenceDisplay = !isPendingPick(bttsPickRaw) ? (event.btts_confidence ?? "-") : "-";
+  const bttsActionDisplay = event.btts_action || "No apostar";
+  const bttsHit = !isPendingPick(bttsPickRaw)
+    ? toHitValue(event.correct_btts_adjusted ?? event.correct_btts ?? event.correct_btts_base)
+    : null;
+  const bttsTier = resolveMarketTier(event, "btts");
+  const bttsOdds = resolveOddsValue(event, ODDS_KEYS.btts);
   const cornersOdds = resolveOddsValue(event, ODDS_KEYS.corners);
-  const secondaryResultBorderClass = marketBorderClass(q1Hit);
+  const secondaryResultBorderClass = marketBorderClass(secondaryHit);
   const resultBorderClass =
     event.full_game_hit === true
       ? "border-emerald-400/70"
@@ -501,10 +736,11 @@ export default function DetailModal({ event, onClose, sportKey }) {
     totalConfidence: event.total_confidence,
     q1Pick: q1PickDisplay,
     q1Confidence: q1ConfidenceDisplay,
+    q1MarketLabel,
     h1Pick: h1PickDisplay,
     h1Confidence: h1ConfidenceDisplay,
-    bttsPick: event.btts_recommended_pick || event.btts_pick,
-    bttsConfidence: event.btts_confidence,
+    bttsPick: bttsPickDisplay,
+    bttsConfidence: bttsConfidenceDisplay,
     cornersPick: event.corners_pick,
     cornersConfidence: event.corners_confidence,
   });
@@ -517,14 +753,17 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const cornersHit = toHitValue(event.correct_corners_adjusted ?? event.correct_corners_base ?? event.correct_corners);
   const cornersTier = resolveMarketTier(event, "corners");
   const fullGameLabel = socialMode ? "Proyeccion principal" : "Ganador del partido";
-  const q1Label = socialMode ? "Proyeccion de arranque" : "Primer Cuarto";
+  const secondaryLabelText = socialMode ? "Proyeccion de arranque" : secondaryLabel;
   const h1Label = socialMode ? "Proyeccion primera mitad" : "Primera Mitad";
+  const h1TotalLabel = socialMode ? "Ritmo primera mitad" : "1T O/U 1.5";
   const spreadLabel = socialMode ? "Proyeccion de margen" : "Handicap";
   const totalLabel = socialMode ? "Proyeccion total" : "Over/Under";
   const propLabelText = socialMode ? "Proyeccion recomendada" : propLabel;
+  const bttsLabel = socialMode ? "Coincidencia ofensiva" : "BTTS";
   const cornersLabel = socialMode ? "Actividad ofensiva" : "Corners O/U";
   const lineLabel = socialMode ? "Referencia" : "Linea";
   const oddsLabel = socialMode ? "Valor modelo" : "Cuota";
+  const actionLabel = socialMode ? "Enfoque" : "Accion";
   const resultLabel = socialMode ? "Resultado del modelo" : "Resultado";
   const finalLabel = socialMode ? "Marcador final" : "Resultado real del juego";
 
@@ -574,60 +813,114 @@ export default function DetailModal({ event, onClose, sportKey }) {
             )}
           </div>
 
-          {isLive && hasLiveScore && (
-            <div className="rounded-3xl border border-rose-400/45 bg-gradient-to-br from-rose-500/10 via-[#1b1d24] to-black/30 p-5 shadow-[0_0_28px_rgba(251,113,133,0.10)]">
+          {showScoreCard && (
+            <div className={scoreCardClass}>
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-3 flex-1">
                   <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <img
                         src={getTeamLogoUrl(sportKey, teams.awayTeam) || "/logos/default-team.svg"}
                         alt={`Logo ${awayName}`}
-                        className="h-10 w-10 rounded-full bg-white/95 p-1 object-contain"
+                        className="h-10 w-10 shrink-0 rounded-full bg-white/95 p-1 object-contain"
                       />
-                      <span className="text-lg font-semibold text-white">{awayName}</span>
+                      <span
+                        className="truncate text-base font-semibold text-white md:text-lg"
+                        title={awayName}
+                      >
+                        {awayScoreName}
+                      </span>
                     </div>
-                    <span className="text-3xl font-bold text-rose-100">{event.away_score}</span>
+                    <span className={`ml-3 shrink-0 text-3xl font-bold ${scoreValueClass}`}>
+                      {(quarterValue(event.away_score) ?? inningTable?.awayTotal) ?? "-"}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <img
                         src={getTeamLogoUrl(sportKey, teams.homeTeam) || "/logos/default-team.svg"}
                         alt={`Logo ${homeName}`}
-                        className="h-10 w-10 rounded-full bg-white/95 p-1 object-contain"
+                        className="h-10 w-10 shrink-0 rounded-full bg-white/95 p-1 object-contain"
                       />
-                      <span className="text-lg font-semibold text-white">{homeName}</span>
+                      <span
+                        className="truncate text-base font-semibold text-white md:text-lg"
+                        title={homeName}
+                      >
+                        {homeScoreName}
+                      </span>
                     </div>
-                    <span className="text-3xl font-bold text-rose-100">{event.home_score}</span>
+                    <span className={`ml-3 shrink-0 text-3xl font-bold ${scoreValueClass}`}>
+                      {(quarterValue(event.home_score) ?? inningTable?.homeTotal) ?? "-"}
+                    </span>
                   </div>
                 </div>
 
                 <div className="min-w-[220px] rounded-2xl border border-white/10 bg-black/20 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-rose-200">
-                      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.9)]" />
-                      <span className="text-xs font-semibold uppercase tracking-[0.2em]">Live</span>
+                    <div className={`flex items-center gap-2 ${scoreBadgeClass}`}>
+                      <span className={`h-2.5 w-2.5 rounded-full ${scorePulseClass} ${isLive ? "animate-pulse" : ""}`} />
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em]">{scoreStateLabel}</span>
                     </div>
-                    <span className="text-sm text-white/70">{liveClock}</span>
+                    <span className="text-sm text-white/70">{scoreStateDetail}</span>
                   </div>
 
-                  {quarterRows.length > 0 && (
+                  {isBaseballSport && inningTable?.hasRows ? (
+                    <div className="overflow-x-auto rounded-xl border border-white/10">
+                      <table className="min-w-full text-sm text-white/85">
+                        <thead className="bg-white/5 text-[11px] uppercase tracking-[0.16em] text-white/45">
+                          <tr>
+                            <th className="px-3 py-2 text-left">Equipo</th>
+                            {inningTable.innings.map((inning) => (
+                              <th key={`inning-head-${inning}`} className="min-w-[30px] px-2 py-2 text-center">
+                                {inning}
+                              </th>
+                            ))}
+                            <th className="px-3 py-2 text-center">R</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t border-white/10">
+                            <td className="px-3 py-2 font-semibold text-white/70">{awayName}</td>
+                            {inningTable.awayScores.map((score, idx) => (
+                              <td key={`away-inning-${idx + 1}`} className="px-2 py-2 text-center">
+                                {score ?? "-"}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2 text-center font-semibold text-white">
+                              {inningTable.awayTotal ?? "-"}
+                            </td>
+                          </tr>
+                          <tr className="border-t border-white/10">
+                            <td className="px-3 py-2 font-semibold text-white/70">{homeName}</td>
+                            {inningTable.homeScores.map((score, idx) => (
+                              <td key={`home-inning-${idx + 1}`} className="px-2 py-2 text-center">
+                                {score ?? "-"}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2 text-center font-semibold text-white">
+                              {inningTable.homeTotal ?? "-"}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : segmentRows.length > 0 ? (
                     <div className="overflow-hidden rounded-xl border border-white/10">
-                      <div className="grid grid-cols-[72px_1fr_1fr] bg-white/5 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/45">
-                        <span>Parcial</span>
+                      <div className="grid grid-cols-[132px_1fr_1fr] bg-white/5 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/45">
+                        <span>Parciales</span>
                         <span className="text-center">{awayName}</span>
                         <span className="text-center">{homeName}</span>
                       </div>
-                      {quarterRows.map((row) => (
-                        <div key={row.label} className="grid grid-cols-[72px_1fr_1fr] border-t border-white/10 px-3 py-2 text-sm text-white/85">
-                          <span className="font-semibold text-white/60">{row.label}</span>
+                      {segmentRows.map((row) => (
+                        <div key={row.label} className="grid grid-cols-[132px_1fr_1fr] border-t border-white/10 px-3 py-2 text-sm text-white/85">
+                          <span className="truncate font-semibold text-white/60" title={row.label}>{row.label}</span>
                           <span className="text-center">{row.away ?? "-"}</span>
                           <span className="text-center">{row.home ?? "-"}</span>
                         </div>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -655,30 +948,30 @@ export default function DetailModal({ event, onClose, sportKey }) {
 
             <div className={`rounded-2xl border bg-black/15 p-5 ${secondaryResultBorderClass}`}>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-white/50">{q1Label}</p>
-                <MarketTierBadge tier={q1Tier} />
+                <p className="text-sm text-white/50">{secondaryLabelText}</p>
+                <MarketTierBadge tier={secondaryTier} />
               </div>
-              <p className="mt-1 text-2xl font-semibold">{q1PickDisplay}</p>
+              <p className="mt-1 text-2xl font-semibold">{secondaryPick}</p>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-white/5 p-3">
                   <p className="text-white/50">{socialMode ? "Intensidad" : "Confianza"}</p>
                   <p className="mt-1 font-semibold">
-                    {q1ConfidenceDisplay === "-" ? "-" : `${q1ConfidenceDisplay}%`}
+                    {secondaryConfidence === "-" ? "-" : `${secondaryConfidence}%`}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">{socialMode ? "Enfoque" : oddsLabel}</p>
-                  <p className="mt-1 font-semibold">{socialMode ? formatSocialAction(q1ActionDisplay) : q1ActionDisplay}</p>
+                  <p className="text-white/50">{actionLabel}</p>
+                  <p className="mt-1 font-semibold">{socialMode ? formatSocialAction(secondaryActionDisplay) : secondaryActionDisplay}</p>
                 </div>
               </div>
 
               {!socialMode && <p className="mt-2 text-xs text-white/60">{oddsLabel} decimal: {secondaryOdds || "N/A"}</p>}
 
-              {hasResult && q1Hit !== undefined && q1Hit !== null && (
+              {hasResult && secondaryHit !== undefined && secondaryHit !== null && (
                 <p className="mt-3 text-sm font-semibold text-white/85">
-                  {resultLabel}: {outcomeLabel(q1Hit, socialMode)}
+                  {resultLabel}: {outcomeLabel(secondaryHit, socialMode)}
                 </p>
               )}
             </div>
@@ -698,9 +991,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 </div>
 
                 <div className="rounded-xl bg-white/5 p-3">
-                  <p className="text-white/50">{q1Label}</p>
+                  <p className="text-white/50">{secondaryLabelText}</p>
                   <p className="mt-1 font-semibold">
-                    {outcomeLabel(q1Hit, socialMode)}
+                    {outcomeLabel(secondaryHit, socialMode)}
                   </p>
                 </div>
               </div>
@@ -720,6 +1013,41 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 {hasResult && h1Hit !== undefined && h1Hit !== null && (
                   <p className="mt-2 text-sm font-semibold text-white/85">
                     {resultLabel}: {outcomeLabel(h1Hit, socialMode)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {firstHalfTotalCard && (
+              <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(h1TotalHit)}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-white/50">{h1TotalLabel}</p>
+                  <MarketTierBadge tier={h1TotalTier} />
+                </div>
+                <p className="mt-1 text-lg font-semibold">{h1TotalPickDisplay}</p>
+                <p className="mt-2 text-sm text-white/65">{socialMode ? "Intensidad" : "Confianza"}: {h1TotalConfidenceDisplay === "-" ? "-" : `${h1TotalConfidenceDisplay}%`}</p>
+                <p className="mt-1 text-sm text-white/65">{actionLabel}: {socialMode ? formatSocialAction(h1TotalActionDisplay) : normalizeBetAction(h1TotalActionDisplay)}</p>
+                {hasResult && h1TotalHit !== undefined && h1TotalHit !== null && (
+                  <p className="mt-2 text-sm font-semibold text-white/85">
+                    {resultLabel}: {outcomeLabel(h1TotalHit, socialMode)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {bttsPickDisplay !== "N/A" && secondaryMarketKey !== "btts" && (
+              <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(bttsHit)}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-white/50">{bttsLabel}</p>
+                  <MarketTierBadge tier={bttsTier} />
+                </div>
+                <p className="mt-1 text-lg font-semibold">{bttsPickDisplay}</p>
+                <p className="mt-2 text-sm text-white/65">{socialMode ? "Intensidad" : "Confianza"}: {bttsConfidenceDisplay === "-" ? "-" : `${bttsConfidenceDisplay}%`}</p>
+                <p className="mt-1 text-sm text-white/65">{actionLabel}: {socialMode ? formatSocialAction(bttsActionDisplay) : normalizeBetAction(bttsActionDisplay)}</p>
+                {!socialMode && <p className="mt-1 text-sm text-white/65">{oddsLabel}: {bttsOdds || "N/A"}</p>}
+                {hasResult && bttsHit !== undefined && bttsHit !== null && (
+                  <p className="mt-2 text-sm font-semibold text-white/85">
+                    {resultLabel}: {outcomeLabel(bttsHit, socialMode)}
                   </p>
                 )}
               </div>

@@ -48,7 +48,19 @@ EXTERNAL_CACHE_DIR = BASE_DIR / "data" / "mlb" / "cache" / "external"
 EXTERNAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 USE_PITCHER_CACHE = True
 ONLY_ENRICH_MISSING_PITCHERS = True
-MAX_ENRICH_ROWS_PER_RUN = None   # prueba rápida: 500
+_MAX_ENRICH_ROWS_ENV = os.getenv("NBA_MLB_MAX_ENRICH_ROWS_PER_RUN", "").strip()
+try:
+    MAX_ENRICH_ROWS_PER_RUN = int(_MAX_ENRICH_ROWS_ENV) if _MAX_ENRICH_ROWS_ENV else None
+    if MAX_ENRICH_ROWS_PER_RUN is not None and MAX_ENRICH_ROWS_PER_RUN <= 0:
+        MAX_ENRICH_ROWS_PER_RUN = None
+except Exception:
+    MAX_ENRICH_ROWS_PER_RUN = None
+
+_MAX_ENRICH_WORKERS_ENV = os.getenv("NBA_MLB_ENRICH_MAX_WORKERS", "6").strip()
+try:
+    MAX_ENRICH_WORKERS = max(2, int(_MAX_ENRICH_WORKERS_ENV))
+except Exception:
+    MAX_ENRICH_WORKERS = 6
 FORCE_CONTEXT_BACKFILL = os.getenv("NBA_MLB_FORCE_CONTEXT_BACKFILL", "0").strip().lower() in {
     "1", "true", "yes", "on"
 }
@@ -77,9 +89,12 @@ CORE_ODDS_URL = (
 MLB_SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 MLB_BOXSCORE_URL = "https://statsapi.mlb.com/api/v1.1/game/{game_pk}/boxscore"
 MLB_FEED_URL = "https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
+MLB_TEAMS_URL = "https://statsapi.mlb.com/api/v1/teams"
 
 _MLB_SCHEDULE_CACHE = {}
 _MLB_SCHEDULE_LOCK = threading.Lock()
+_MLB_TEAM_ABBR_CACHE = None
+_MLB_TEAM_ABBR_LOCK = threading.Lock()
 
 
 # =========================
@@ -163,6 +178,34 @@ def _normalize_team_abbr_for_mlb_api(team: str) -> str:
         "ANA": "LAA",
     }
     return mapping.get(t, t)
+
+
+def _get_mlb_team_id_to_abbr() -> dict:
+    global _MLB_TEAM_ABBR_CACHE
+
+    with _MLB_TEAM_ABBR_LOCK:
+        if isinstance(_MLB_TEAM_ABBR_CACHE, dict) and _MLB_TEAM_ABBR_CACHE:
+            return _MLB_TEAM_ABBR_CACHE
+
+    resp = requests_with_retry(f"{MLB_TEAMS_URL}?sportId=1", timeout=12)
+    mapping = {}
+    if resp is not None:
+        try:
+            payload = resp.json() or {}
+            teams = payload.get("teams") if isinstance(payload.get("teams"), list) else []
+            for team in teams:
+                if not isinstance(team, dict):
+                    continue
+                team_id = safe_str(team.get("id"))
+                abbr = _normalize_team_abbr_for_mlb_api(team.get("abbreviation"))
+                if team_id and abbr:
+                    mapping[team_id] = abbr
+        except Exception:
+            mapping = {}
+
+    with _MLB_TEAM_ABBR_LOCK:
+        _MLB_TEAM_ABBR_CACHE = mapping
+    return mapping
 
 
 def _weather_cache_path(date_str: str, team: str) -> Path:
@@ -719,6 +762,52 @@ def get_inning_score(linescores, index):
         return 0
 
 
+def _extract_team_hits_from_competitor(team_block: dict, completed: bool) -> int:
+    """Extract per-game team hits from ESPN competitor statistics.
+
+    For pregame/in-progress rows we keep hits at 0 so the column reflects
+    final boxscore hits only and avoids carrying non-boxscore values.
+    """
+    if not completed or not isinstance(team_block, dict):
+        return 0
+
+    stats = team_block.get("statistics")
+    if not isinstance(stats, list):
+        return 0
+
+    for stat in stats:
+        if not isinstance(stat, dict):
+            continue
+        name = safe_str(stat.get("name")).strip().lower()
+        abbr = safe_str(stat.get("abbreviation")).strip().lower()
+        if name == "hits" or abbr == "h":
+            return safe_int(stat.get("displayValue", stat.get("value", 0)), 0)
+
+    # Fallback for payload variants that omit metadata but keep a numeric value.
+    first = stats[0] if stats else {}
+    return safe_int((first or {}).get("displayValue", (first or {}).get("value", 0)), 0)
+
+
+def _extract_team_walks_from_competitor(team_block: dict, completed: bool) -> float:
+    """Extract per-game team walks from ESPN competitor statistics."""
+    if not completed or not isinstance(team_block, dict):
+        return np.nan
+
+    stats = team_block.get("statistics")
+    if not isinstance(stats, list):
+        return np.nan
+
+    for stat in stats:
+        if not isinstance(stat, dict):
+            continue
+        name = safe_str(stat.get("name")).strip().lower()
+        abbr = safe_str(stat.get("abbreviation")).strip().lower()
+        if name in {"walks", "bases on balls", "base on balls"} or abbr == "bb":
+            return safe_float(stat.get("displayValue", stat.get("value", np.nan)), default=np.nan)
+
+    return np.nan
+
+
 def parse_event_to_row(event: dict, season: str | None = None):
     competitions = event.get("competitions", [])
     if not competitions:
@@ -783,12 +872,10 @@ def parse_event_to_row(event: dict, season: str | None = None):
     home_score = safe_int(home_data.get("score", 0))
     away_score = safe_int(away_data.get("score", 0))
 
-    home_hits = 0
-    away_hits = 0
-    if home_data.get("statistics"):
-        home_hits = safe_int(home_data.get("statistics", [{}])[0].get("displayValue", 0), 0)
-    if away_data.get("statistics"):
-        away_hits = safe_int(away_data.get("statistics", [{}])[0].get("displayValue", 0), 0)
+    home_hits = _extract_team_hits_from_competitor(home_data, completed)
+    away_hits = _extract_team_hits_from_competitor(away_data, completed)
+    home_walks = _extract_team_walks_from_competitor(home_data, completed)
+    away_walks = _extract_team_walks_from_competitor(away_data, completed)
 
     row = {
         "game_id": game_id,
@@ -841,6 +928,26 @@ def parse_event_to_row(event: dict, season: str | None = None):
         "home_is_favorite": home_is_favorite,
         "home_hits": home_hits,
         "away_hits": away_hits,
+        "home_walks": home_walks,
+        "away_walks": away_walks,
+        "home_player_hits": np.nan,
+        "away_player_hits": np.nan,
+        "home_player_walks": np.nan,
+        "away_player_walks": np.nan,
+        "home_player_total_bases": np.nan,
+        "away_player_total_bases": np.nan,
+        "home_player_strikeouts": np.nan,
+        "away_player_strikeouts": np.nan,
+        "home_player_at_bats": np.nan,
+        "away_player_at_bats": np.nan,
+        "home_player_obp_proxy": np.nan,
+        "away_player_obp_proxy": np.nan,
+        "home_player_slg_proxy": np.nan,
+        "away_player_slg_proxy": np.nan,
+        "home_player_k_rate": np.nan,
+        "away_player_k_rate": np.nan,
+        "home_top4_hits_share": np.nan,
+        "away_top4_hits_share": np.nan,
 
         "status_completed": int(completed),
         "status_state": state,
@@ -1013,6 +1120,7 @@ def _fetch_mlb_schedule_for_date(date_str: str):
     url = f"{MLB_SCHEDULE_URL}?sportId=1&date={d}"
     resp = requests_with_retry(url, timeout=12)
     games = []
+    team_id_map = _get_mlb_team_id_to_abbr()
     if resp is not None:
         try:
             payload = resp.json() or {}
@@ -1027,11 +1135,20 @@ def _fetch_mlb_schedule_for_date(date_str: str):
                     home_team = home.get("team") if isinstance(home.get("team"), dict) else {}
                     away_team = away.get("team") if isinstance(away.get("team"), dict) else {}
 
+                    home_team_id = safe_str(home_team.get("id"))
+                    away_team_id = safe_str(away_team.get("id"))
+                    home_abbr = _normalize_team_abbr_for_mlb_api(home_team.get("abbreviation"))
+                    away_abbr = _normalize_team_abbr_for_mlb_api(away_team.get("abbreviation"))
+                    if not home_abbr and home_team_id:
+                        home_abbr = safe_str(team_id_map.get(home_team_id)).upper()
+                    if not away_abbr and away_team_id:
+                        away_abbr = safe_str(team_id_map.get(away_team_id)).upper()
+
                     games.append(
                         {
                             "game_pk": safe_str(game.get("gamePk")),
-                            "home_abbr": _normalize_team_abbr_for_mlb_api(home_team.get("abbreviation")),
-                            "away_abbr": _normalize_team_abbr_for_mlb_api(away_team.get("abbreviation")),
+                            "home_abbr": home_abbr,
+                            "away_abbr": away_abbr,
                         }
                     )
         except Exception:
@@ -1056,24 +1173,48 @@ def _resolve_mlb_game_pk(date_str: str, home_abbr: str, away_abbr: str) -> str:
     return ""
 
 
+def _is_placeholder_mlb_feed(feed_live: dict) -> bool:
+    if not isinstance(feed_live, dict) or not feed_live:
+        return True
+
+    game_pk = safe_float(feed_live.get("gamePk"), default=0.0)
+    game_data = feed_live.get("gameData") if isinstance(feed_live.get("gameData"), dict) else {}
+    teams = game_data.get("teams") if isinstance(game_data.get("teams"), dict) else {}
+    home_team = teams.get("home") if isinstance(teams.get("home"), dict) else {}
+    away_team = teams.get("away") if isinstance(teams.get("away"), dict) else {}
+    home_id = safe_float(home_team.get("id"), default=0.0)
+    away_id = safe_float(away_team.get("id"), default=0.0)
+    status = game_data.get("status") if isinstance(game_data.get("status"), dict) else {}
+    detailed_state = safe_str(status.get("detailedState")).strip().lower()
+
+    # Placeholder responses observed for bad gamePk values.
+    if game_pk <= 0 and home_id <= 0 and away_id <= 0:
+        return True
+    if game_pk <= 0 and detailed_state in {"", "unknown"}:
+        return True
+    return False
+
+
 def fetch_from_mlb_stats_api_if_possible(
     game_id: str,
     date_str: str = "",
     home_abbr: str = "",
     away_abbr: str = "",
 ):
-    # Best-effort: try direct numeric gamePk and date/team resolution.
+    # Best-effort: prioritize date/team resolution and fall back to numeric game_id.
     candidates = []
-    try:
-        gid_numeric = int(re.sub(r"[^0-9]", "", safe_str(game_id)))
-        if gid_numeric > 0:
-            candidates.append(str(gid_numeric))
-    except Exception:
-        pass
 
     resolved_pk = _resolve_mlb_game_pk(date_str=date_str, home_abbr=home_abbr, away_abbr=away_abbr)
-    if resolved_pk and resolved_pk not in candidates:
+    if resolved_pk:
         candidates.append(resolved_pk)
+
+    try:
+        gid_numeric = int(re.sub(r"[^0-9]", "", safe_str(game_id)))
+        gid_candidate = str(gid_numeric) if gid_numeric > 0 else ""
+        if gid_candidate and gid_candidate not in candidates:
+            candidates.append(gid_candidate)
+    except Exception:
+        pass
 
     if not candidates:
         return None
@@ -1096,6 +1237,10 @@ def fetch_from_mlb_stats_api_if_possible(
                 payload["mlb_feed_live"] = feed_resp.json() or {}
             except Exception:
                 pass
+
+        feed_live = payload.get("mlb_feed_live")
+        if _is_placeholder_mlb_feed(feed_live):
+            payload.pop("mlb_feed_live", None)
 
         if not payload.get("mlb_boxscore") and not payload.get("mlb_feed_live"):
             continue
@@ -1146,6 +1291,104 @@ def _extract_competitors_from_summary(summary_json: dict):
         return home, away
     except Exception:
         return None, None
+
+
+def _extract_team_stat_from_boxscore(team_block: dict, target_names: set[str], target_abbrs: set[str]) -> float:
+    if not isinstance(team_block, dict):
+        return np.nan
+
+    stat_groups = team_block.get("statistics")
+    if not isinstance(stat_groups, list):
+        return np.nan
+
+    for group in stat_groups:
+        if not isinstance(group, dict):
+            continue
+        stats = group.get("stats")
+        if not isinstance(stats, list):
+            continue
+        for stat in stats:
+            if not isinstance(stat, dict):
+                continue
+            name = safe_str(stat.get("name")).strip().lower()
+            abbr = safe_str(stat.get("abbreviation")).strip().lower()
+            if name in target_names or abbr in target_abbrs:
+                return safe_float(stat.get("displayValue", stat.get("value", np.nan)), default=np.nan)
+
+    return np.nan
+
+
+def extract_team_batting_from_summary(summary_json: dict, home_abbr: str, away_abbr: str) -> dict:
+    out = {
+        "home_runs_total": np.nan,
+        "away_runs_total": np.nan,
+        "home_hits": np.nan,
+        "away_hits": np.nan,
+        "home_walks": np.nan,
+        "away_walks": np.nan,
+    }
+
+    if not isinstance(summary_json, dict):
+        return out
+
+    home_comp, away_comp = _extract_competitors_from_summary(summary_json)
+    home_team_ref = home_comp.get("team") if isinstance(home_comp, dict) and isinstance(home_comp.get("team"), dict) else {}
+    away_team_ref = away_comp.get("team") if isinstance(away_comp, dict) and isinstance(away_comp.get("team"), dict) else {}
+
+    home_team_id = safe_str(home_team_ref.get("id"))
+    away_team_id = safe_str(away_team_ref.get("id"))
+    home_team_abbr = safe_str(home_team_ref.get("abbreviation") or home_abbr).upper()
+    away_team_abbr = safe_str(away_team_ref.get("abbreviation") or away_abbr).upper()
+
+    boxscore = summary_json.get("boxscore", {})
+    team_blocks = boxscore.get("teams") if isinstance(boxscore, dict) else None
+    if not isinstance(team_blocks, list) or not team_blocks:
+        return out
+
+    def _assign_side_metrics(side: str, team_block: dict):
+        out[f"{side}_runs_total"] = _extract_team_stat_from_boxscore(team_block, {"runs"}, {"r"})
+        out[f"{side}_hits"] = _extract_team_stat_from_boxscore(team_block, {"hits"}, {"h"})
+        out[f"{side}_walks"] = _extract_team_stat_from_boxscore(
+            team_block,
+            {"walks", "bases on balls", "base on balls"},
+            {"bb"},
+        )
+
+    assigned = {"home": False, "away": False}
+    unresolved = []
+
+    for team_block in team_blocks:
+        if not isinstance(team_block, dict):
+            continue
+        team_ref = team_block.get("team") if isinstance(team_block.get("team"), dict) else {}
+        team_abbr = safe_str(team_ref.get("abbreviation")).upper()
+        team_id = safe_str(team_ref.get("id"))
+
+        side = None
+        if home_team_abbr and team_abbr and team_abbr == home_team_abbr:
+            side = "home"
+        elif away_team_abbr and team_abbr and team_abbr == away_team_abbr:
+            side = "away"
+        elif home_team_id and team_id == home_team_id:
+            side = "home"
+        elif away_team_id and team_id == away_team_id:
+            side = "away"
+
+        if side is None:
+            unresolved.append(team_block)
+            continue
+
+        _assign_side_metrics(side, team_block)
+        assigned[side] = True
+
+    if unresolved:
+        if not assigned["home"] and unresolved:
+            _assign_side_metrics("home", unresolved.pop(0))
+            assigned["home"] = True
+        if not assigned["away"] and unresolved:
+            _assign_side_metrics("away", unresolved.pop(0))
+
+    return out
 
 
 def _extract_market_from_payload(market_payload: dict, home_abbr: str, away_abbr: str, market_source: str):
@@ -1685,6 +1928,172 @@ def _extract_game_context_from_mlb_payload(payload: dict) -> dict:
     return out
 
 
+def _extract_team_player_batting_agg(team_block: dict) -> dict:
+    out = {
+        "hits": np.nan,
+        "walks": np.nan,
+        "total_bases": np.nan,
+        "strikeouts": np.nan,
+        "at_bats": np.nan,
+        "obp_proxy": np.nan,
+        "slg_proxy": np.nan,
+        "k_rate": np.nan,
+        "top4_hits_share": np.nan,
+    }
+    if not isinstance(team_block, dict):
+        return out
+
+    players = team_block.get("players") if isinstance(team_block.get("players"), dict) else {}
+    batter_ids = team_block.get("batters") if isinstance(team_block.get("batters"), list) else []
+    batting_order = team_block.get("battingOrder") if isinstance(team_block.get("battingOrder"), list) else []
+
+    def _normalize_player_id(raw_id):
+        val = safe_str(raw_id)
+        if not val:
+            return ""
+        if val.startswith("ID"):
+            return val
+        return f"ID{val}"
+
+    ids_to_iterate = []
+    if batter_ids:
+        ids_to_iterate.extend(_normalize_player_id(pid) for pid in batter_ids)
+    elif players:
+        ids_to_iterate.extend(players.keys())
+
+    total_hits = 0.0
+    total_walks = 0.0
+    total_bases = 0.0
+    total_ks = 0.0
+    total_at_bats = 0.0
+    batter_count = 0
+
+    player_hits_map = {}
+
+    for pid in ids_to_iterate:
+        p = players.get(pid)
+        if not isinstance(p, dict):
+            continue
+        batting = p.get("stats", {}).get("batting", {})
+        if not isinstance(batting, dict) or not batting:
+            continue
+
+        at_bats = safe_float(batting.get("atBats"), default=0.0)
+        hits = safe_float(batting.get("hits"), default=0.0)
+        walks = safe_float(batting.get("baseOnBalls"), default=0.0)
+        strikeouts = safe_float(batting.get("strikeOuts"), default=0.0)
+        total_bases_p = safe_float(batting.get("totalBases"), default=0.0)
+
+        total_hits += hits
+        total_walks += walks
+        total_bases += total_bases_p
+        total_ks += strikeouts
+        total_at_bats += at_bats
+        batter_count += 1
+
+        numeric_pid = pid[2:] if pid.startswith("ID") else pid
+        player_hits_map[numeric_pid] = hits
+        player_hits_map[pid] = hits
+
+    if batter_count <= 0:
+        return out
+
+    out["hits"] = total_hits
+    out["walks"] = total_walks
+    out["total_bases"] = total_bases
+    out["strikeouts"] = total_ks
+    out["at_bats"] = total_at_bats
+
+    denom_obp = total_at_bats + total_walks
+    out["obp_proxy"] = float(total_hits + total_walks) / float(denom_obp) if denom_obp > 0 else 0.0
+    out["slg_proxy"] = float(total_bases) / float(total_at_bats) if total_at_bats > 0 else 0.0
+    out["k_rate"] = float(total_ks) / float(total_at_bats) if total_at_bats > 0 else 0.0
+
+    top4_hits = 0.0
+    top4_count = 0
+    for raw_pid in batting_order[:4]:
+        pid_key = _normalize_player_id(raw_pid)
+        if pid_key in player_hits_map:
+            top4_hits += safe_float(player_hits_map.get(pid_key), default=0.0)
+            top4_count += 1
+    if top4_count > 0 and total_hits > 0:
+        out["top4_hits_share"] = float(top4_hits) / float(total_hits)
+    elif top4_count > 0:
+        out["top4_hits_share"] = 0.0
+
+    return out
+
+
+def _extract_team_player_batting_from_mlb_payload(payload: dict) -> dict:
+    out = {
+        "home_player_hits": np.nan,
+        "away_player_hits": np.nan,
+        "home_player_walks": np.nan,
+        "away_player_walks": np.nan,
+        "home_player_total_bases": np.nan,
+        "away_player_total_bases": np.nan,
+        "home_player_strikeouts": np.nan,
+        "away_player_strikeouts": np.nan,
+        "home_player_at_bats": np.nan,
+        "away_player_at_bats": np.nan,
+        "home_player_obp_proxy": np.nan,
+        "away_player_obp_proxy": np.nan,
+        "home_player_slg_proxy": np.nan,
+        "away_player_slg_proxy": np.nan,
+        "home_player_k_rate": np.nan,
+        "away_player_k_rate": np.nan,
+        "home_top4_hits_share": np.nan,
+        "away_top4_hits_share": np.nan,
+    }
+    if not isinstance(payload, dict):
+        return out
+
+    feed = payload.get("mlb_feed_live") if isinstance(payload.get("mlb_feed_live"), dict) else {}
+    teams = feed.get("liveData", {}).get("boxscore", {}).get("teams", {}) if isinstance(feed, dict) else {}
+    home_team = teams.get("home") if isinstance(teams, dict) and isinstance(teams.get("home"), dict) else {}
+    away_team = teams.get("away") if isinstance(teams, dict) and isinstance(teams.get("away"), dict) else {}
+
+    if not home_team and not away_team:
+        return out
+
+    home_agg = _extract_team_player_batting_agg(home_team)
+    away_agg = _extract_team_player_batting_agg(away_team)
+
+    out.update(
+        {
+            "home_player_hits": home_agg["hits"],
+            "away_player_hits": away_agg["hits"],
+            "home_player_walks": home_agg["walks"],
+            "away_player_walks": away_agg["walks"],
+            "home_player_total_bases": home_agg["total_bases"],
+            "away_player_total_bases": away_agg["total_bases"],
+            "home_player_strikeouts": home_agg["strikeouts"],
+            "away_player_strikeouts": away_agg["strikeouts"],
+            "home_player_at_bats": home_agg["at_bats"],
+            "away_player_at_bats": away_agg["at_bats"],
+            "home_player_obp_proxy": home_agg["obp_proxy"],
+            "away_player_obp_proxy": away_agg["obp_proxy"],
+            "home_player_slg_proxy": home_agg["slg_proxy"],
+            "away_player_slg_proxy": away_agg["slg_proxy"],
+            "home_player_k_rate": home_agg["k_rate"],
+            "away_player_k_rate": away_agg["k_rate"],
+            "home_top4_hits_share": home_agg["top4_hits_share"],
+            "away_top4_hits_share": away_agg["top4_hits_share"],
+        }
+    )
+    return out
+
+
+def _has_player_batting_stats(row_like: dict) -> bool:
+    required = [
+        "home_player_hits",
+        "away_player_hits",
+        "home_player_total_bases",
+        "away_player_total_bases",
+    ]
+    return all(not _is_missing_value(row_like.get(c)) for c in required)
+
+
 # =========================
 # HISTORICAL ENRICHMENT
 # =========================
@@ -1712,6 +2121,15 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
         stats_flag = 0 if pd.isna(stats_flag_raw) else int(stats_flag_raw)
         row_completed_raw = pd.to_numeric(row.get("status_completed", 0), errors="coerce")
         row_completed = 0 if pd.isna(row_completed_raw) else int(row_completed_raw)
+        batting_ready = True
+        if row_completed == 1:
+            batting_ready = (
+                not _is_missing_value(row.get("home_walks"))
+                and not _is_missing_value(row.get("away_walks"))
+            )
+        player_batting_ready = True
+        if row_completed == 1:
+            player_batting_ready = _has_player_batting_stats(row)
         market_quality = safe_str(row.get("odds_data_quality")).lower()
         recent_market_candidate = is_recent_market_refresh_candidate(row)
 
@@ -1723,7 +2141,7 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
             if row_completed == 1:
                 pitcher_ready = pitcher_ready and stats_flag == 1
             market_ready = (market_quality == "real") or (not recent_market_candidate)
-            should_enrich = not (pitcher_ready and market_ready)
+            should_enrich = not (pitcher_ready and market_ready and batting_ready and player_batting_ready)
         if FORCE_CONTEXT_BACKFILL:
             should_enrich = should_enrich or (not has_min_context_fields(row))
 
@@ -1757,7 +2175,7 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
     start_time = time.time()
 
     # Parallelize enrichment to speed up network-bound work
-    max_workers = min(6, max(2, (pending_total // 10) or 2))
+    max_workers = min(MAX_ENRICH_WORKERS, max(2, (pending_total // 10) or 2))
 
     def _process_single_row(row: dict):
         game_id = safe_str(row.get("game_id"))
@@ -1777,6 +2195,11 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
             needs_stats_refresh = row_completed == 1 and (
                 pd.isna(cached_stats_flag) or float(cached_stats_flag) < 1.0
             )
+            needs_batting_refresh = row_completed == 1 and (
+                _is_missing_value(pitcher_info.get("home_walks"))
+                or _is_missing_value(pitcher_info.get("away_walks"))
+            )
+            needs_player_batting_refresh = row_completed == 1 and (not _has_player_batting_stats(pitcher_info))
             needs_market_refresh = (
                 recent_market_candidate
                 and row_market_quality != "real"
@@ -1785,7 +2208,13 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
             needs_context_refresh = False
             if FORCE_CONTEXT_BACKFILL and (not has_min_context_fields(row)):
                 needs_context_refresh = not has_min_context_fields(pitcher_info)
-            if needs_stats_refresh or needs_market_refresh or needs_context_refresh:
+            if (
+                needs_stats_refresh
+                or needs_batting_refresh
+                or needs_player_batting_refresh
+                or needs_market_refresh
+                or needs_context_refresh
+            ):
                 pitcher_info = None
 
         if pitcher_info is not None:
@@ -1800,6 +2229,13 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                     away_abbr=safe_str(row.get("away_team")),
                 )
                 pitcher_info.update(
+                    extract_team_batting_from_summary(
+                        summary_json=summary_json,
+                        home_abbr=safe_str(row.get("home_team")),
+                        away_abbr=safe_str(row.get("away_team")),
+                    )
+                )
+                pitcher_info.update(
                     extract_market_from_summary(
                         summary_json=summary_json,
                         home_abbr=safe_str(row.get("home_team")),
@@ -1809,7 +2245,8 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                     )
                 )
                 pitcher_info.update(_extract_game_context_from_summary(summary_json))
-                if FORCE_CONTEXT_BACKFILL and (not has_min_context_fields(pitcher_info)):
+                needs_player_payload = row_completed == 1 and (not _has_player_batting_stats(pitcher_info))
+                if needs_player_payload or (FORCE_CONTEXT_BACKFILL and (not has_min_context_fields(pitcher_info))):
                     mlb_payload = fetch_from_mlb_stats_api_if_possible(
                         game_id=game_id,
                         date_str=safe_str(row.get("date")),
@@ -1817,6 +2254,7 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                         away_abbr=safe_str(row.get("away_team")),
                     )
                     if mlb_payload:
+                        pitcher_info.update(_extract_team_player_batting_from_mlb_payload(mlb_payload))
                         pitcher_info.update(_extract_game_context_from_mlb_payload(mlb_payload))
                 save_pitcher_cache(game_id, pitcher_info)
                 stats["api_hit"] = 1
@@ -1826,9 +2264,11 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                     pitcher_info = _extract_pitchers_from_mlb_payload(
                         external, safe_str(row.get("home_team")), safe_str(row.get("away_team"))
                     )
+                    pitcher_info.update(_extract_team_player_batting_from_mlb_payload(external))
                     pitcher_info.update(_extract_game_context_from_mlb_payload(external))
                     has_context = has_min_context_fields(pitcher_info)
-                    if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context):
+                    has_player_batting = _has_player_batting_stats(pitcher_info)
+                    if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context or has_player_batting):
                         save_pitcher_cache(game_id, pitcher_info)
                         stats["api_hit"] = 1
                     else:
@@ -1842,9 +2282,11 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                             pitcher_info = _extract_pitchers_from_mlb_payload(
                                 mlb_payload, safe_str(row.get("home_team")), safe_str(row.get("away_team"))
                             )
+                            pitcher_info.update(_extract_team_player_batting_from_mlb_payload(mlb_payload))
                             pitcher_info.update(_extract_game_context_from_mlb_payload(mlb_payload))
                             has_context = has_min_context_fields(pitcher_info)
-                            if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context):
+                            has_player_batting = _has_player_batting_stats(pitcher_info)
+                            if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context or has_player_batting):
                                 save_pitcher_cache(game_id, pitcher_info)
                                 stats["api_hit"] = 1
                             else:
@@ -1866,9 +2308,11 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                         pitcher_info = _extract_pitchers_from_mlb_payload(
                             mlb_payload, safe_str(row.get("home_team")), safe_str(row.get("away_team"))
                         )
+                        pitcher_info.update(_extract_team_player_batting_from_mlb_payload(mlb_payload))
                         pitcher_info.update(_extract_game_context_from_mlb_payload(mlb_payload))
                         has_context = has_min_context_fields(pitcher_info)
-                        if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context):
+                        has_player_batting = _has_player_batting_stats(pitcher_info)
+                        if pitcher_info and (pitcher_info.get("pitcher_data_available", 0) or has_context or has_player_batting):
                             save_pitcher_cache(game_id, pitcher_info)
                             stats["api_hit"] = 1
                         else:

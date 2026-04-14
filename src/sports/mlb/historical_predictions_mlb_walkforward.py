@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -62,7 +62,7 @@ BASE_DIR = SRC_ROOT
 OUTPUT_DIR = BASE_DIR / "data" / "mlb" / "walkforward"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Configuración inicial OPTIMIZADA
+# ConfiguraciÃ³n inicial OPTIMIZADA
 MIN_TRAIN_DATES = 120
 CALIBRATION_DATES = 21
 TEST_DATES = 1
@@ -73,7 +73,7 @@ MIN_CALIBRATION_ROWS = 50
 MIN_PUBLISH_THRESHOLD = {
     "full_game": 0.56,
     "yrfi": 0.56,
-    "f5": 0.56,
+    "f5": 0.55,
 }
 
 MARKET_THRESHOLD_CONFIG = {
@@ -99,11 +99,11 @@ MARKET_THRESHOLD_CONFIG = {
         "missing_pitcher_penalty": 0.08,
     },
     "f5": {
-        "min_threshold": 0.56,
+        "min_threshold": 0.55,
         "max_threshold": 0.66,
         "min_coverage": 0.02,
-        "target_coverage": 0.075,
-        "min_published_rows": 14,
+        "target_coverage": 0.09,
+        "min_published_rows": 10,
         "prob_shrink": 0.00,
         "fallback_penalty": 0.015,
         "missing_pitcher_penalty": 0.08,
@@ -995,7 +995,7 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
 
     full_game_keep = [
         "diff_elo", "home_elo_pre", "away_elo_pre", "diff_rest_days", "diff_games_last_5_days", "diff_win_pct_L10",
-        "diff_run_diff_L10", "diff_runs_scored_L5", "diff_runs_allowed_L5",
+        "diff_run_diff_L10", "diff_runs_scored_L5", "diff_runs_allowed_L5", "diff_runs_per_baserunner_L10",
         "diff_games_in_season_before", "diff_prev_win_pct", "diff_prev_run_diff_pg",
         "prev_season_data_available",
         "diff_prev_runs_scored_pg", "diff_prev_runs_allowed_pg", "diff_win_pct_L10_blend",
@@ -1003,7 +1003,7 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
         "diff_runs_scored_std_L10", "diff_runs_allowed_std_L10", "diff_surface_win_pct_L5",
         "diff_surface_run_diff_L5", "diff_surface_edge", "diff_win_pct_L10_vs_league",
         "diff_run_diff_L10_vs_league", "diff_fatigue_index", "diff_form_power",
-        "diff_pitcher_data_available", "diff_pitcher_rest_days", "diff_pitcher_runs_allowed_L5",
+        "diff_pitcher_data_available", "diff_pitcher_rest_days", "diff_pitcher_bb_allowed_L5", "diff_pitcher_baserunners_allowed_L5", "diff_pitcher_total_bases_allowed_L5", "diff_pitcher_runs_allowed_L5",
         "diff_pitcher_runs_allowed_L10", "diff_pitcher_start_win_rate_L10", "diff_bullpen_runs_allowed_L5",
         "diff_bullpen_runs_allowed_L10", "diff_bullpen_load_L3", "diff_offense_vs_pitcher",
         "park_factor_delta", "park_offense_pressure", "park_bullpen_pressure", "park_form_pressure",
@@ -1019,14 +1019,14 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
         "diff_elo", "home_elo_pre", "away_elo_pre",
         "diff_rest_days", "diff_games_last_5_days",
         "diff_win_pct_L10", "diff_run_diff_L10",
-        "diff_runs_scored_L5", "diff_runs_allowed_L5",
+        "diff_runs_scored_L5", "diff_runs_allowed_L5", "diff_runs_per_baserunner_L10",
         "diff_win_pct_L10_blend", "diff_run_diff_L10_blend",
         "diff_runs_scored_L5_blend", "diff_runs_allowed_L5_blend",
         "diff_runs_scored_std_L10", "diff_runs_allowed_std_L10",
         "diff_surface_win_pct_L5", "diff_surface_run_diff_L5", "diff_surface_edge",
         "diff_win_pct_L10_vs_league", "diff_run_diff_L10_vs_league",
         "diff_fatigue_index", "diff_form_power",
-        "diff_pitcher_data_available", "diff_pitcher_rest_days",
+        "diff_pitcher_data_available", "diff_pitcher_rest_days", "diff_pitcher_bb_allowed_L5", "diff_pitcher_baserunners_allowed_L5", "diff_pitcher_total_bases_allowed_L5",
         "diff_pitcher_runs_allowed_L5", "diff_pitcher_runs_allowed_L10",
         "diff_pitcher_start_win_rate_L10",
         "diff_bullpen_runs_allowed_L5", "diff_bullpen_runs_allowed_L10", "diff_bullpen_load_L3",
@@ -1058,9 +1058,32 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
     }
     full_game_keep = full_game_ablation_map.get(full_game_ablation_mode, full_game_keep)
     if full_game_ablation_mode not in full_game_ablation_map:
-        print(f"   ⚠️ NBA_MLB_FULL_GAME_ABLATION desconocido: {full_game_ablation_mode}; usando everything")
+        print(f"   âš ï¸ NBA_MLB_FULL_GAME_ABLATION desconocido: {full_game_ablation_mode}; usando everything")
     else:
-        print(f"   🧪 Full-game ablation mode: {full_game_ablation_mode} ({len(full_game_keep)} columnas objetivo)")
+        print(f"   ðŸ§ª Full-game ablation mode: {full_game_ablation_mode} ({len(full_game_keep)} columnas objetivo)")
+
+    # Opt-in quirurgico: permite probar features experimentales sin mover el baseline por defecto.
+    experimental_raw = str(os.getenv("NBA_MLB_FULL_GAME_EXPERIMENTAL_FEATURES", "") or "").strip()
+    if experimental_raw:
+        allowed_experimental = {
+            "diff_baserunners_L10",
+            "diff_baserunners_allowed_L10",
+            "diff_runs_per_baserunner_L10",
+            "home_baserunners_L10",
+            "away_baserunners_L10",
+            "home_baserunners_allowed_L10",
+            "away_baserunners_allowed_L10",
+            "home_runs_per_baserunner_L10",
+            "away_runs_per_baserunner_L10",
+        }
+        requested = [token.strip() for token in experimental_raw.split(",") if token.strip()]
+        extras = [feat for feat in requested if feat in allowed_experimental]
+        unknown = [feat for feat in requested if feat not in allowed_experimental]
+        if unknown:
+            print(f"   âš ï¸ Features experimentales ignoradas (no permitidas): {unknown}")
+        if extras:
+            full_game_keep = full_game_keep + [feat for feat in extras if feat not in full_game_keep]
+            print(f"   ðŸ§ª Full-game experimental features ON: {extras}")
 
     f5_keep = [
         "diff_elo", "diff_rest_days", "diff_win_pct_L5", "diff_run_diff_L5", "diff_f5_win_pct_L5",
@@ -1696,7 +1719,7 @@ def run_market_walkforward(
         )
 
         if len(train_df) < 100 or len(calib_df) < MIN_CALIBRATION_ROWS or test_df.empty:
-            print("      split omitido por tamaño insuficiente")
+            print("      split omitido por tamaÃ±o insuficiente")
             continue
 
         y_train = train_df[target_col].astype(int)
@@ -1912,7 +1935,7 @@ def run_regression_market_walkforward(
 
         print(f"      rows -> train={len(train_df)} | calib={len(calib_df)} | test={len(test_df)}")
         if len(train_df) < 100 or len(calib_df) < MIN_CALIBRATION_ROWS or test_df.empty:
-            print("      split omitido por tamaño insuficiente")
+            print("      split omitido por tamaÃ±o insuficiente")
             continue
 
         train_plus_calib = pd.concat([train_df, calib_df], ignore_index=True)

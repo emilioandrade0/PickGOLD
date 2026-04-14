@@ -330,7 +330,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
   }, [sportKey]);
 
   useEffect(() => {
-    if (sportKey !== "nba") return undefined;
+    if (!["nba", "wnba"].includes(sportKey)) return undefined;
     const localToday = toYmdLocal(new Date());
     const hasLiveGames = events.some((event) => isLiveEvent(event));
     if (!hasLiveGames && selectedDate !== localToday) return undefined;

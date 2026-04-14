@@ -356,6 +356,33 @@ def count_games_in_last_days(group: pd.DataFrame, days: int) -> pd.Series:
 def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     print("⚙️ Generando variables generales MLB por equipo...")
 
+    if "home_walks" not in df.columns:
+        df["home_walks"] = 0.0
+    if "away_walks" not in df.columns:
+        df["away_walks"] = 0.0
+    for col in [
+        "home_player_hits",
+        "away_player_hits",
+        "home_player_walks",
+        "away_player_walks",
+        "home_player_total_bases",
+        "away_player_total_bases",
+        "home_player_strikeouts",
+        "away_player_strikeouts",
+        "home_player_at_bats",
+        "away_player_at_bats",
+        "home_player_obp_proxy",
+        "away_player_obp_proxy",
+        "home_player_slg_proxy",
+        "away_player_slg_proxy",
+        "home_player_k_rate",
+        "away_player_k_rate",
+        "home_top4_hits_share",
+        "away_top4_hits_share",
+    ]:
+        if col not in df.columns:
+            df[col] = 0.0
+
     home_df = df[
         [
             "date",
@@ -369,6 +396,26 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             "away_runs_f5",
             "home_hits",
             "away_hits",
+            "home_walks",
+            "away_walks",
+            "home_player_hits",
+            "away_player_hits",
+            "home_player_walks",
+            "away_player_walks",
+            "home_player_total_bases",
+            "away_player_total_bases",
+            "home_player_strikeouts",
+            "away_player_strikeouts",
+            "home_player_at_bats",
+            "away_player_at_bats",
+            "home_player_obp_proxy",
+            "away_player_obp_proxy",
+            "home_player_slg_proxy",
+            "away_player_slg_proxy",
+            "home_player_k_rate",
+            "away_player_k_rate",
+            "home_top4_hits_share",
+            "away_top4_hits_share",
         ]
     ].copy()
     home_df.columns = [
@@ -383,6 +430,26 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         "runs_f5_allowed",
         "hits",
         "hits_allowed",
+        "walks",
+        "walks_allowed",
+        "player_hits",
+        "player_hits_allowed",
+        "player_walks",
+        "player_walks_allowed",
+        "player_total_bases",
+        "player_total_bases_allowed",
+        "player_strikeouts",
+        "player_strikeouts_allowed",
+        "player_at_bats",
+        "player_at_bats_allowed",
+        "player_obp_proxy",
+        "player_obp_proxy_allowed",
+        "player_slg_proxy",
+        "player_slg_proxy_allowed",
+        "player_k_rate",
+        "player_k_rate_allowed",
+        "top4_hits_share",
+        "top4_hits_share_allowed",
     ]
     home_df["is_home"] = 1
 
@@ -399,6 +466,26 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             "home_runs_f5",
             "away_hits",
             "home_hits",
+            "away_walks",
+            "home_walks",
+            "away_player_hits",
+            "home_player_hits",
+            "away_player_walks",
+            "home_player_walks",
+            "away_player_total_bases",
+            "home_player_total_bases",
+            "away_player_strikeouts",
+            "home_player_strikeouts",
+            "away_player_at_bats",
+            "home_player_at_bats",
+            "away_player_obp_proxy",
+            "home_player_obp_proxy",
+            "away_player_slg_proxy",
+            "home_player_slg_proxy",
+            "away_player_k_rate",
+            "home_player_k_rate",
+            "away_top4_hits_share",
+            "home_top4_hits_share",
         ]
     ].copy()
     away_df.columns = [
@@ -413,6 +500,26 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         "runs_f5_allowed",
         "hits",
         "hits_allowed",
+        "walks",
+        "walks_allowed",
+        "player_hits",
+        "player_hits_allowed",
+        "player_walks",
+        "player_walks_allowed",
+        "player_total_bases",
+        "player_total_bases_allowed",
+        "player_strikeouts",
+        "player_strikeouts_allowed",
+        "player_at_bats",
+        "player_at_bats_allowed",
+        "player_obp_proxy",
+        "player_obp_proxy_allowed",
+        "player_slg_proxy",
+        "player_slg_proxy_allowed",
+        "player_k_rate",
+        "player_k_rate_allowed",
+        "top4_hits_share",
+        "top4_hits_share_allowed",
     ]
     away_df["is_home"] = 0
 
@@ -462,6 +569,11 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             lambda x: x.shift(1).rolling(window=window, min_periods=1).mean()
         )
 
+    def roll_sum(col: str, window: int) -> pd.Series:
+        return all_stats.groupby("team")[col].transform(
+            lambda x: x.shift(1).rolling(window=window, min_periods=1).sum()
+        )
+
     def roll_std(col: str, window: int) -> pd.Series:
         return all_stats.groupby("team")[col].transform(
             lambda x: x.shift(1).rolling(window=window, min_periods=2).std()
@@ -491,7 +603,29 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     all_stats["f5_diff_L5"] = roll_mean("f5_diff", 5)
 
     all_stats["hits_L5"] = roll_mean("hits", 5)
+    all_stats["hits_L10"] = roll_mean("hits", 10)
     all_stats["hits_allowed_L5"] = roll_mean("hits_allowed", 5)
+    all_stats["hits_allowed_L10"] = roll_mean("hits_allowed", 10)
+
+    all_stats["baserunners"] = all_stats["hits"] + all_stats["walks"]
+    all_stats["baserunners_allowed"] = all_stats["hits_allowed"] + all_stats["walks_allowed"]
+    all_stats["baserunners_L10"] = roll_mean("baserunners", 10)
+    all_stats["baserunners_allowed_L10"] = roll_mean("baserunners_allowed", 10)
+
+    runs_scored_sum_L10 = roll_sum("runs_scored", 10)
+    baserunners_sum_L10 = roll_sum("baserunners", 10)
+    all_stats["runs_per_baserunner_L10"] = _safe_divide(runs_scored_sum_L10, baserunners_sum_L10, default=0.0)
+
+    all_stats["player_hits_L10"] = roll_mean("player_hits", 10)
+    all_stats["player_hits_allowed_L10"] = roll_mean("player_hits_allowed", 10)
+    all_stats["player_walks_L10"] = roll_mean("player_walks", 10)
+    all_stats["player_walks_allowed_L10"] = roll_mean("player_walks_allowed", 10)
+    all_stats["player_total_bases_L10"] = roll_mean("player_total_bases", 10)
+    all_stats["player_total_bases_allowed_L10"] = roll_mean("player_total_bases_allowed", 10)
+    all_stats["player_obp_proxy_L10"] = roll_mean("player_obp_proxy", 10)
+    all_stats["player_slg_proxy_L10"] = roll_mean("player_slg_proxy", 10)
+    all_stats["player_k_rate_L10"] = roll_mean("player_k_rate", 10)
+    all_stats["top4_hits_share_L10"] = roll_mean("top4_hits_share", 10)
 
     return all_stats[
         [
@@ -521,7 +655,22 @@ def calculate_team_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             "f5_win_pct_L5",
             "f5_diff_L5",
             "hits_L5",
+            "hits_L10",
             "hits_allowed_L5",
+            "hits_allowed_L10",
+            "baserunners_L10",
+            "baserunners_allowed_L10",
+            "runs_per_baserunner_L10",
+            "player_hits_L10",
+            "player_hits_allowed_L10",
+            "player_walks_L10",
+            "player_walks_allowed_L10",
+            "player_total_bases_L10",
+            "player_total_bases_allowed_L10",
+            "player_obp_proxy_L10",
+            "player_slg_proxy_L10",
+            "player_k_rate_L10",
+            "top4_hits_share_L10",
         ]
     ].copy()
 
@@ -1150,6 +1299,9 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
     p["era_game"] = np.where(p["ip"] > 0, (p["er"] * 9.0) / p["ip"], np.nan)
     p["whip_game"] = np.where(p["ip"] > 0, (p["hits_allowed"] + p["bb_allowed"]) / p["ip"], np.nan)
     p["k_bb_game"] = np.where(p["bb_allowed"] > 0, p["k"] / p["bb_allowed"], p["k"])
+    p["baserunners_allowed_game"] = p["hits_allowed"] + p["bb_allowed"]
+    # Estimate total bases allowed as singles-equivalent hits plus extra 3 bases per HR.
+    p["total_bases_allowed_game"] = p["hits_allowed"] + (3.0 * p["hr_allowed"])
     p["hr9_game"] = np.where(p["ip"] > 0, (p["hr_allowed"] * 9.0) / p["ip"], np.nan)
     p["quality_start_flag"] = ((p["ip"] >= 5.0) & (p["er"] <= 2.0)).astype(int)
     p["blowup_start_flag"] = ((p["er"] >= 4.0) | (p["hr_allowed"] >= 2.0)).astype(int)
@@ -1161,6 +1313,9 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
     p["pitcher_era_L5"] = _rolling_shifted_mean(by_pitcher["era_game"], 5)
     p["pitcher_whip_L5"] = _rolling_shifted_mean(by_pitcher["whip_game"], 5)
     p["pitcher_k_bb_L5"] = _rolling_shifted_mean(by_pitcher["k_bb_game"], 5)
+    p["pitcher_bb_allowed_L5"] = _rolling_shifted_mean(by_pitcher["bb_allowed"], 5)
+    p["pitcher_baserunners_allowed_L5"] = _rolling_shifted_mean(by_pitcher["baserunners_allowed_game"], 5)
+    p["pitcher_total_bases_allowed_L5"] = _rolling_shifted_mean(by_pitcher["total_bases_allowed_game"], 5)
     p["pitcher_hr9_L5"] = _rolling_shifted_mean(by_pitcher["hr9_game"], 5)
     p["pitcher_ip_L5"] = _rolling_shifted_mean(by_pitcher["ip"], 5)
     p["pitcher_r1_allowed_rate_L10"] = _rolling_shifted_mean(by_pitcher["r1_allowed_flag"], 10)
@@ -1192,6 +1347,9 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
             "pitcher_era_L5",
             "pitcher_whip_L5",
             "pitcher_k_bb_L5",
+            "pitcher_bb_allowed_L5",
+            "pitcher_baserunners_allowed_L5",
+            "pitcher_total_bases_allowed_L5",
             "pitcher_hr9_L5",
             "pitcher_ip_L5",
             "pitcher_r1_allowed_rate_L10",
@@ -1210,6 +1368,9 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
         "pitcher_era_L5",
         "pitcher_whip_L5",
         "pitcher_k_bb_L5",
+        "pitcher_bb_allowed_L5",
+        "pitcher_baserunners_allowed_L5",
+        "pitcher_total_bases_allowed_L5",
         "pitcher_hr9_L5",
         "pitcher_ip_L5",
         "pitcher_r1_allowed_rate_L10",
@@ -1227,6 +1388,9 @@ def build_pitcher_game_table(df: pd.DataFrame) -> pd.DataFrame:
                 "pitcher_era_L5": 4.25,
                 "pitcher_whip_L5": 1.30,
                 "pitcher_k_bb_L5": 2.0,
+                "pitcher_bb_allowed_L5": 2.0,
+                "pitcher_baserunners_allowed_L5": 7.0,
+                "pitcher_total_bases_allowed_L5": 8.0,
                 "pitcher_hr9_L5": 1.0,
                 "pitcher_ip_L5": 5.0,
                 "pitcher_r1_allowed_rate_L10": 0.30,
@@ -1767,7 +1931,22 @@ def build_features() -> pd.DataFrame:
     df["diff_f5_diff_L5"] = df["home_f5_diff_L5"] - df["away_f5_diff_L5"]
 
     df["diff_hits_L5"] = df["home_hits_L5"] - df["away_hits_L5"]
+    df["diff_hits_L10"] = df["home_hits_L10"] - df["away_hits_L10"]
     df["diff_hits_allowed_L5"] = df["home_hits_allowed_L5"] - df["away_hits_allowed_L5"]
+    df["diff_hits_allowed_L10"] = df["home_hits_allowed_L10"] - df["away_hits_allowed_L10"]
+    df["diff_baserunners_L10"] = df["home_baserunners_L10"] - df["away_baserunners_L10"]
+    df["diff_baserunners_allowed_L10"] = df["home_baserunners_allowed_L10"] - df["away_baserunners_allowed_L10"]
+    df["diff_runs_per_baserunner_L10"] = df["home_runs_per_baserunner_L10"] - df["away_runs_per_baserunner_L10"]
+    df["diff_player_hits_L10"] = df["home_player_hits_L10"] - df["away_player_hits_L10"]
+    df["diff_player_hits_allowed_L10"] = df["home_player_hits_allowed_L10"] - df["away_player_hits_allowed_L10"]
+    df["diff_player_walks_L10"] = df["home_player_walks_L10"] - df["away_player_walks_L10"]
+    df["diff_player_walks_allowed_L10"] = df["home_player_walks_allowed_L10"] - df["away_player_walks_allowed_L10"]
+    df["diff_player_total_bases_L10"] = df["home_player_total_bases_L10"] - df["away_player_total_bases_L10"]
+    df["diff_player_total_bases_allowed_L10"] = df["home_player_total_bases_allowed_L10"] - df["away_player_total_bases_allowed_L10"]
+    df["diff_player_obp_proxy_L10"] = df["home_player_obp_proxy_L10"] - df["away_player_obp_proxy_L10"]
+    df["diff_player_slg_proxy_L10"] = df["home_player_slg_proxy_L10"] - df["away_player_slg_proxy_L10"]
+    df["diff_player_k_rate_L10"] = df["home_player_k_rate_L10"] - df["away_player_k_rate_L10"]
+    df["diff_top4_hits_share_L10"] = df["home_top4_hits_share_L10"] - df["away_top4_hits_share_L10"]
 
     df["diff_surface_win_pct_L5"] = df["home_home_only_win_pct_L5"] - df["away_away_only_win_pct_L5"]
     df["diff_surface_run_diff_L5"] = df["home_home_only_run_diff_L5"] - df["away_away_only_run_diff_L5"]
@@ -1890,6 +2069,13 @@ def build_features() -> pd.DataFrame:
     df["diff_pitcher_era_L5"] = df["home_pitcher_era_L5"] - df["away_pitcher_era_L5"]
     df["diff_pitcher_whip_L5"] = df["home_pitcher_whip_L5"] - df["away_pitcher_whip_L5"]
     df["diff_pitcher_k_bb_L5"] = df["home_pitcher_k_bb_L5"] - df["away_pitcher_k_bb_L5"]
+    df["diff_pitcher_bb_allowed_L5"] = df["home_pitcher_bb_allowed_L5"] - df["away_pitcher_bb_allowed_L5"]
+    df["diff_pitcher_baserunners_allowed_L5"] = (
+        df["home_pitcher_baserunners_allowed_L5"] - df["away_pitcher_baserunners_allowed_L5"]
+    )
+    df["diff_pitcher_total_bases_allowed_L5"] = (
+        df["home_pitcher_total_bases_allowed_L5"] - df["away_pitcher_total_bases_allowed_L5"]
+    )
     df["diff_pitcher_hr9_L5"] = df["home_pitcher_hr9_L5"] - df["away_pitcher_hr9_L5"]
     df["diff_pitcher_ip_L5"] = df["home_pitcher_ip_L5"] - df["away_pitcher_ip_L5"]
     df["diff_pitcher_r1_allowed_rate_L10"] = (
@@ -2225,9 +2411,69 @@ def build_features() -> pd.DataFrame:
         "away_hits_L5",
         "diff_hits_L5",
 
+        "home_hits_L10",
+        "away_hits_L10",
+        "diff_hits_L10",
+
         "home_hits_allowed_L5",
         "away_hits_allowed_L5",
         "diff_hits_allowed_L5",
+
+        "home_hits_allowed_L10",
+        "away_hits_allowed_L10",
+        "diff_hits_allowed_L10",
+
+        "home_baserunners_L10",
+        "away_baserunners_L10",
+        "diff_baserunners_L10",
+
+        "home_baserunners_allowed_L10",
+        "away_baserunners_allowed_L10",
+        "diff_baserunners_allowed_L10",
+
+        "home_runs_per_baserunner_L10",
+        "away_runs_per_baserunner_L10",
+        "diff_runs_per_baserunner_L10",
+
+        "home_player_hits_L10",
+        "away_player_hits_L10",
+        "diff_player_hits_L10",
+
+        "home_player_hits_allowed_L10",
+        "away_player_hits_allowed_L10",
+        "diff_player_hits_allowed_L10",
+
+        "home_player_walks_L10",
+        "away_player_walks_L10",
+        "diff_player_walks_L10",
+
+        "home_player_walks_allowed_L10",
+        "away_player_walks_allowed_L10",
+        "diff_player_walks_allowed_L10",
+
+        "home_player_total_bases_L10",
+        "away_player_total_bases_L10",
+        "diff_player_total_bases_L10",
+
+        "home_player_total_bases_allowed_L10",
+        "away_player_total_bases_allowed_L10",
+        "diff_player_total_bases_allowed_L10",
+
+        "home_player_obp_proxy_L10",
+        "away_player_obp_proxy_L10",
+        "diff_player_obp_proxy_L10",
+
+        "home_player_slg_proxy_L10",
+        "away_player_slg_proxy_L10",
+        "diff_player_slg_proxy_L10",
+
+        "home_player_k_rate_L10",
+        "away_player_k_rate_L10",
+        "diff_player_k_rate_L10",
+
+        "home_top4_hits_share_L10",
+        "away_top4_hits_share_L10",
+        "diff_top4_hits_share_L10",
 
         "home_home_only_win_pct_L5",
         "away_away_only_win_pct_L5",
@@ -2361,6 +2607,18 @@ def build_features() -> pd.DataFrame:
         "home_pitcher_k_bb_L5",
         "away_pitcher_k_bb_L5",
         "diff_pitcher_k_bb_L5",
+
+        "home_pitcher_bb_allowed_L5",
+        "away_pitcher_bb_allowed_L5",
+        "diff_pitcher_bb_allowed_L5",
+
+        "home_pitcher_baserunners_allowed_L5",
+        "away_pitcher_baserunners_allowed_L5",
+        "diff_pitcher_baserunners_allowed_L5",
+
+        "home_pitcher_total_bases_allowed_L5",
+        "away_pitcher_total_bases_allowed_L5",
+        "diff_pitcher_total_bases_allowed_L5",
 
         "home_pitcher_hr9_L5",
         "away_pitcher_hr9_L5",

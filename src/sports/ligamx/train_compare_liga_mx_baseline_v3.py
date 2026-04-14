@@ -26,6 +26,7 @@ SELECTIVE_PLAN_JSON = REPORTS_DIR / "liga_mx_selective_upgrade_plan.json"
 TARGETS = {
     "full_game": {"target": "TARGET_full_game", "problem": "multiclass"},
     "ht_result": {"target": "TARGET_ht_result", "problem": "multiclass"},
+    "h1_over_15": {"target": "TARGET_h1_over_15", "problem": "binary"},
     "over_25": {"target": "TARGET_over_25", "problem": "binary"},
     "btts": {"target": "TARGET_btts", "problem": "binary"},
 }
@@ -38,10 +39,14 @@ NON_FEATURE_COLS = {
     "away_team",
     "home_score",
     "away_score",
+    "home_ht_score",
+    "away_ht_score",
+    "total_ht_goals",
     "is_draw",
     "total_goals",
     "TARGET_full_game",
     "TARGET_ht_result",
+    "TARGET_h1_over_15",
     "TARGET_over_25",
     "TARGET_btts",
     "TARGET_corners_over_95",

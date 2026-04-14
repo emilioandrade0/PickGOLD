@@ -151,6 +151,11 @@ def _safe_float(value, default: float = 0.0) -> float:
     return float(num)
 
 
+def _signed_squash_value(value: float) -> float:
+    val = _safe_float(value, 0.0)
+    return val / (1.0 + abs(val))
+
+
 def compute_full_game_publish_policy(feature_row: pd.Series, prob_home: float):
     confidence = max(float(prob_home), 1.0 - float(prob_home))
     threshold = 0.56
@@ -243,13 +248,34 @@ def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
             "run_diff_L10": row["home_run_diff_L10"],
             "runs_scored_L5": row["home_runs_scored_L5"],
             "runs_allowed_L5": row["home_runs_allowed_L5"],
+            "runs_scored_std_L10": row.get("home_runs_scored_std_L10", 0.0),
+            "runs_allowed_std_L10": row.get("home_runs_allowed_std_L10", 0.0),
             "yrfi_rate_L10": row["home_yrfi_rate_L10"],
             "r1_scored_rate_L10": row["home_r1_scored_rate_L10"],
             "r1_allowed_rate_L10": row["home_r1_allowed_rate_L10"],
             "f5_win_pct_L5": row["home_f5_win_pct_L5"],
             "f5_diff_L5": row["home_f5_diff_L5"],
+            "win_pct_L10_blend": row.get("home_win_pct_L10_blend", row.get("home_win_pct_L10", 0.0)),
+            "run_diff_L10_blend": row.get("home_run_diff_L10_blend", row.get("home_run_diff_L10", 0.0)),
+            "runs_scored_L5_blend": row.get("home_runs_scored_L5_blend", row.get("home_runs_scored_L5", 0.0)),
+            "runs_allowed_L5_blend": row.get("home_runs_allowed_L5_blend", row.get("home_runs_allowed_L5", 0.0)),
             "hits_L5": row["home_hits_L5"],
+            "hits_L10": row.get("home_hits_L10", row.get("home_hits_L5", 0)),
             "hits_allowed_L5": row["home_hits_allowed_L5"],
+            "hits_allowed_L10": row.get("home_hits_allowed_L10", row.get("home_hits_allowed_L5", 0)),
+            "baserunners_L10": row.get("home_baserunners_L10", 0.0),
+            "baserunners_allowed_L10": row.get("home_baserunners_allowed_L10", 0.0),
+            "runs_per_baserunner_L10": row.get("home_runs_per_baserunner_L10", 0.0),
+            "player_hits_L10": row.get("home_player_hits_L10", 0.0),
+            "player_hits_allowed_L10": row.get("home_player_hits_allowed_L10", 0.0),
+            "player_walks_L10": row.get("home_player_walks_L10", 0.0),
+            "player_walks_allowed_L10": row.get("home_player_walks_allowed_L10", 0.0),
+            "player_total_bases_L10": row.get("home_player_total_bases_L10", 0.0),
+            "player_total_bases_allowed_L10": row.get("home_player_total_bases_allowed_L10", 0.0),
+            "player_obp_proxy_L10": row.get("home_player_obp_proxy_L10", 0.0),
+            "player_slg_proxy_L10": row.get("home_player_slg_proxy_L10", 0.0),
+            "player_k_rate_L10": row.get("home_player_k_rate_L10", 0.0),
+            "top4_hits_share_L10": row.get("home_top4_hits_share_L10", 0.0),
             "surface_win_pct_L5": row.get("home_home_only_win_pct_L5", 0),
             "surface_run_diff_L5": row.get("home_home_only_run_diff_L5", 0),
             "surface_yrfi_rate_L10": row.get("home_home_only_yrfi_rate_L10", 0),
@@ -264,7 +290,11 @@ def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
             "pitcher_era_L5": row.get("home_pitcher_era_L5", 0),
             "pitcher_whip_L5": row.get("home_pitcher_whip_L5", 0),
             "pitcher_k_bb_L5": row.get("home_pitcher_k_bb_L5", 0),
+            "pitcher_bb_allowed_L5": row.get("home_pitcher_bb_allowed_L5", 0),
+            "pitcher_baserunners_allowed_L5": row.get("home_pitcher_baserunners_allowed_L5", 0),
+            "pitcher_total_bases_allowed_L5": row.get("home_pitcher_total_bases_allowed_L5", 0),
             "pitcher_hr9_L5": row.get("home_pitcher_hr9_L5", 0),
+            "pitcher_ip_L5": row.get("home_pitcher_ip_L5", 0),
             "pitcher_runs_allowed_L5": row.get("home_pitcher_runs_allowed_L5", 0),
             "pitcher_runs_allowed_L10": row.get("home_pitcher_runs_allowed_L10", 0),
             "pitcher_r1_allowed_rate_L10": row.get("home_pitcher_r1_allowed_rate_L10", 0),
@@ -317,13 +347,34 @@ def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
             "run_diff_L10": row["away_run_diff_L10"],
             "runs_scored_L5": row["away_runs_scored_L5"],
             "runs_allowed_L5": row["away_runs_allowed_L5"],
+            "runs_scored_std_L10": row.get("away_runs_scored_std_L10", 0.0),
+            "runs_allowed_std_L10": row.get("away_runs_allowed_std_L10", 0.0),
             "yrfi_rate_L10": row["away_yrfi_rate_L10"],
             "r1_scored_rate_L10": row["away_r1_scored_rate_L10"],
             "r1_allowed_rate_L10": row["away_r1_allowed_rate_L10"],
             "f5_win_pct_L5": row["away_f5_win_pct_L5"],
             "f5_diff_L5": row["away_f5_diff_L5"],
+            "win_pct_L10_blend": row.get("away_win_pct_L10_blend", row.get("away_win_pct_L10", 0.0)),
+            "run_diff_L10_blend": row.get("away_run_diff_L10_blend", row.get("away_run_diff_L10", 0.0)),
+            "runs_scored_L5_blend": row.get("away_runs_scored_L5_blend", row.get("away_runs_scored_L5", 0.0)),
+            "runs_allowed_L5_blend": row.get("away_runs_allowed_L5_blend", row.get("away_runs_allowed_L5", 0.0)),
             "hits_L5": row["away_hits_L5"],
+            "hits_L10": row.get("away_hits_L10", row.get("away_hits_L5", 0)),
             "hits_allowed_L5": row["away_hits_allowed_L5"],
+            "hits_allowed_L10": row.get("away_hits_allowed_L10", row.get("away_hits_allowed_L5", 0)),
+            "baserunners_L10": row.get("away_baserunners_L10", 0.0),
+            "baserunners_allowed_L10": row.get("away_baserunners_allowed_L10", 0.0),
+            "runs_per_baserunner_L10": row.get("away_runs_per_baserunner_L10", 0.0),
+            "player_hits_L10": row.get("away_player_hits_L10", 0.0),
+            "player_hits_allowed_L10": row.get("away_player_hits_allowed_L10", 0.0),
+            "player_walks_L10": row.get("away_player_walks_L10", 0.0),
+            "player_walks_allowed_L10": row.get("away_player_walks_allowed_L10", 0.0),
+            "player_total_bases_L10": row.get("away_player_total_bases_L10", 0.0),
+            "player_total_bases_allowed_L10": row.get("away_player_total_bases_allowed_L10", 0.0),
+            "player_obp_proxy_L10": row.get("away_player_obp_proxy_L10", 0.0),
+            "player_slg_proxy_L10": row.get("away_player_slg_proxy_L10", 0.0),
+            "player_k_rate_L10": row.get("away_player_k_rate_L10", 0.0),
+            "top4_hits_share_L10": row.get("away_top4_hits_share_L10", 0.0),
             "surface_win_pct_L5": row.get("away_away_only_win_pct_L5", 0),
             "surface_run_diff_L5": row.get("away_away_only_run_diff_L5", 0),
             "surface_yrfi_rate_L10": row.get("away_away_only_yrfi_rate_L10", 0),
@@ -338,7 +389,11 @@ def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
             "pitcher_era_L5": row.get("away_pitcher_era_L5", 0),
             "pitcher_whip_L5": row.get("away_pitcher_whip_L5", 0),
             "pitcher_k_bb_L5": row.get("away_pitcher_k_bb_L5", 0),
+            "pitcher_bb_allowed_L5": row.get("away_pitcher_bb_allowed_L5", 0),
+            "pitcher_baserunners_allowed_L5": row.get("away_pitcher_baserunners_allowed_L5", 0),
+            "pitcher_total_bases_allowed_L5": row.get("away_pitcher_total_bases_allowed_L5", 0),
             "pitcher_hr9_L5": row.get("away_pitcher_hr9_L5", 0),
+            "pitcher_ip_L5": row.get("away_pitcher_ip_L5", 0),
             "pitcher_runs_allowed_L5": row.get("away_pitcher_runs_allowed_L5", 0),
             "pitcher_runs_allowed_L10": row.get("away_pitcher_runs_allowed_L10", 0),
             "pitcher_r1_allowed_rate_L10": row.get("away_pitcher_r1_allowed_rate_L10", 0),
@@ -476,9 +531,17 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         "away_runs_scored_L5": away_snap["runs_scored_L5"],
         "diff_runs_scored_L5": home_snap["runs_scored_L5"] - away_snap["runs_scored_L5"],
 
+        "home_runs_scored_std_L10": float(home_snap.get("runs_scored_std_L10", 0.0)),
+        "away_runs_scored_std_L10": float(away_snap.get("runs_scored_std_L10", 0.0)),
+        "diff_runs_scored_std_L10": float(home_snap.get("runs_scored_std_L10", 0.0)) - float(away_snap.get("runs_scored_std_L10", 0.0)),
+
         "home_runs_allowed_L5": home_snap["runs_allowed_L5"],
         "away_runs_allowed_L5": away_snap["runs_allowed_L5"],
         "diff_runs_allowed_L5": home_snap["runs_allowed_L5"] - away_snap["runs_allowed_L5"],
+
+        "home_runs_allowed_std_L10": float(home_snap.get("runs_allowed_std_L10", 0.0)),
+        "away_runs_allowed_std_L10": float(away_snap.get("runs_allowed_std_L10", 0.0)),
+        "diff_runs_allowed_std_L10": float(home_snap.get("runs_allowed_std_L10", 0.0)) - float(away_snap.get("runs_allowed_std_L10", 0.0)),
 
         "home_yrfi_rate_L10": home_snap["yrfi_rate_L10"],
         "away_yrfi_rate_L10": away_snap["yrfi_rate_L10"],
@@ -500,13 +563,89 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         "away_f5_diff_L5": away_snap["f5_diff_L5"],
         "diff_f5_diff_L5": home_snap["f5_diff_L5"] - away_snap["f5_diff_L5"],
 
+        "home_win_pct_L10_blend": float(home_snap.get("win_pct_L10_blend", home_snap.get("win_pct_L10", 0.0))),
+        "away_win_pct_L10_blend": float(away_snap.get("win_pct_L10_blend", away_snap.get("win_pct_L10", 0.0))),
+        "diff_win_pct_L10_blend": float(home_snap.get("win_pct_L10_blend", home_snap.get("win_pct_L10", 0.0))) - float(away_snap.get("win_pct_L10_blend", away_snap.get("win_pct_L10", 0.0))),
+
+        "home_run_diff_L10_blend": float(home_snap.get("run_diff_L10_blend", home_snap.get("run_diff_L10", 0.0))),
+        "away_run_diff_L10_blend": float(away_snap.get("run_diff_L10_blend", away_snap.get("run_diff_L10", 0.0))),
+        "diff_run_diff_L10_blend": float(home_snap.get("run_diff_L10_blend", home_snap.get("run_diff_L10", 0.0))) - float(away_snap.get("run_diff_L10_blend", away_snap.get("run_diff_L10", 0.0))),
+
+        "home_runs_scored_L5_blend": float(home_snap.get("runs_scored_L5_blend", home_snap.get("runs_scored_L5", 0.0))),
+        "away_runs_scored_L5_blend": float(away_snap.get("runs_scored_L5_blend", away_snap.get("runs_scored_L5", 0.0))),
+        "diff_runs_scored_L5_blend": float(home_snap.get("runs_scored_L5_blend", home_snap.get("runs_scored_L5", 0.0))) - float(away_snap.get("runs_scored_L5_blend", away_snap.get("runs_scored_L5", 0.0))),
+
+        "home_runs_allowed_L5_blend": float(home_snap.get("runs_allowed_L5_blend", home_snap.get("runs_allowed_L5", 0.0))),
+        "away_runs_allowed_L5_blend": float(away_snap.get("runs_allowed_L5_blend", away_snap.get("runs_allowed_L5", 0.0))),
+        "diff_runs_allowed_L5_blend": float(home_snap.get("runs_allowed_L5_blend", home_snap.get("runs_allowed_L5", 0.0))) - float(away_snap.get("runs_allowed_L5_blend", away_snap.get("runs_allowed_L5", 0.0))),
+
         "home_hits_L5": home_snap["hits_L5"],
         "away_hits_L5": away_snap["hits_L5"],
         "diff_hits_L5": home_snap["hits_L5"] - away_snap["hits_L5"],
 
+        "home_hits_L10": home_snap.get("hits_L10", home_snap["hits_L5"]),
+        "away_hits_L10": away_snap.get("hits_L10", away_snap["hits_L5"]),
+        "diff_hits_L10": home_snap.get("hits_L10", home_snap["hits_L5"]) - away_snap.get("hits_L10", away_snap["hits_L5"]),
+
         "home_hits_allowed_L5": home_snap["hits_allowed_L5"],
         "away_hits_allowed_L5": away_snap["hits_allowed_L5"],
         "diff_hits_allowed_L5": home_snap["hits_allowed_L5"] - away_snap["hits_allowed_L5"],
+
+        "home_hits_allowed_L10": home_snap.get("hits_allowed_L10", home_snap["hits_allowed_L5"]),
+        "away_hits_allowed_L10": away_snap.get("hits_allowed_L10", away_snap["hits_allowed_L5"]),
+        "diff_hits_allowed_L10": home_snap.get("hits_allowed_L10", home_snap["hits_allowed_L5"]) - away_snap.get("hits_allowed_L10", away_snap["hits_allowed_L5"]),
+
+        "home_baserunners_L10": float(home_snap.get("baserunners_L10", 0.0)),
+        "away_baserunners_L10": float(away_snap.get("baserunners_L10", 0.0)),
+        "diff_baserunners_L10": float(home_snap.get("baserunners_L10", 0.0)) - float(away_snap.get("baserunners_L10", 0.0)),
+
+        "home_baserunners_allowed_L10": float(home_snap.get("baserunners_allowed_L10", 0.0)),
+        "away_baserunners_allowed_L10": float(away_snap.get("baserunners_allowed_L10", 0.0)),
+        "diff_baserunners_allowed_L10": float(home_snap.get("baserunners_allowed_L10", 0.0)) - float(away_snap.get("baserunners_allowed_L10", 0.0)),
+
+        "home_runs_per_baserunner_L10": float(home_snap.get("runs_per_baserunner_L10", 0.0)),
+        "away_runs_per_baserunner_L10": float(away_snap.get("runs_per_baserunner_L10", 0.0)),
+        "diff_runs_per_baserunner_L10": float(home_snap.get("runs_per_baserunner_L10", 0.0)) - float(away_snap.get("runs_per_baserunner_L10", 0.0)),
+
+        "home_player_hits_L10": float(home_snap.get("player_hits_L10", 0.0)),
+        "away_player_hits_L10": float(away_snap.get("player_hits_L10", 0.0)),
+        "diff_player_hits_L10": float(home_snap.get("player_hits_L10", 0.0)) - float(away_snap.get("player_hits_L10", 0.0)),
+
+        "home_player_hits_allowed_L10": float(home_snap.get("player_hits_allowed_L10", 0.0)),
+        "away_player_hits_allowed_L10": float(away_snap.get("player_hits_allowed_L10", 0.0)),
+        "diff_player_hits_allowed_L10": float(home_snap.get("player_hits_allowed_L10", 0.0)) - float(away_snap.get("player_hits_allowed_L10", 0.0)),
+
+        "home_player_walks_L10": float(home_snap.get("player_walks_L10", 0.0)),
+        "away_player_walks_L10": float(away_snap.get("player_walks_L10", 0.0)),
+        "diff_player_walks_L10": float(home_snap.get("player_walks_L10", 0.0)) - float(away_snap.get("player_walks_L10", 0.0)),
+
+        "home_player_walks_allowed_L10": float(home_snap.get("player_walks_allowed_L10", 0.0)),
+        "away_player_walks_allowed_L10": float(away_snap.get("player_walks_allowed_L10", 0.0)),
+        "diff_player_walks_allowed_L10": float(home_snap.get("player_walks_allowed_L10", 0.0)) - float(away_snap.get("player_walks_allowed_L10", 0.0)),
+
+        "home_player_total_bases_L10": float(home_snap.get("player_total_bases_L10", 0.0)),
+        "away_player_total_bases_L10": float(away_snap.get("player_total_bases_L10", 0.0)),
+        "diff_player_total_bases_L10": float(home_snap.get("player_total_bases_L10", 0.0)) - float(away_snap.get("player_total_bases_L10", 0.0)),
+
+        "home_player_total_bases_allowed_L10": float(home_snap.get("player_total_bases_allowed_L10", 0.0)),
+        "away_player_total_bases_allowed_L10": float(away_snap.get("player_total_bases_allowed_L10", 0.0)),
+        "diff_player_total_bases_allowed_L10": float(home_snap.get("player_total_bases_allowed_L10", 0.0)) - float(away_snap.get("player_total_bases_allowed_L10", 0.0)),
+
+        "home_player_obp_proxy_L10": float(home_snap.get("player_obp_proxy_L10", 0.0)),
+        "away_player_obp_proxy_L10": float(away_snap.get("player_obp_proxy_L10", 0.0)),
+        "diff_player_obp_proxy_L10": float(home_snap.get("player_obp_proxy_L10", 0.0)) - float(away_snap.get("player_obp_proxy_L10", 0.0)),
+
+        "home_player_slg_proxy_L10": float(home_snap.get("player_slg_proxy_L10", 0.0)),
+        "away_player_slg_proxy_L10": float(away_snap.get("player_slg_proxy_L10", 0.0)),
+        "diff_player_slg_proxy_L10": float(home_snap.get("player_slg_proxy_L10", 0.0)) - float(away_snap.get("player_slg_proxy_L10", 0.0)),
+
+        "home_player_k_rate_L10": float(home_snap.get("player_k_rate_L10", 0.0)),
+        "away_player_k_rate_L10": float(away_snap.get("player_k_rate_L10", 0.0)),
+        "diff_player_k_rate_L10": float(home_snap.get("player_k_rate_L10", 0.0)) - float(away_snap.get("player_k_rate_L10", 0.0)),
+
+        "home_top4_hits_share_L10": float(home_snap.get("top4_hits_share_L10", 0.0)),
+        "away_top4_hits_share_L10": float(away_snap.get("top4_hits_share_L10", 0.0)),
+        "diff_top4_hits_share_L10": float(home_snap.get("top4_hits_share_L10", 0.0)) - float(away_snap.get("top4_hits_share_L10", 0.0)),
 
         "home_home_only_win_pct_L5": home_snap["surface_win_pct_L5"],
         "away_away_only_win_pct_L5": away_snap["surface_win_pct_L5"],
@@ -595,17 +734,35 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         "diff_pitcher_data_available": float(home_snap.get("pitcher_data_available", 0)) - float(away_snap.get("pitcher_data_available", 0)),
 
         # Diferenciales de pitcher
+        "home_pitcher_era_L5": float(home_snap.get("pitcher_era_L5", 0)),
+        "away_pitcher_era_L5": float(away_snap.get("pitcher_era_L5", 0)),
         "diff_pitcher_rest_days": float(home_snap.get("pitcher_rest_days", 0)) - float(away_snap.get("pitcher_rest_days", 0)),
         "diff_pitcher_games_started_L5": float(home_snap.get("pitcher_games_started_L5", 0)) - float(away_snap.get("pitcher_games_started_L5", 0)),
         "diff_pitcher_games_started_L10": float(home_snap.get("pitcher_games_started_L10", 0)) - float(away_snap.get("pitcher_games_started_L10", 0)),
         "diff_pitcher_era_L5": float(home_snap.get("pitcher_era_L5", 0)) - float(away_snap.get("pitcher_era_L5", 0)),
+        "home_pitcher_whip_L5": float(home_snap.get("pitcher_whip_L5", 0)),
+        "away_pitcher_whip_L5": float(away_snap.get("pitcher_whip_L5", 0)),
         "diff_pitcher_whip_L5": float(home_snap.get("pitcher_whip_L5", 0)) - float(away_snap.get("pitcher_whip_L5", 0)),
         "diff_pitcher_k_bb_L5": float(home_snap.get("pitcher_k_bb_L5", 0)) - float(away_snap.get("pitcher_k_bb_L5", 0)),
+        "diff_pitcher_bb_allowed_L5": float(home_snap.get("pitcher_bb_allowed_L5", 0)) - float(away_snap.get("pitcher_bb_allowed_L5", 0)),
+        "diff_pitcher_baserunners_allowed_L5": float(home_snap.get("pitcher_baserunners_allowed_L5", 0)) - float(away_snap.get("pitcher_baserunners_allowed_L5", 0)),
+        "diff_pitcher_total_bases_allowed_L5": float(home_snap.get("pitcher_total_bases_allowed_L5", 0)) - float(away_snap.get("pitcher_total_bases_allowed_L5", 0)),
+        "home_pitcher_hr9_L5": float(home_snap.get("pitcher_hr9_L5", 0)),
+        "away_pitcher_hr9_L5": float(away_snap.get("pitcher_hr9_L5", 0)),
         "diff_pitcher_hr9_L5": float(home_snap.get("pitcher_hr9_L5", 0)) - float(away_snap.get("pitcher_hr9_L5", 0)),
+        "home_pitcher_ip_L5": float(home_snap.get("pitcher_ip_L5", 0)),
+        "away_pitcher_ip_L5": float(away_snap.get("pitcher_ip_L5", 0)),
+        "diff_pitcher_ip_L5": float(home_snap.get("pitcher_ip_L5", 0)) - float(away_snap.get("pitcher_ip_L5", 0)),
         "diff_pitcher_runs_allowed_L5": float(home_snap.get("pitcher_runs_allowed_L5", 0)) - float(away_snap.get("pitcher_runs_allowed_L5", 0)),
         "diff_pitcher_runs_allowed_L10": float(home_snap.get("pitcher_runs_allowed_L10", 0)) - float(away_snap.get("pitcher_runs_allowed_L10", 0)),
+        "home_pitcher_r1_allowed_rate_L10": float(home_snap.get("pitcher_r1_allowed_rate_L10", 0)),
+        "away_pitcher_r1_allowed_rate_L10": float(away_snap.get("pitcher_r1_allowed_rate_L10", 0)),
         "diff_pitcher_r1_allowed_rate_L10": float(home_snap.get("pitcher_r1_allowed_rate_L10", 0)) - float(away_snap.get("pitcher_r1_allowed_rate_L10", 0)),
+        "home_pitcher_r1_allowed_rate_L5": float(home_snap.get("pitcher_r1_allowed_rate_L5", 0)),
+        "away_pitcher_r1_allowed_rate_L5": float(away_snap.get("pitcher_r1_allowed_rate_L5", 0)),
         "diff_pitcher_r1_allowed_rate_L5": float(home_snap.get("pitcher_r1_allowed_rate_L5", 0)) - float(away_snap.get("pitcher_r1_allowed_rate_L5", 0)),
+        "home_pitcher_f5_runs_allowed_L5": float(home_snap.get("pitcher_f5_runs_allowed_L5", 0)),
+        "away_pitcher_f5_runs_allowed_L5": float(away_snap.get("pitcher_f5_runs_allowed_L5", 0)),
         "diff_pitcher_f5_runs_allowed_L5": float(home_snap.get("pitcher_f5_runs_allowed_L5", 0)) - float(away_snap.get("pitcher_f5_runs_allowed_L5", 0)),
         "diff_pitcher_quality_start_rate_L10": float(home_snap.get("pitcher_quality_start_rate_L10", 0)) - float(away_snap.get("pitcher_quality_start_rate_L10", 0)),
         "diff_pitcher_blowup_rate_L10": float(home_snap.get("pitcher_blowup_rate_L10", 0)) - float(away_snap.get("pitcher_blowup_rate_L10", 0)),
@@ -616,19 +773,31 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         "diff_pitcher_start_win_rate_L10": float(home_snap.get("pitcher_start_win_rate_L10", 0)) - float(away_snap.get("pitcher_start_win_rate_L10", 0)),
 
         # Diferenciales de bullpen
+        "home_bullpen_runs_allowed_L5": float(home_snap.get("bullpen_runs_allowed_L5", 0)),
+        "away_bullpen_runs_allowed_L5": float(away_snap.get("bullpen_runs_allowed_L5", 0)),
         "diff_bullpen_runs_allowed_L5": float(home_snap.get("bullpen_runs_allowed_L5", 0)) - float(away_snap.get("bullpen_runs_allowed_L5", 0)),
         "diff_bullpen_runs_allowed_L10": float(home_snap.get("bullpen_runs_allowed_L10", 0)) - float(away_snap.get("bullpen_runs_allowed_L10", 0)),
+        "home_bullpen_load_L3": float(home_snap.get("bullpen_load_L3", 0)),
+        "away_bullpen_load_L3": float(away_snap.get("bullpen_load_L3", 0)),
         "diff_bullpen_load_L3": float(home_snap.get("bullpen_load_L3", 0)) - float(away_snap.get("bullpen_load_L3", 0)),
         "diff_bullpen_load_L5": float(home_snap.get("bullpen_load_L5", 0)) - float(away_snap.get("bullpen_load_L5", 0)),
 
         # Diferenciales matchup vs pitcher
+        "home_offense_vs_away_pitcher": float(home_snap.get("offense_vs_pitcher", 0)),
+        "away_offense_vs_home_pitcher": float(away_snap.get("offense_vs_pitcher", 0)),
         "diff_offense_vs_pitcher": float(home_snap.get("offense_vs_pitcher", 0)) - float(away_snap.get("offense_vs_pitcher", 0)),
+        "home_r1_vs_away_pitcher": float(home_snap.get("r1_vs_pitcher", 0)),
+        "away_r1_vs_home_pitcher": float(away_snap.get("r1_vs_pitcher", 0)),
         "diff_r1_vs_pitcher": float(home_snap.get("r1_vs_pitcher", 0)) - float(away_snap.get("r1_vs_pitcher", 0)),
         "diff_r1_vs_pitcher_L5": float(home_snap.get("r1_vs_pitcher_L5_proxy", 0)) - float(away_snap.get("r1_vs_pitcher_L5_proxy", 0)),
         "diff_f5_vs_pitcher": float(home_snap.get("f5_vs_pitcher", 0)) - float(away_snap.get("f5_vs_pitcher", 0)),
 
         # Diferenciales R1 nuevos
+        "home_r1_scored_rate_L5": float(home_snap.get("r1_scored_rate_L5", 0)),
+        "away_r1_scored_rate_L5": float(away_snap.get("r1_scored_rate_L5", 0)),
         "diff_r1_scored_rate_L5": float(home_snap.get("r1_scored_rate_L5", 0)) - float(away_snap.get("r1_scored_rate_L5", 0)),
+        "home_r1_allowed_rate_L5": float(home_snap.get("r1_allowed_rate_L5", 0)),
+        "away_r1_allowed_rate_L5": float(away_snap.get("r1_allowed_rate_L5", 0)),
         "diff_r1_allowed_rate_L5": float(home_snap.get("r1_allowed_rate_L5", 0)) - float(away_snap.get("r1_allowed_rate_L5", 0)),
         "diff_r1_scored_std_L10": float(home_snap.get("r1_scored_std_L10", 0)) - float(away_snap.get("r1_scored_std_L10", 0)),
         "diff_r1_allowed_std_L10": float(home_snap.get("r1_allowed_std_L10", 0)) - float(away_snap.get("r1_allowed_std_L10", 0)),
@@ -649,10 +818,74 @@ def build_pregame_feature_row(history_df: pd.DataFrame, schedule_row: pd.Series)
         "diff_yrfi_consistency_L10": float(home_snap.get("yrfi_consistency_L10", 0)) - float(away_snap.get("yrfi_consistency_L10", 0)),
 
         # Mercado pregame desde ingest.
-        "home_is_favorite": float(pd.to_numeric(schedule_row.get("home_is_favorite", 0), errors="coerce") or 0),
+        "home_is_favorite": float(np.clip(_safe_float(schedule_row.get("home_is_favorite", 0), 0.0), 0.0, 1.0)),
         "odds_over_under": float(pd.to_numeric(schedule_row.get("odds_over_under", 0), errors="coerce") or 0),
+        "weather_temp": _safe_float(schedule_row.get("weather_temp", np.nan), 0.0),
+        "weather_wind": _safe_float(schedule_row.get("weather_wind", np.nan), 0.0),
+        "umpire_zone_delta": _safe_float(schedule_row.get("umpire_zone_delta", np.nan), 0.0),
+        "umpire_sample_log": _safe_float(schedule_row.get("umpire_sample_log", np.nan), 0.0),
         "market_missing": int(not np.isfinite(pd.to_numeric(schedule_row.get("odds_over_under", np.nan), errors="coerce"))),
     }
+
+    home_favorite_flag = float(np.clip(_safe_float(row.get("home_is_favorite", 0.0), 0.0), 0.0, 1.0))
+    away_favorite_flag = 1.0 - home_favorite_flag
+    row["favorite_elo_gap_signed"] = row["diff_elo"] if home_favorite_flag >= 0.5 else -row["diff_elo"]
+
+    home_quality_edge = (
+        0.65 * _safe_float(row.get("home_win_pct_L10_vs_league", 0.0), 0.0)
+        + 0.35 * _signed_squash_value(_safe_float(row.get("home_run_diff_L10_vs_league", 0.0), 0.0))
+    )
+    away_quality_edge = (
+        0.65 * _safe_float(row.get("away_win_pct_L10_vs_league", 0.0), 0.0)
+        + 0.35 * _signed_squash_value(_safe_float(row.get("away_run_diff_L10_vs_league", 0.0), 0.0))
+    )
+
+    home_variance_pressure = 1.0 + _safe_float(row.get("home_runs_scored_std_L10", 0.0), 0.0) + _safe_float(row.get("home_runs_allowed_std_L10", 0.0), 0.0)
+    away_variance_pressure = 1.0 + _safe_float(row.get("away_runs_scored_std_L10", 0.0), 0.0) + _safe_float(row.get("away_runs_allowed_std_L10", 0.0), 0.0)
+
+    home_momentum_win = _safe_float(row.get("home_momentum_win", 0.0), 0.0)
+    away_momentum_win = _safe_float(row.get("away_momentum_win", 0.0), 0.0)
+    home_momentum_run_diff = _safe_float(row.get("home_momentum_run_diff", 0.0), 0.0)
+    away_momentum_run_diff = _safe_float(row.get("away_momentum_run_diff", 0.0), 0.0)
+    home_rest_days = _safe_float(row.get("home_rest_days", 0.0), 0.0)
+    away_rest_days = _safe_float(row.get("away_rest_days", 0.0), 0.0)
+
+    home_regression_risk = (
+        max(0.0, home_momentum_win)
+        * home_variance_pressure
+        * (1.0 + max(0.0, home_quality_edge))
+    ) + (0.35 * max(0.0, home_momentum_run_diff))
+    away_regression_risk = (
+        max(0.0, away_momentum_win)
+        * away_variance_pressure
+        * (1.0 + max(0.0, away_quality_edge))
+    ) + (0.35 * max(0.0, away_momentum_run_diff))
+
+    home_bounce_back_signal = (
+        max(0.0, -home_momentum_win)
+        * (1.0 + max(0.0, home_quality_edge))
+        * (1.0 + max(0.0, home_rest_days))
+    )
+    away_bounce_back_signal = (
+        max(0.0, -away_momentum_win)
+        * (1.0 + max(0.0, away_quality_edge))
+        * (1.0 + max(0.0, away_rest_days))
+    )
+
+    row["home_regression_risk"] = home_regression_risk
+    row["away_regression_risk"] = away_regression_risk
+    row["diff_regression_risk"] = home_regression_risk - away_regression_risk
+    row["home_bounce_back_signal"] = home_bounce_back_signal
+    row["away_bounce_back_signal"] = away_bounce_back_signal
+    row["diff_bounce_back_signal"] = home_bounce_back_signal - away_bounce_back_signal
+    row["favorite_trap_signal"] = (
+        home_favorite_flag * (home_regression_risk - away_bounce_back_signal)
+        + away_favorite_flag * (away_regression_risk - home_bounce_back_signal)
+    )
+    row["underdog_upset_signal"] = (
+        home_favorite_flag * (away_bounce_back_signal - home_regression_risk)
+        + away_favorite_flag * (home_bounce_back_signal - away_regression_risk)
+    )
 
     return row
 

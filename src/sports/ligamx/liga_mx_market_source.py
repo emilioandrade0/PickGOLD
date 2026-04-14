@@ -7,6 +7,7 @@ def load_market_feature_sources(selective_plan_file: Path) -> Dict[str, str]:
     sources: Dict[str, str] = {
         "full_game": "baseline",
         "ht_result": "baseline",
+        "h1_over_15": "baseline",
         "over_25": "baseline",
         "btts": "baseline",
         "corners_over_95": "baseline",

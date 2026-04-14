@@ -10,6 +10,7 @@ import { getTeamLogoUrl } from "../utils/teamLogos.js";
 
 const SPORTS = [
   { key: "nba", label: "NBA", path: "/nba" },
+  { key: "wnba", label: "WNBA", path: "/wnba" },
   { key: "mlb", label: "MLB", path: "/mlb" },
   { key: "triple_a", label: "Triple-A", path: "/triple-a" },
   { key: "tennis", label: "Tennis", path: "/tennis" },
@@ -68,6 +69,15 @@ function pickBadgeTone(hit) {
   return "border-white/15 bg-white/[0.045] text-white/80";
 }
 
+function resolveQ1ShortLabel(sportKey) {
+  const sport = String(sportKey || "").trim().toLowerCase();
+  if (["mlb", "kbo", "ncaa_baseball", "triple_a"].includes(sport)) return "1IN";
+  if (["nba", "wnba", "euroleague"].includes(sport)) return "1Q";
+  if (sport === "nhl") return "1P";
+  if (["liga_mx", "laliga", "bundesliga", "ligue1"].includes(sport)) return "1T";
+  return "Q1";
+}
+
 function resolveSummaryPicks(event, sportKey, teams) {
   const picks = [];
 
@@ -98,7 +108,7 @@ function resolveSummaryPicks(event, sportKey, teams) {
   const q1Raw = String(event.q1_pick || "").trim();
   if (!isPendingPick(q1Raw)) {
     picks.push({
-      label: "Q1",
+      label: resolveQ1ShortLabel(sportKey),
       value: expandTeamCodeInText(sportKey, resolveSidePick(q1Raw, teams)) || q1Raw,
       hit: toHitValue(event.q1_hit),
     });
@@ -110,6 +120,15 @@ function resolveSummaryPicks(event, sportKey, teams) {
       label: "HT",
       value: expandTeamCodeInText(sportKey, resolveSidePick(h1Raw, teams)) || h1Raw,
       hit: toHitValue(event.h1_hit),
+    });
+  }
+
+  const h1OuRaw = String(event.h1_over15_recommended_pick || event.h1_over15_pick || "").trim();
+  if (!isPendingPick(h1OuRaw)) {
+    picks.push({
+      label: "1T O/U",
+      value: h1OuRaw,
+      hit: toHitValue(event.h1_over15_hit ?? event.correct_h1_over15_adjusted ?? event.correct_h1_over15_base),
     });
   }
 

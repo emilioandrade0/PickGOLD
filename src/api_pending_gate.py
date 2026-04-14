@@ -29,6 +29,7 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 NBA_RAW_HISTORY = BASE_DIR / "data" / "raw" / "nba_advanced_history.csv"
+WNBA_RAW_HISTORY = BASE_DIR / "data" / "wnba" / "raw" / "wnba_advanced_history.csv"
 MLB_RAW_HISTORY = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
 NHL_RAW_HISTORY = BASE_DIR / "data" / "nhl" / "raw" / "nhl_advanced_history.csv"
 LIGA_MX_RAW_HISTORY = BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_advanced_history.csv"
@@ -42,6 +43,7 @@ BEST_PICKS_EXCLUDED_SPORTS = {"ncaa_baseball"}
 
 ESPN_SCOREBOARD_URLS = {
     "nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+    "wnba": "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard",
     "mlb": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
     "kbo": "https://site.api.espn.com/apis/site/v2/sports/baseball/kbo/scoreboard",
     "nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
@@ -54,6 +56,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "predictions",
         "historical_dir": BASE_DIR / "data" / "historical_predictions",
         "label": "NBA",
+    },
+    "wnba": {
+        "predictions_dir": BASE_DIR / "data" / "wnba" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "wnba" / "historical_predictions",
+        "label": "WNBA",
     },
     "mlb": {
         "predictions_dir": BASE_DIR / "data" / "mlb" / "predictions",
@@ -392,8 +399,8 @@ def evaluate_mlb_q1_pick(pick: str, home_r1: int, away_r1: int):
 
 
 def build_results_lookup_for_sport(sport: str):
-    if sport == "nba":
-        file_path = NBA_RAW_HISTORY
+    if sport in {"nba", "wnba"}:
+        file_path = NBA_RAW_HISTORY if sport == "nba" else WNBA_RAW_HISTORY
         use_cols = [
             "game_id", "date", "home_team", "away_team",
             "home_pts_total", "away_pts_total", "home_q1", "away_q1",
@@ -484,7 +491,7 @@ def build_results_lookup_for_sport(sport: str):
             game_id = str(row["game_id"])
             home_team = str(row["home_team"])
             away_team = str(row["away_team"])
-            if sport in {"nba", "euroleague"}:
+            if sport in {"nba", "wnba", "euroleague"}:
                 home_score = int(row["home_pts_total"])
                 away_score = int(row["away_pts_total"])
                 home_q1_score = int(row["home_q1"])
@@ -971,7 +978,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     home_r1=int(home_q1_score),
                     away_r1=int(away_q1_score),
                 )
-            elif sport in {"nba", "euroleague"} and home_q1_score is not None and away_q1_score is not None:
+            elif sport in {"nba", "wnba", "euroleague"} and home_q1_score is not None and away_q1_score is not None:
                 q1_winner = _winner_from_score(home_team, away_team, int(home_q1_score), int(away_q1_score))
                 item["q1_result_winner"] = q1_winner
                 item["q1_hit"] = evaluate_team_pick(
@@ -1162,7 +1169,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"}:
+    if sport in {"nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -1339,7 +1346,7 @@ def build_sport_insights_summary(sport: str):
 
 
 def build_tier_performance_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
     tracked_tiers = ["ELITE", "PREMIUM", "STRONG"]
     rows = []
 
@@ -1674,7 +1681,7 @@ def _log_loss(probs: list[float], outcomes: list[int]):
 
 
 def build_probability_calibration_profiles():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
     markets = ["full_game", "q1_yrfi", "spread", "total", "btts", "f5", "home_over", "corners"]
 
     grouped = {}
@@ -2349,7 +2356,7 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
 
 @app.get("/api/insights/summary")
 def get_insights_summary():
-    sports = ["nba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
+    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
     summaries = [build_sport_insights_summary(s) for s in sports]
 
     return {
@@ -2365,6 +2372,14 @@ def get_weekday_scoring_insights():
             key="nba",
             label="NBA",
             raw_file=NBA_RAW_HISTORY,
+            home_col="home_pts_total",
+            away_col="away_pts_total",
+            metric_label="Puntos Totales",
+        ),
+        SportScoringConfig(
+            key="wnba",
+            label="WNBA",
+            raw_file=WNBA_RAW_HISTORY,
             home_col="home_pts_total",
             away_col="away_pts_total",
             metric_label="Puntos Totales",

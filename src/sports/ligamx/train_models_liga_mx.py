@@ -37,11 +37,11 @@ TARGET_CONFIG = {
         "problem_type": "multiclass",
         "num_classes": 3,
     },
-    "ht_result": {
-        "target_col": "TARGET_ht_result",
-        "description": "Resultado al medio tiempo (home/draw/away)",
-        "problem_type": "multiclass",
-        "num_classes": 3,
+    "h1_over_15": {
+        "target_col": "TARGET_h1_over_15",
+        "description": "Over/Under 1.5 goles (1er tiempo)",
+        "problem_type": "binary",
+        "num_classes": 2,
     },
     "over_25": {
         "target_col": "TARGET_over_25",
@@ -78,6 +78,7 @@ NON_FEATURE_COLUMNS = {
     "total_goals",
     "TARGET_full_game",
     "TARGET_ht_result",
+    "TARGET_h1_over_15",
     "TARGET_over_25",
     "TARGET_btts",
     "TARGET_corners_over_95",
@@ -569,8 +570,8 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 
     market_df = df.dropna(subset=[target_col]).copy()
 
-    # For full_game/ht_result, prefer recent era to reduce concept drift across very old seasons.
-    if market_key in {"full_game", "ht_result"} and "date_dt" in market_df.columns:
+    # For full_game, prefer recent era to reduce concept drift across very old seasons.
+    if market_key == "full_game" and "date_dt" in market_df.columns:
         recent_cut = pd.Timestamp("2023-01-01")
         recent_df = market_df[market_df["date_dt"] >= recent_cut].copy()
         if len(recent_df) >= 700:
@@ -981,15 +982,10 @@ def train_all_models() -> Dict:
     results = {}
 
     for market_key, config in TARGET_CONFIG.items():
-        target_col = config["target_col"]
-        n_target = int(df[target_col].notna().sum()) if target_col in df.columns else 0
-        if n_target < 120:
-            print(f"\n⚠️  Saltando mercado {market_key}: muestras insuficientes ({n_target})")
-            continue
         result = train_single_market(
             df=df,
             market_key=market_key,
-            target_col=target_col,
+            target_col=config["target_col"],
             feature_cols=feature_cols,
             problem_type=config["problem_type"],
         )

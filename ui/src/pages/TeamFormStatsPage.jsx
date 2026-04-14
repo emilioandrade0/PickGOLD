@@ -4,6 +4,7 @@ import { getTeamDisplayName } from "../utils/teamNames.js";
 
 const SPORTS = [
   { key: "nba", label: "NBA" },
+  { key: "wnba", label: "WNBA" },
   { key: "mlb", label: "MLB" },
   { key: "triple_a", label: "Triple-A" },
   { key: "tennis", label: "Tennis" },

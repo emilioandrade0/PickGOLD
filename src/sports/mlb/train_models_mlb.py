@@ -1,4 +1,4 @@
-import json
+﻿import json
 import sys
 import os
 from pathlib import Path
@@ -90,6 +90,7 @@ MARKET_FEATURE_PRIORITY = {
         "diff_run_diff_L10",
         "diff_runs_scored_L5",
         "diff_runs_allowed_L5",
+        "diff_runs_per_baserunner_L10",
         "diff_runs_scored_std_L10",
         "diff_runs_allowed_std_L10",
         "diff_surface_win_pct_L5",
@@ -103,6 +104,11 @@ MARKET_FEATURE_PRIORITY = {
         "diff_pitcher_era_L5",
         "diff_pitcher_whip_L5",
         "diff_pitcher_k_bb_L5",
+
+        "diff_pitcher_bb_allowed_L5",
+
+        "diff_pitcher_baserunners_allowed_L5",
+        "diff_pitcher_total_bases_allowed_L5",
         "diff_pitcher_quality_start_rate_L10",
         "diff_pitcher_blowup_rate_L10",
         "diff_pitcher_era_trend",
@@ -118,10 +124,9 @@ MARKET_FEATURE_PRIORITY = {
         "park_form_pressure",
         "umpire_zone_delta",
         "umpire_sample_log",
-        "home_is_favorite",
     ],
     "yrfi": [
-        # Núcleo duro: tasas R1 y matchup vs pitcher
+        # NÃºcleo duro: tasas R1 y matchup vs pitcher
         "home_r1_scored_rate_L5",
         "home_r1_scored_rate_L10",
         "away_r1_scored_rate_L5",
@@ -136,6 +141,7 @@ MARKET_FEATURE_PRIORITY = {
         "home_pitcher_r1_allowed_rate_L10",
         "away_pitcher_r1_allowed_rate_L5",
         "away_pitcher_r1_allowed_rate_L10",
+        "diff_pitcher_bb_allowed_L5",
         "diff_pitcher_quality_start_rate_L10",
         "diff_pitcher_blowup_rate_L10",
         "diff_pitcher_era_trend",
@@ -174,6 +180,9 @@ MARKET_FEATURE_PRIORITY = {
         "diff_f5_win_pct_L5_vs_league",
         "diff_pitcher_rest_days",
         "diff_pitcher_f5_runs_allowed_L5",
+        "favorite_elo_gap_signed",
+        "home_elo_pre",
+        "diff_baserunners_allowed_L10",
         "diff_pitcher_quality_start_rate_L10",
         "diff_pitcher_blowup_rate_L10",
         "diff_pitcher_era_trend",
@@ -217,6 +226,12 @@ MARKET_FEATURE_PRIORITY = {
         "away_bullpen_load_L3",
         "home_offense_vs_away_pitcher",
         "away_offense_vs_home_pitcher",
+        "diff_pitcher_bb_allowed_L5",
+        "diff_pitcher_baserunners_allowed_L5",
+        "diff_pitcher_total_bases_allowed_L5",
+        "diff_player_hits_L10",
+        "diff_player_walks_allowed_L10",
+        "diff_player_slg_proxy_L10",
         "avg_park_factor",
         "weather_temp",
         "weather_wind",
@@ -348,7 +363,7 @@ def _drop_constant_feature_columns(df: pd.DataFrame, feature_cols: List[str]) ->
     if removed:
         preview = removed[:8]
         suffix = "..." if len(removed) > 8 else ""
-        print(f"   ⚠️ Features constantes omitidas ({len(removed)}): {preview}{suffix}")
+        print(f"   WARNING: Features constantes omitidas ({len(removed)}): {preview}{suffix}")
 
     return keep
 
@@ -365,6 +380,7 @@ def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
             "diff_rest_days", "diff_games_last_5_days",
             "diff_win_pct_L10", "diff_run_diff_L10",
             "diff_runs_scored_L5", "diff_runs_allowed_L5",
+            "diff_runs_per_baserunner_L10",
             "diff_win_pct_L10_blend", "diff_run_diff_L10_blend",
             "diff_runs_scored_L5_blend", "diff_runs_allowed_L5_blend",
             "diff_runs_scored_std_L10", "diff_runs_allowed_std_L10",
@@ -372,19 +388,18 @@ def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
             "diff_win_pct_L10_vs_league", "diff_run_diff_L10_vs_league",
             "diff_fatigue_index", "diff_form_power",
             "diff_pitcher_rest_days", "diff_pitcher_era_L5", "diff_pitcher_whip_L5",
-            "diff_pitcher_k_bb_L5", "diff_pitcher_quality_start_rate_L10",
+            "diff_pitcher_k_bb_L5", "diff_pitcher_bb_allowed_L5", "diff_pitcher_baserunners_allowed_L5", "diff_pitcher_total_bases_allowed_L5", "diff_pitcher_quality_start_rate_L10",
             "diff_pitcher_blowup_rate_L10", "diff_pitcher_era_trend",
             "diff_pitcher_whip_trend", "diff_pitcher_recent_quality_score",
             "diff_bullpen_runs_allowed_L5", "diff_bullpen_runs_allowed_L10", "diff_bullpen_load_L3",
             "diff_offense_vs_pitcher", "diff_pitcher_data_available", "both_pitchers_available",
         ]
         market_basic = baseball_only + [
-            "home_is_favorite",
             "odds_over_under",
             "market_missing",
         ]
         market_full = baseball_only + [
-            "home_is_favorite", "odds_over_under",
+            "odds_over_under",
             "open_line", "current_line", "line_movement",
             "open_total", "current_total", "total_movement",
             "current_home_moneyline", "current_away_moneyline", "current_total_line",
@@ -400,9 +415,32 @@ def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
         }
         if ablation_mode in ablation_map:
             preferred = ablation_map[ablation_mode]
-            print(f"   🧪 Full-game ablation mode: {ablation_mode}")
+            print(f"   INFO: Full-game ablation mode: {ablation_mode}")
         else:
-            print(f"   ⚠️ NBA_MLB_FULL_GAME_ABLATION desconocido: {ablation_mode}; usando everything")
+            print(f"   WARNING: NBA_MLB_FULL_GAME_ABLATION desconocido: {ablation_mode}; usando everything")
+
+        # Opt-in quirurgico: permite probar features experimentales sin mover el baseline por defecto.
+        experimental_raw = str(os.getenv("NBA_MLB_FULL_GAME_EXPERIMENTAL_FEATURES", "") or "").strip()
+        if experimental_raw:
+            allowed_experimental = {
+                "diff_baserunners_L10",
+                "diff_baserunners_allowed_L10",
+                "diff_runs_per_baserunner_L10",
+                "home_baserunners_L10",
+                "away_baserunners_L10",
+                "home_baserunners_allowed_L10",
+                "away_baserunners_allowed_L10",
+                "home_runs_per_baserunner_L10",
+                "away_runs_per_baserunner_L10",
+            }
+            requested = [token.strip() for token in experimental_raw.split(",") if token.strip()]
+            extras = [feat for feat in requested if feat in allowed_experimental]
+            unknown = [feat for feat in requested if feat not in allowed_experimental]
+            if unknown:
+                print(f"   WARNING: Features experimentales ignoradas (no permitidas): {unknown}")
+            if extras:
+                preferred = preferred + [feat for feat in extras if feat not in preferred]
+                print(f"   INFO: Full-game experimental features ON: {extras}")
 
     selected = [c for c in preferred if c in all_cols]
 
@@ -798,7 +836,7 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     xgb_model = build_xgb(scale_pos_weight, market_key)
     lgbm_model = build_lgbm(scale_pos_weight, market_key)
 
-    print(f"\n🚀 Entrenando mercado MLB: {market_key}")
+    print(f"\nðŸš€ Entrenando mercado MLB: {market_key}")
     print(f"   Target        : {target_col}")
     print(f"   Train rows    : {len(X_train)}")
     print(f"   Valid rows    : {len(X_valid)}")
@@ -807,7 +845,7 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
 
     if y_train.nunique() < 2:
         fixed_prob = 1.0 if int(y_train.iloc[0]) == 1 else 0.0
-        print(f"   ⚠️ Target single-class en train ({int(y_train.iloc[0])}). Usando modelo constante.")
+        print(f"   âš ï¸ Target single-class en train ({int(y_train.iloc[0])}). Usando modelo constante.")
         xgb_model = ConstantBinaryModel(fixed_prob)
         lgbm_model = ConstantBinaryModel(fixed_prob)
     else:
@@ -913,13 +951,13 @@ def train_single_market(df: pd.DataFrame, market_key: str, target_col: str, feat
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"   ✅ Guardado XGB   : {xgb_path}")
-    print(f"   ✅ Guardado LGBM  : {lgbm_path}")
-    print(f"   ✅ Threshold ens. : {best_threshold}")
-    print(f"   ✅ Selection mode : {selection_mode}")
-    print(f"   ✅ Accuracy ens.  : {ensemble_metrics['accuracy']:.4f}")
-    print(f"   ✅ LogLoss ens.   : {ensemble_metrics['logloss']:.4f}")
-    print(f"   ✅ ROC AUC ens.   : {ensemble_metrics['roc_auc']:.4f}")
+    print(f"   âœ… Guardado XGB   : {xgb_path}")
+    print(f"   âœ… Guardado LGBM  : {lgbm_path}")
+    print(f"   âœ… Threshold ens. : {best_threshold}")
+    print(f"   âœ… Selection mode : {selection_mode}")
+    print(f"   âœ… Accuracy ens.  : {ensemble_metrics['accuracy']:.4f}")
+    print(f"   âœ… LogLoss ens.   : {ensemble_metrics['logloss']:.4f}")
+    print(f"   âœ… ROC AUC ens.   : {ensemble_metrics['roc_auc']:.4f}")
 
     return {
         "market_key": market_key,
@@ -958,7 +996,7 @@ def train_single_regression_market(
     xgb_model = build_xgb_regressor(market_key)
     lgbm_model = build_lgbm_regressor(market_key)
 
-    print(f"\n🚀 Entrenando mercado MLB: {market_key}")
+    print(f"\nðŸš€ Entrenando mercado MLB: {market_key}")
     print(f"   Target        : {target_col}")
     print(f"   Train rows    : {len(X_train)}")
     print(f"   Valid rows    : {len(X_valid)}")
@@ -1019,11 +1057,11 @@ def train_single_regression_market(
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"   ✅ Guardado XGB   : {xgb_path}")
-    print(f"   ✅ Guardado LGBM  : {lgbm_path}")
-    print(f"   ✅ MAE ens.       : {ensemble_metrics['mae']:.4f}")
-    print(f"   ✅ RMSE ens.      : {ensemble_metrics['rmse']:.4f}")
-    print(f"   ✅ R2 ens.        : {ensemble_metrics['r2']:.4f}")
+    print(f"   âœ… Guardado XGB   : {xgb_path}")
+    print(f"   âœ… Guardado LGBM  : {lgbm_path}")
+    print(f"   âœ… MAE ens.       : {ensemble_metrics['mae']:.4f}")
+    print(f"   âœ… RMSE ens.      : {ensemble_metrics['rmse']:.4f}")
+    print(f"   âœ… R2 ens.        : {ensemble_metrics['r2']:.4f}")
 
     return {
         "market_key": market_key,
@@ -1040,7 +1078,7 @@ def train_all_models() -> Dict:
     df = load_dataset()
     feature_cols = get_feature_columns(df)
 
-    print("📦 Dataset MLB cargado")
+    print("ðŸ“¦ Dataset MLB cargado")
     print(f"   Filas totales : {len(df)}")
     print(f"   Features      : {len(feature_cols)}")
     print(f"   Archivo       : {INPUT_FILE}")
@@ -1050,7 +1088,7 @@ def train_all_models() -> Dict:
     for market_key, config in TARGET_CONFIG.items():
         market_feature_cols = get_market_feature_columns(df, market_key)
 
-        print(f"\n🧩 Features seleccionadas para {market_key}: {len(market_feature_cols)}")
+        print(f"\nðŸ§© Features seleccionadas para {market_key}: {len(market_feature_cols)}")
 
         result = train_single_market(
             df=df,
@@ -1063,7 +1101,7 @@ def train_all_models() -> Dict:
     for market_key, config in REGRESSION_TARGET_CONFIG.items():
         market_feature_cols = get_market_feature_columns(df, market_key)
 
-        print(f"\n🧩 Features seleccionadas para {market_key}: {len(market_feature_cols)}")
+        print(f"\nðŸ§© Features seleccionadas para {market_key}: {len(market_feature_cols)}")
 
         result = train_single_regression_market(
             df=df,
@@ -1077,7 +1115,7 @@ def train_all_models() -> Dict:
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print("\n📊 RESUMEN FINAL MLB")
+    print("\nðŸ“Š RESUMEN FINAL MLB")
     for market_key, result in results.items():
         metrics = result["ensemble_metrics"]
         if result.get("task_type") == "regression":
@@ -1096,7 +1134,7 @@ def train_all_models() -> Dict:
                 f"THR: {result['threshold']:.2f}"
             )
 
-    print(f"\n💾 Resumen guardado en: {summary_path}")
+    print(f"\nðŸ’¾ Resumen guardado en: {summary_path}")
     return results
 
 

@@ -56,6 +56,7 @@ export default function SidebarCalendar({
 
   const sportLinks = useMemo(() => ([
     { label: "NBA", path: "/nba" },
+    { label: "WNBA", path: "/wnba" },
     { label: "MLB", path: "/mlb" },
     { label: "NHL", path: "/nhl" },
     { label: "Liga MX", path: "/liga-mx" },

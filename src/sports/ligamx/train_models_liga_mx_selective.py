@@ -40,7 +40,7 @@ def _copy_market_dir(market_key: str) -> dict:
     }
 
 
-def _train_market_from_file(market_key: str, features_file: Path) -> dict:
+def _train_market_from_file(market_key: str, features_file: Path, source_label: str) -> dict:
     if not features_file.exists():
         raise FileNotFoundError(f"Missing features file: {features_file}")
 
@@ -60,7 +60,7 @@ def _train_market_from_file(market_key: str, features_file: Path) -> dict:
         problem_type=market_cfg["problem_type"],
     )
 
-    result["source"] = "v3_train"
+    result["source"] = source_label
     result["features_file"] = str(features_file)
     return result
 
@@ -80,14 +80,27 @@ def main() -> None:
     baseline_train.MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     summary = {}
-    for market_key in ["full_game", "ht_result", "over_25", "btts", "corners_over_95"]:
+    for market_key in ["full_game", "ht_result", "h1_over_15", "over_25", "btts", "corners_over_95"]:
         source = market_sources.get(market_key, "baseline")
-        if source == "v3" and market_key in {"over_25", "btts", "full_game", "ht_result"}:
+        baseline_market_dir = BASELINE_MODELS_DIR / market_key
+
+        if source == "v3" and market_key in {"over_25", "btts", "full_game", "ht_result", "h1_over_15"}:
             print(f"\n[TRAIN] {market_key} from v3 features")
-            summary[market_key] = _train_market_from_file(market_key, V3_FEATURES_FILE)
-        else:
+            summary[market_key] = _train_market_from_file(
+                market_key,
+                V3_FEATURES_FILE,
+                source_label="v3_train",
+            )
+        elif baseline_market_dir.exists():
             print(f"\n[COPY] {market_key} from baseline models")
             summary[market_key] = _copy_market_dir(market_key)
+        else:
+            print(f"\n[TRAIN] {market_key} from baseline features (missing baseline model dir)")
+            summary[market_key] = _train_market_from_file(
+                market_key,
+                BASELINE_FEATURES_FILE,
+                source_label="baseline_train",
+            )
 
     with open(SELECTIVE_SUMMARY_FILE, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)

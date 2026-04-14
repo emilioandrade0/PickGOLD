@@ -31,6 +31,7 @@ def add_v3_features(df: pd.DataFrame) -> pd.DataFrame:
             "away_ht_score",
             "total_ht_goals",
             "TARGET_ht_result",
+            "TARGET_h1_over_15",
             "TARGET_corners_over_95",
         ]
         if c in out.columns
