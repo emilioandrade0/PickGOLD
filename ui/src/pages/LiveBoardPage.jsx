@@ -280,13 +280,22 @@ export default function LiveBoardPage() {
             <h2 className="mt-2 text-2xl font-semibold text-white">Eventos en vivo con picks resumidos</h2>
             <p className="mt-1 text-sm text-white/60">Vista tipo lista para monitorear rapido sin salir de tu flujo.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => loadLiveBoards({ silent: true })}
-            className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/18"
-          >
-            {refreshing ? "Actualizando..." : "Actualizar ahora"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate("/live-edge")}
+              className="rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.1]"
+            >
+              Abrir Live Edge
+            </button>
+            <button
+              type="button"
+              onClick={() => loadLiveBoards({ silent: true })}
+              className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/18"
+            >
+              {refreshing ? "Actualizando..." : "Actualizar ahora"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">

@@ -144,6 +144,41 @@ export async function fetchTodayPredictions(sport) {
   return await fetchPredictionsWithSmartFallback(`/${sport}/predictions/today`);
 }
 
+export async function fetchLiveEdgeRecommendations({
+  sport = "",
+  includeNoSignal = false,
+  limit = 120,
+  track = true,
+  autosettle = true,
+} = {}) {
+  const params = new URLSearchParams();
+  if (sport) params.set("sport", String(sport));
+  if (includeNoSignal) params.set("include_no_signal", "true");
+  if (Number.isFinite(Number(limit))) params.set("limit", String(limit));
+  if (!track) params.set("track", "false");
+  if (!autosettle) params.set("autosettle", "false");
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return await fetchJsonWithRetry(`/live-edge/recommendations${suffix}`, {
+    timeoutMs: 45000,
+    retries: 1,
+    retryDelayMs: 1000,
+    errorMessage: "No se pudieron cargar las recomendaciones Live Edge.",
+  });
+}
+
+export async function fetchLiveEdgePerformance({ autosettle = true, window = "30d" } = {}) {
+  const params = new URLSearchParams();
+  if (!autosettle) params.set("autosettle", "false");
+  if (window) params.set("window", String(window));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return await fetchJsonWithRetry(`/live-edge/performance${suffix}`, {
+    timeoutMs: 30000,
+    retries: 1,
+    retryDelayMs: 800,
+    errorMessage: "No se pudo cargar el performance de Live Edge.",
+  });
+}
+
 export async function fetchPredictionsByDate(sport, dateStr) {
   try {
     return await fetchPredictionsWithSmartFallback(`/${sport}/predictions/${dateStr}`);

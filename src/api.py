@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import threading
+import uuid
 from datetime import date, datetime, timedelta
 import re
 from typing import Optional
@@ -5869,12 +5870,425 @@ LIVE_EDGE_SPORTS = [
     "bundesliga",
     "ligue1",
 ]
+LIVE_EDGE_TRACKING_DIR = BASE_DIR / "data" / "insights" / "live_edge_tracking"
+LIVE_EDGE_TRACKING_DIR.mkdir(parents=True, exist_ok=True)
+LIVE_EDGE_TRACKING_FILE = LIVE_EDGE_TRACKING_DIR / "picks.json"
 
 
 def _live_edge_normalize_token(value: str | None):
     text = str(value or "").upper().strip()
     text = re.sub(r"[^A-Z0-9]", "", text)
     return text
+
+
+def _live_edge_read_tracking_store():
+    if not LIVE_EDGE_TRACKING_FILE.exists():
+        return {"entries": []}
+    try:
+        with LIVE_EDGE_TRACKING_FILE.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception as exc:
+        print(f"[live-edge] tracking read failed: {exc}")
+        return {"entries": []}
+    if not isinstance(payload, dict):
+        return {"entries": []}
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        entries = []
+    return {"entries": entries}
+
+
+def _live_edge_write_tracking_store(payload: dict):
+    try:
+        LIVE_EDGE_TRACKING_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp_file = LIVE_EDGE_TRACKING_FILE.with_suffix(".tmp")
+        with temp_file.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        temp_file.replace(LIVE_EDGE_TRACKING_FILE)
+    except Exception as exc:
+        print(f"[live-edge] tracking write failed: {exc}")
+
+
+def _live_edge_parse_iso_datetime(value: str | None):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _live_edge_should_track_signal(signal: dict):
+    return str(signal.get("entry_action") or "").upper() == "BET" and str(signal.get("live_pick_market") or "").strip() != ""
+
+
+def _live_edge_tracking_key(signal: dict):
+    return "|".join([
+        str(signal.get("sport") or ""),
+        str(signal.get("event_date") or ""),
+        str(signal.get("game_id") or ""),
+        str(signal.get("live_pick_market") or ""),
+        str(signal.get("live_pick_team") or ""),
+        str(signal.get("live_pick_line") or ""),
+    ])
+
+
+def _live_edge_track_signals(signals: list[dict], dedupe_minutes: int = 30):
+    store = _live_edge_read_tracking_store()
+    entries = store.get("entries") or []
+    now = datetime.now()
+    dedupe_delta = timedelta(minutes=max(1, int(dedupe_minutes or 30)))
+    inserted = 0
+
+    for signal in signals:
+        if not _live_edge_should_track_signal(signal):
+            continue
+        key = _live_edge_tracking_key(signal)
+        if not key:
+            continue
+        duplicate = False
+        for row in reversed(entries[-500:]):
+            if row.get("tracking_key") != key:
+                continue
+            created_at = _live_edge_parse_iso_datetime(row.get("created_at"))
+            if created_at is None:
+                duplicate = True
+                break
+            if now - created_at <= dedupe_delta and str(row.get("status") or "open") == "open":
+                duplicate = True
+                break
+        if duplicate:
+            continue
+
+        entry = {
+            "id": f"lep_{uuid.uuid4().hex[:16]}",
+            "tracking_key": key,
+            "created_at": now.isoformat(),
+            "status": "open",
+            "result": None,
+            "result_units": None,
+            "settled_at": None,
+            "sport": signal.get("sport"),
+            "sport_label": signal.get("sport_label"),
+            "event_date": signal.get("event_date"),
+            "event_time": signal.get("event_time"),
+            "game_id": str(signal.get("game_id") or ""),
+            "away_team": signal.get("away_team"),
+            "home_team": signal.get("home_team"),
+            "market": signal.get("live_pick_market"),
+            "line": signal.get("live_pick_line"),
+            "team": signal.get("live_pick_team"),
+            "pick_text": signal.get("live_pick_text"),
+            "condition": signal.get("live_pick_condition"),
+            "odds_line_source": signal.get("odds_line_source"),
+            "estimated_progress": signal.get("estimated_progress"),
+            "signal_state": signal.get("signal_state"),
+            "strength": signal.get("strength"),
+            "confidence": signal.get("pregame_confidence"),
+            "recommendation": signal.get("recommendation"),
+        }
+        entries.append(entry)
+        inserted += 1
+
+    if inserted > 0:
+        max_entries = 8000
+        if len(entries) > max_entries:
+            entries = entries[-max_entries:]
+        _live_edge_write_tracking_store({"entries": entries})
+    return inserted
+
+
+def _live_edge_parse_signed_line(line_text):
+    if line_text is None:
+        return None
+    text = str(line_text).strip()
+    if not text:
+        return None
+    match = re.search(r"([+-]?\d+(?:\.\d+)?)", text)
+    if not match:
+        return None
+    try:
+        value = float(match.group(1))
+    except Exception:
+        return None
+    return value if np.isfinite(value) else None
+
+
+def _live_edge_is_final_event(event: dict):
+    state = str(event.get("status_state") or "").strip().lower()
+    if state in {"post", "final", "completed"}:
+        return True
+    if event.get("result_available") is True:
+        return True
+    return int(event.get("status_completed", 0) or 0) == 1
+
+
+def _live_edge_event_winner(event: dict):
+    away = str(event.get("away_team") or "").strip()
+    home = str(event.get("home_team") or "").strip()
+    away_score = _live_edge_score_number(event.get("away_score"))
+    home_score = _live_edge_score_number(event.get("home_score"))
+    if away_score is None or home_score is None:
+        return None
+    if away_score > home_score:
+        return away
+    if home_score > away_score:
+        return home
+    return None
+
+
+def _live_edge_settle_entry_against_event(entry: dict, event: dict):
+    market = str(entry.get("market") or "").upper()
+    team = str(entry.get("team") or "").strip()
+    line_value = _live_edge_parse_signed_line(entry.get("line"))
+    away = str(event.get("away_team") or "").strip()
+    home = str(event.get("home_team") or "").strip()
+    away_score = _live_edge_score_number(event.get("away_score"))
+    home_score = _live_edge_score_number(event.get("home_score"))
+    if away_score is None or home_score is None:
+        return None
+
+    if market == "MONEYLINE_LIVE":
+        winner = _live_edge_event_winner(event)
+        if not winner or not team:
+            return None
+        clear_margin = None
+        if team == away:
+            clear_margin = away_score - home_score
+        elif team == home:
+            clear_margin = home_score - away_score
+        return {
+            "result": "won" if winner == team else "lost",
+            "units": 1.0 if winner == team else -1.0,
+            "clear_margin": clear_margin,
+        }
+
+    if market in {"RUN_LINE_LIVE", "SPREAD_LIVE"}:
+        if line_value is None or not team:
+            return None
+        if team == away:
+            adjusted = away_score + line_value
+            other = home_score
+        elif team == home:
+            adjusted = home_score + line_value
+            other = away_score
+        else:
+            return None
+        if adjusted > other:
+            return {"result": "won", "units": 1.0, "clear_margin": adjusted - other}
+        if adjusted < other:
+            return {"result": "lost", "units": -1.0, "clear_margin": adjusted - other}
+        return {"result": "push", "units": 0.0, "clear_margin": 0.0}
+
+    if market == "TOTAL_LIVE":
+        line_text = str(entry.get("line") or "")
+        direction = "OVER" if "OVER" in line_text.upper() else ("UNDER" if "UNDER" in line_text.upper() else None)
+        if direction is None:
+            return None
+        total_line = _live_edge_parse_signed_line(line_text)
+        if total_line is None:
+            return None
+        total_score = away_score + home_score
+        if direction == "OVER":
+            diff = total_score - total_line
+            if total_score > total_line:
+                return {"result": "won", "units": 1.0, "clear_margin": diff}
+            if total_score < total_line:
+                return {"result": "lost", "units": -1.0, "clear_margin": diff}
+            return {"result": "push", "units": 0.0, "clear_margin": 0.0}
+        diff = total_line - total_score
+        if total_score < total_line:
+            return {"result": "won", "units": 1.0, "clear_margin": diff}
+        if total_score > total_line:
+            return {"result": "lost", "units": -1.0, "clear_margin": diff}
+        return {"result": "push", "units": 0.0, "clear_margin": 0.0}
+
+    # Next-inning micro-markets require granular event-level play-by-play that is not yet tracked.
+    if market in {"NO_RUN_NEXT_INNING", "RUN_NEXT_INNING"}:
+        return {"result": "ungraded", "units": 0.0}
+
+    return None
+
+
+def _live_edge_try_settle_open_entries(max_entries: int = 300):
+    store = _live_edge_read_tracking_store()
+    entries = store.get("entries") or []
+    if not entries:
+        return {"settled": 0, "open": 0}
+
+    open_indices = [idx for idx, row in enumerate(entries) if str(row.get("status") or "open") == "open"]
+    if not open_indices:
+        return {"settled": 0, "open": 0}
+
+    settled_count = 0
+    open_indices = open_indices[-max_entries:]
+
+    cache_by_sport_date: dict[tuple[str, str], list] = {}
+    for idx in open_indices:
+        row = entries[idx]
+        sport = str(row.get("sport") or "").strip()
+        date_key = str(row.get("event_date") or "").strip()
+        game_id = str(row.get("game_id") or "").strip()
+        if not sport or not date_key or not game_id:
+            continue
+        cache_key = (sport, date_key)
+        if cache_key not in cache_by_sport_date:
+            try:
+                events = get_predictions_by_date(sport, date_key)
+            except Exception:
+                events = []
+            cache_by_sport_date[cache_key] = _normalize_events_payload(events)
+        board = cache_by_sport_date.get(cache_key) or []
+        event = next((item for item in board if str(item.get("game_id") or "") == game_id), None)
+        if not event or not _live_edge_is_final_event(event):
+            continue
+        outcome = _live_edge_settle_entry_against_event(row, event)
+        if not outcome:
+            continue
+        row["status"] = "settled"
+        row["result"] = outcome.get("result")
+        row["result_units"] = outcome.get("units")
+        row["clear_margin"] = outcome.get("clear_margin")
+        row["settled_at"] = datetime.now().isoformat()
+        row["final_away_score"] = event.get("away_score")
+        row["final_home_score"] = event.get("home_score")
+        settled_count += 1
+
+    if settled_count > 0:
+        _live_edge_write_tracking_store({"entries": entries})
+
+    open_count = len([row for row in entries if str(row.get("status") or "open") == "open"])
+    return {"settled": settled_count, "open": open_count}
+
+
+def _live_edge_build_performance_payload(window: str = "30d"):
+    store = _live_edge_read_tracking_store()
+    all_entries = store.get("entries") or []
+    now = datetime.now()
+    window_key = str(window or "30d").strip().lower()
+
+    if window_key == "today":
+        entries = []
+        for row in all_entries:
+            created_at = _live_edge_parse_iso_datetime(row.get("created_at"))
+            if created_at and created_at.date() == now.date():
+                entries.append(row)
+    elif window_key in {"7d", "30d"}:
+        days = 7 if window_key == "7d" else 30
+        cutoff = now - timedelta(days=days)
+        entries = []
+        for row in all_entries:
+            created_at = _live_edge_parse_iso_datetime(row.get("created_at"))
+            if created_at and created_at >= cutoff:
+                entries.append(row)
+    else:
+        window_key = "all"
+        entries = list(all_entries)
+
+    settled_rows = [row for row in entries if str(row.get("status") or "") == "settled"]
+    graded_rows = [row for row in settled_rows if str(row.get("result") or "").lower() in {"won", "lost", "push"}]
+
+    total = len(graded_rows)
+    won = len([row for row in graded_rows if str(row.get("result")).lower() == "won"])
+    lost = len([row for row in graded_rows if str(row.get("result")).lower() == "lost"])
+    push = len([row for row in graded_rows if str(row.get("result")).lower() == "push"])
+    ungraded = len([row for row in settled_rows if str(row.get("result") or "").lower() == "ungraded"])
+    open_count = len([row for row in entries if str(row.get("status") or "open") == "open"])
+
+    units = 0.0
+    for row in graded_rows:
+        value = _live_edge_float(row.get("result_units"))
+        if value is not None:
+            units += value
+
+    hit_rate = (won / total) * 100 if total > 0 else 0.0
+    roi = (units / total) * 100 if total > 0 else 0.0
+
+    clear_margins = []
+    for row in graded_rows:
+        value = _live_edge_float(row.get("clear_margin"))
+        if value is not None:
+            clear_margins.append(value)
+    avg_clear_margin = (sum(clear_margins) / len(clear_margins)) if clear_margins else 0.0
+
+    clv_source_weights = {
+        "live_feed": 1.0,
+        "reference_feed": 0.55,
+        "model_logic": 0.35,
+        "n/a": 0.0,
+    }
+    clv_points = []
+    for row in graded_rows:
+        source = str(row.get("odds_line_source") or "n/a").strip().lower()
+        if source in clv_source_weights:
+            clv_points.append(clv_source_weights[source])
+    clv_proxy = (sum(clv_points) / len(clv_points) * 100) if clv_points else 0.0
+
+    def build_group(rows: list[dict], key_name: str):
+        buckets: dict[str, dict] = {}
+        for row in rows:
+            key = str(row.get(key_name) or "N/A")
+            if key not in buckets:
+                buckets[key] = {"key": key, "bets": 0, "won": 0, "lost": 0, "push": 0, "units": 0.0, "clear_margin_sum": 0.0, "clear_margin_count": 0}
+            bucket = buckets[key]
+            result = str(row.get("result") or "").lower()
+            if result not in {"won", "lost", "push"}:
+                continue
+            bucket["bets"] += 1
+            if result == "won":
+                bucket["won"] += 1
+            elif result == "lost":
+                bucket["lost"] += 1
+            else:
+                bucket["push"] += 1
+            unit_value = _live_edge_float(row.get("result_units")) or 0.0
+            bucket["units"] += unit_value
+            clear_margin = _live_edge_float(row.get("clear_margin"))
+            if clear_margin is not None:
+                bucket["clear_margin_sum"] += clear_margin
+                bucket["clear_margin_count"] += 1
+
+        out = []
+        for bucket in buckets.values():
+            bets = bucket["bets"]
+            bucket["hit_rate"] = (bucket["won"] / bets) * 100 if bets > 0 else 0.0
+            bucket["roi"] = (bucket["units"] / bets) * 100 if bets > 0 else 0.0
+            if bucket["clear_margin_count"] > 0:
+                bucket["avg_clear_margin"] = bucket["clear_margin_sum"] / bucket["clear_margin_count"]
+            else:
+                bucket["avg_clear_margin"] = 0.0
+            bucket.pop("clear_margin_sum", None)
+            bucket.pop("clear_margin_count", None)
+            out.append(bucket)
+        out.sort(key=lambda item: item.get("bets", 0), reverse=True)
+        return out
+
+    by_market = build_group(graded_rows, "market")
+    by_sport = build_group(graded_rows, "sport")
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "model_key": "live_edge_v3",
+        "window": window_key,
+        "summary": {
+            "tracked_entries": len(entries),
+            "open_entries": open_count,
+            "settled_entries": len(settled_rows),
+            "graded_bets": total,
+            "won": won,
+            "lost": lost,
+            "push": push,
+            "ungraded": ungraded,
+            "hit_rate": round(hit_rate, 2),
+            "units": round(units, 2),
+            "roi": round(roi, 2),
+            "avg_clear_margin": round(avg_clear_margin, 2),
+            "clv_proxy": round(clv_proxy, 2),
+        },
+        "by_market": by_market,
+        "by_sport": by_sport,
+    }
 
 
 def _live_edge_score_number(value):
@@ -5922,6 +6336,202 @@ def _live_edge_margin_threshold(sport: str):
     if _live_edge_is_baseball_like(sport):
         return 2
     return 2
+
+
+def _live_edge_extract_number_from_text(text: str, pattern: str):
+    match = re.search(pattern, text or "", flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return float(match.group(1))
+    except Exception:
+        return None
+
+
+def _live_edge_float(value):
+    try:
+        out = float(value)
+    except Exception:
+        return None
+    if not np.isfinite(out):
+        return None
+    return out
+
+
+def _live_edge_pick_total_line(event: dict):
+    live_keys = (
+        "live_total_line",
+        "total_live_line",
+        "odds_over_under_live",
+        "current_total_line",
+        "inplay_total_line",
+    )
+    for key in live_keys:
+        value = _live_edge_float(event.get(key))
+        if value is not None and value > 0:
+            return value, "live_feed"
+
+    for key in ("closing_total_line", "odds_over_under", "total_line"):
+        value = _live_edge_float(event.get(key))
+        if value is not None and value > 0:
+            return value, "reference_feed"
+    return None, "missing"
+
+
+def _live_edge_runs_recent(event: dict, lookback_half_innings: int = 4):
+    away = event.get("away_inning_scores")
+    home = event.get("home_inning_scores")
+    if not isinstance(away, list) or not isinstance(home, list):
+        return None
+    seq = []
+    max_len = max(len(away), len(home))
+    for idx in range(max_len):
+        if idx < len(away):
+            seq.append(_live_edge_score_number(away[idx]) or 0)
+        if idx < len(home):
+            seq.append(_live_edge_score_number(home[idx]) or 0)
+    if not seq:
+        return None
+    return sum(seq[-lookback_half_innings:])
+
+
+def _live_edge_estimated_progress(event: dict, sport: str):
+    detail = str(event.get("status_detail") or "").strip().lower()
+    description = str(event.get("status_description") or "").strip().lower()
+    status_text = f"{description} {detail}".strip()
+
+    if _live_edge_is_baseball_like(sport):
+        inning = _live_edge_extract_number_from_text(status_text, r"(?:top|bot|end)\s*(\d+)")
+        if inning is not None:
+            return max(0.0, min(float(inning) / 9.0, 1.0))
+        home_innings = event.get("home_inning_scores") if isinstance(event.get("home_inning_scores"), list) else []
+        away_innings = event.get("away_inning_scores") if isinstance(event.get("away_inning_scores"), list) else []
+        played = max(len(home_innings), len(away_innings))
+        if played > 0:
+            return max(0.0, min(float(played) / 9.0, 1.0))
+        return 0.35
+
+    if _live_edge_is_basketball_like(sport):
+        quarter = _live_edge_extract_number_from_text(status_text, r"(\d+)(?:st|nd|rd|th)?\s*(?:q|quarter)")
+        mm = _live_edge_extract_number_from_text(status_text, r"(\d+):\d{2}")
+        quarter_length = 12.0 if sport in {"nba", "wnba"} else 10.0
+        if quarter is not None:
+            remaining = max(0.0, min((mm or 0.0), quarter_length))
+            elapsed_in_quarter = quarter_length - remaining
+            total_quarters = 4.0
+            progress = ((max(1.0, quarter) - 1.0) + (elapsed_in_quarter / quarter_length)) / total_quarters
+            return max(0.0, min(progress, 1.0))
+        return 0.5
+
+    if sport == "nhl":
+        period = _live_edge_extract_number_from_text(status_text, r"(\d+)(?:st|nd|rd|th)?\s*(?:p|period)")
+        mm = _live_edge_extract_number_from_text(status_text, r"(\d+):\d{2}")
+        if period is not None:
+            period_length = 20.0
+            remaining = max(0.0, min((mm or 0.0), period_length))
+            elapsed = period_length - remaining
+            progress = ((max(1.0, period) - 1.0) + (elapsed / period_length)) / 3.0
+            return max(0.0, min(progress, 1.0))
+        return 0.5
+
+    if sport in {"liga_mx", "laliga", "bundesliga", "ligue1"}:
+        minute = _live_edge_extract_number_from_text(status_text, r"(\d+)\s*'")
+        if minute is not None:
+            return max(0.0, min(float(minute) / 90.0, 1.0))
+        if "half" in status_text or "tiempo" in status_text:
+            if "2" in status_text:
+                return 0.65
+            return 0.4
+        return 0.5
+
+    return 0.5
+
+
+def _live_edge_collect_live_stats(event: dict, sport: str):
+    candidates = {
+        "away_hits": ["away_hits", "hits_away", "away_total_hits", "away_hit_total"],
+        "home_hits": ["home_hits", "hits_home", "home_total_hits", "home_hit_total"],
+        "away_errors": ["away_errors", "errors_away", "away_error_total"],
+        "home_errors": ["home_errors", "errors_home", "home_error_total"],
+        "away_strikeouts": ["away_strikeouts", "strikeouts_away", "away_k"],
+        "home_strikeouts": ["home_strikeouts", "strikeouts_home", "home_k"],
+        "away_shots": ["away_shots", "shots_away", "away_shots_total"],
+        "home_shots": ["home_shots", "shots_home", "home_shots_total"],
+        "away_shots_on_target": ["away_shots_on_target", "shots_on_target_away"],
+        "home_shots_on_target": ["home_shots_on_target", "shots_on_target_home"],
+        "away_corners": ["away_corners", "corners_away"],
+        "home_corners": ["home_corners", "corners_home"],
+        "away_possession": ["away_possession", "possession_away"],
+        "home_possession": ["home_possession", "possession_home"],
+        "away_turnovers": ["away_turnovers", "turnovers_away"],
+        "home_turnovers": ["home_turnovers", "turnovers_home"],
+    }
+
+    out = {}
+    for out_key, keys in candidates.items():
+        value = None
+        for key in keys:
+            if key in event and event.get(key) is not None:
+                value = event.get(key)
+                break
+        number = _live_edge_score_number(value)
+        if number is not None:
+            out[out_key] = number
+
+    out["coverage"] = "rich" if len(out) >= 6 else ("partial" if len(out) >= 2 else "limited")
+    out["sport"] = sport
+    return out
+
+
+def _live_edge_baseball_momentum(event: dict, pick_side: str | None):
+    if pick_side not in {"away", "home"}:
+        return None
+    away = event.get("away_inning_scores")
+    home = event.get("home_inning_scores")
+    if not isinstance(away, list) or not isinstance(home, list):
+        return None
+    away_recent = sum([_live_edge_score_number(v) or 0 for v in away[-2:]])
+    home_recent = sum([_live_edge_score_number(v) or 0 for v in home[-2:]])
+    if pick_side == "away":
+        return away_recent - home_recent
+    return home_recent - away_recent
+
+
+def _live_edge_build_pick_text(market: str | None, team: str | None, line: str | None):
+    if not market:
+        return "No entrar por ahora."
+    if market == "MONEYLINE_LIVE":
+        return f"ML en vivo: {team}" if team else "ML en vivo"
+    if market == "RUN_LINE_LIVE":
+        if team and line:
+            return f"Run Line en vivo: {team} {line}"
+        return f"Run Line en vivo: {team}" if team else "Run Line en vivo"
+    if market == "SPREAD_LIVE":
+        if team and line:
+            return f"Spread en vivo: {team} {line}"
+        return f"Spread en vivo: {team}" if team else "Spread en vivo"
+    if market == "TOTAL_LIVE":
+        return f"Total en vivo: {line}" if line else "Total en vivo"
+    if market == "NO_RUN_NEXT_INNING":
+        return "Proxima entrada sin carrera: SI"
+    if market == "RUN_NEXT_INNING":
+        return "Proxima entrada con carrera: SI"
+    return "Monitorear entrada."
+
+
+def _live_edge_dynamic_baseball_runline(margin: int | None, progress: float):
+    if margin is None or margin <= 0:
+        return "-1.5"
+    # Pushes to more realistic alt-lines when the favorite is already leading by multiple runs.
+    if margin >= 4:
+        if progress <= 0.6:
+            return f"-{margin + 0.5:.1f}"
+        return f"-{max(2.5, margin - 0.5):.1f}"
+    if margin == 3:
+        return "-3.5" if progress <= 0.7 else "-2.5"
+    if margin == 2:
+        return "-2.5" if progress <= 0.68 else "-1.5"
+    return "-1.5"
 
 
 def _live_edge_resolve_pick_team(event: dict):
@@ -5986,12 +6596,23 @@ def _live_edge_build_signal(event: dict, sport: str):
             lead_team = home_team
 
     threshold = _live_edge_margin_threshold(sport)
+    progress = _live_edge_estimated_progress(event, sport)
+    stats_snapshot = _live_edge_collect_live_stats(event, sport)
+    baseball_momentum = _live_edge_baseball_momentum(event, pick_side) if _live_edge_is_baseball_like(sport) else None
+
     recommendation = "MONITOREAR"
     recommendation_short = "Monitor"
     risk_level = "medium"
     strength = "NORMAL"
     reason = "Se requiere mas contexto en vivo para una entrada clara."
     signal_state = "WATCH"
+    entry_action = "WAIT"
+    live_pick_team = None
+    live_pick_market = None
+    live_pick_line = None
+    live_pick_text = "Esperar, aun sin entrada clara."
+    live_pick_condition = None
+    odds_line_source = "n/a"
 
     if pick_side is None:
         recommendation = "SIN SENAL LIVE"
@@ -6000,6 +6621,9 @@ def _live_edge_build_signal(event: dict, sport: str):
         strength = "NORMAL"
         reason = "No hay pick pregame interpretable para construir una recomendacion live separada."
         signal_state = "NO_SIGNAL"
+        entry_action = "NO_BET"
+        live_pick_market = None
+        live_pick_text = "No entrar (sin senal live clara)."
     elif margin is None:
         recommendation = "MONITOREAR SIN SCORE CONFIRMADO"
         recommendation_short = "Monitor"
@@ -6007,36 +6631,175 @@ def _live_edge_build_signal(event: dict, sport: str):
         strength = "NORMAL"
         reason = "El marcador en vivo aun no esta disponible o no es confiable."
         signal_state = "WATCH"
-    elif lead_side is None:
-        if (confidence or 0) >= 65:
-            recommendation = "VALOR LIVE EN PICK PRINCIPAL"
+        entry_action = "WAIT"
+        live_pick_market = None
+        live_pick_text = "Esperar confirmacion de score en vivo."
+    elif _live_edge_is_baseball_like(sport):
+        if lead_side is None:
+            if (confidence or 0) >= 65:
+                recommendation = "VALOR LIVE EN PICK PRINCIPAL"
+                recommendation_short = "Value"
+                risk_level = "medium"
+                strength = "STRONG"
+                reason = "Juego empatado con pick pregame de alta confianza."
+                signal_state = "VALUE"
+                entry_action = "BET"
+                live_pick_team = pick_team
+                live_pick_market = "MONEYLINE_LIVE"
+            else:
+                recommendation = "ESPERAR NUEVO MOVIMIENTO"
+                recommendation_short = "Wait"
+                risk_level = "medium"
+                strength = "NORMAL"
+                reason = "Juego empatado; conviene esperar una mejor ventana."
+                signal_state = "WAIT"
+                entry_action = "WAIT"
+        elif lead_side == pick_side:
+            if margin >= 2 and progress < 0.72:
+                preferred_run_line = _live_edge_dynamic_baseball_runline(margin, progress)
+                recommendation = "APROVECHAR RUN LINE A FAVOR"
+                recommendation_short = "Run line"
+                risk_level = "low"
+                strength = "PREMIUM" if (confidence or 0) >= 60 else "STRONG"
+                reason = f"{pick_team} domina por {margin} y el juego aun no esta en tramo final."
+                signal_state = "FOLLOW"
+                entry_action = "BET"
+                live_pick_team = pick_team
+                live_pick_market = "RUN_LINE_LIVE"
+                live_pick_line = preferred_run_line
+                if preferred_run_line != "-1.5":
+                    reason = f"{reason} Linea dinamica sugerida para evitar precio bajo de -1.5."
+            elif margin == 1 and progress < 0.58:
+                recommendation = "LINEA CORTA SOBRE EL LIDER"
+                recommendation_short = "Alt line"
+                risk_level = "medium"
+                strength = "STRONG"
+                reason = f"{pick_team} arriba por 1 en fase temprana/media; preferible linea corta sobre ML caro."
+                signal_state = "HOLD"
+                entry_action = "BET"
+                live_pick_team = pick_team
+                live_pick_market = "RUN_LINE_LIVE"
+                live_pick_line = "-0.5"
+            else:
+                recommendation = "PROTEGER GANANCIA, EVITAR ENTRADA TARDIA"
+                recommendation_short = "Wait"
+                risk_level = "medium"
+                strength = "NORMAL"
+                reason = "La ventaja existe pero el timing/linea ya no aporta valor claro."
+                signal_state = "WAIT"
+                entry_action = "WAIT"
+        else:
+            if margin <= 1 and progress < 0.78 and (confidence or 0) >= 64:
+                recommendation = "ESCENARIO DE REMONTADA CON COLCHON"
+                recommendation_short = "Comeback"
+                risk_level = "medium"
+                strength = "STRONG"
+                reason = f"{pick_team} cae por margen corto; mejor usar Run Line con colchón."
+                signal_state = "VALUE"
+                entry_action = "BET"
+                live_pick_team = pick_team
+                live_pick_market = "RUN_LINE_LIVE"
+                live_pick_line = "+1.5"
+                if baseball_momentum is not None and baseball_momentum > 0:
+                    reason = f"{reason} Momento ofensivo reciente favorable ({baseball_momentum:+.0f} en ultimos innings)."
+            elif margin >= 2 and progress >= 0.6:
+                recommendation = "NO ENTRAR CONTRA INERCIA"
+                recommendation_short = "No bet"
+                risk_level = "high"
+                strength = "NORMAL"
+                reason = f"{lead_team} domina por {margin} en fase media/tardia."
+                signal_state = "NO_BET"
+                entry_action = "NO_BET"
+            else:
+                recommendation = "ESPERAR MEJOR VENTANA"
+                recommendation_short = "Wait"
+                risk_level = "medium"
+                strength = "NORMAL"
+                reason = "Sin ventaja estadistica suficiente para entrada live inmediata."
+                signal_state = "WAIT"
+                entry_action = "WAIT"
+    elif _live_edge_is_basketball_like(sport):
+        if lead_side == pick_side and margin >= 6 and progress < 0.78:
+            recommendation = "SPREAD A FAVOR DEL LIDER"
+            recommendation_short = "Spread"
+            risk_level = "low"
+            strength = "PREMIUM" if (confidence or 0) >= 60 else "STRONG"
+            reason = f"{pick_team} controla el juego y aun hay tiempo para sostener margen."
+            signal_state = "FOLLOW"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "SPREAD_LIVE"
+            live_pick_line = "-3.5"
+        elif lead_side != pick_side and margin <= 5 and progress < 0.72 and (confidence or 0) >= 66:
+            recommendation = "REMONTADA CON SPREAD POSITIVO"
+            recommendation_short = "Comeback"
+            risk_level = "medium"
+            strength = "STRONG"
+            reason = f"{pick_team} sigue vivo; mejor via spread con puntos a favor."
+            signal_state = "VALUE"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "SPREAD_LIVE"
+            live_pick_line = "+6.5"
+        elif lead_side is None and (confidence or 0) >= 65:
+            recommendation = "VALOR EN EMPATE"
             recommendation_short = "Value"
             risk_level = "medium"
             strength = "STRONG"
-            reason = "Juego empatado con pick pregame de alta confianza."
+            reason = "Marcador corto/empatado; el pick base mantiene valor."
             signal_state = "VALUE"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "MONEYLINE_LIVE"
         else:
-            recommendation = "ESPERAR NUEVO MOVIMIENTO"
+            recommendation = "ESPERAR NUEVO TRAMO"
             recommendation_short = "Wait"
             risk_level = "medium"
             strength = "NORMAL"
-            reason = "Juego empatado; conviene esperar una mejor ventana de entrada."
+            reason = "Sin edge claro para entrada de spread/ML en este momento."
             signal_state = "WAIT"
-    elif lead_side == pick_side:
-        if margin >= threshold and (confidence or 0) >= 60:
-            recommendation = "SEGUIR PICK PRINCIPAL EN LIVE"
-            recommendation_short = "Follow"
-            risk_level = "low"
-            strength = "PREMIUM"
-            reason = f"{pick_team} ya lidera por {margin}; el contexto favorece continuidad."
-            signal_state = "FOLLOW"
-        else:
-            recommendation = "MANTENER Y MONITOREAR LINEA"
-            recommendation_short = "Hold"
+            entry_action = "WAIT"
+    elif _live_edge_is_hockey_or_soccer(sport):
+        if lead_side == pick_side and margin == 1 and progress < 0.72:
+            recommendation = "PROTECCION CON LINEA CONSERVADORA"
+            recommendation_short = "Protect"
             risk_level = "medium"
-            strength = "STRONG" if (confidence or 0) >= 60 else "NORMAL"
-            reason = f"{pick_team} va arriba, pero aun sin separacion fuerte para una entrada agresiva."
+            strength = "STRONG"
+            reason = f"{pick_team} arriba por la minima; mejor tomar linea conservadora."
             signal_state = "HOLD"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "SPREAD_LIVE"
+            live_pick_line = "-0.5"
+        elif lead_side != pick_side and margin == 1 and progress < 0.68 and (confidence or 0) >= 66:
+            recommendation = "BUSCAR REMONTADA CON COLCHON"
+            recommendation_short = "Comeback"
+            risk_level = "medium"
+            strength = "STRONG"
+            reason = f"{pick_team} pierde por uno; hay ventana para jugar con +0.5."
+            signal_state = "VALUE"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "SPREAD_LIVE"
+            live_pick_line = "+0.5"
+        elif lead_side is None and (confidence or 0) >= 65:
+            recommendation = "VALOR EN ML DE PICK BASE"
+            recommendation_short = "Value"
+            risk_level = "medium"
+            strength = "STRONG"
+            reason = "Empate parcial con confianza base favorable."
+            signal_state = "VALUE"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "MONEYLINE_LIVE"
+        else:
+            recommendation = "NO FORZAR ENTRADA"
+            recommendation_short = "Wait"
+            risk_level = "medium"
+            strength = "NORMAL"
+            reason = "Mercado muy ajustado en este tramo; conviene esperar."
+            signal_state = "WAIT"
+            entry_action = "WAIT"
     else:
         if margin >= (threshold + 1):
             recommendation = "NO ENTRAR LIVE POR AHORA"
@@ -6045,6 +6808,7 @@ def _live_edge_build_signal(event: dict, sport: str):
             strength = "NORMAL"
             reason = f"{lead_team} domina por {margin}; riesgo alto para ir contra la inercia."
             signal_state = "NO_BET"
+            entry_action = "NO_BET"
         elif margin <= 1 and (confidence or 0) >= 66:
             recommendation = "VALOR CONTRARIAN EN PICK PRINCIPAL"
             recommendation_short = "Contrarian"
@@ -6052,6 +6816,9 @@ def _live_edge_build_signal(event: dict, sport: str):
             strength = "STRONG"
             reason = f"{pick_team} pierde por margen corto y mantiene respaldo de confianza pregame."
             signal_state = "VALUE"
+            entry_action = "BET"
+            live_pick_team = pick_team
+            live_pick_market = "MONEYLINE_LIVE"
         else:
             recommendation = "ESPERAR MEJOR MOMENTO DE ENTRADA"
             recommendation_short = "Wait"
@@ -6059,10 +6826,157 @@ def _live_edge_build_signal(event: dict, sport: str):
             strength = "NORMAL"
             reason = "El juego va en contra del pick pregame sin ventaja estadistica suficiente."
             signal_state = "WAIT"
+            entry_action = "WAIT"
+
+    if entry_action != "BET" and not live_pick_market:
+        live_pick_text = "Esperar mejor momento de entrada." if entry_action == "WAIT" else "No entrar por ahora."
+    else:
+        live_pick_text = _live_edge_build_pick_text(live_pick_market, live_pick_team, live_pick_line)
+
+    # Candidate-market optimizer (v3): evaluate multiple live markets and choose the best edge.
+    signal_score = {
+        "FOLLOW": 74,
+        "VALUE": 70,
+        "HOLD": 64,
+        "WAIT": 50,
+        "WATCH": 48,
+        "NO_BET": 26,
+        "NO_SIGNAL": 20,
+    }.get(signal_state, 50)
+    strength_bonus = {"PREMIUM": 7, "STRONG": 4, "NORMAL": 0}.get(str(strength).upper(), 0)
+    confidence_bonus = min(8, max(0, ((confidence or 0) - 55) / 3.0))
+    base_score = signal_score + strength_bonus + confidence_bonus
+
+    candidates = [{
+        "market": live_pick_market,
+        "team": live_pick_team,
+        "line": live_pick_line,
+        "action": entry_action,
+        "text": live_pick_text,
+        "score": base_score,
+        "label": "base_signal",
+        "reason": reason,
+    }]
+
+    current_total = None
+    if away_score is not None and home_score is not None:
+        current_total = float(away_score + home_score)
+    total_line, total_line_source = _live_edge_pick_total_line(event)
+
+    if current_total is not None and total_line is not None and 0.12 <= progress <= 0.94:
+        pace_total = current_total / max(progress, 0.18)
+        edge = pace_total - total_line
+        edge_threshold = 1.0 if _live_edge_is_baseball_like(sport) else (8.0 if _live_edge_is_basketball_like(sport) else 0.9)
+        if abs(edge) >= edge_threshold:
+            direction = "Over" if edge > 0 else "Under"
+            scale = 5.5 if _live_edge_is_basketball_like(sport) else 3.0
+            source_penalty = 8 if total_line_source != "live_feed" else 0
+            total_score = 62 + min(18, abs(edge) * scale / max(edge_threshold, 0.8)) + confidence_bonus - source_penalty
+            required_line = total_line
+            if direction == "Under":
+                condition_text = f"Tomar solo si la linea actual es >= {required_line:.1f}"
+            else:
+                condition_text = f"Tomar solo si la linea actual es <= {required_line:.1f}"
+            candidates.append({
+                "market": "TOTAL_LIVE",
+                "team": None,
+                "line": f"{direction} {total_line:.1f}",
+                "action": "BET",
+                "text": _live_edge_build_pick_text("TOTAL_LIVE", None, f"{direction} {total_line:.1f}"),
+                "score": total_score,
+                "label": "total_pace",
+                "reason": f"Ritmo live proyecta {pace_total:.1f} vs linea {total_line:.1f} ({'live' if total_line_source == 'live_feed' else 'referencia'}).",
+                "line_source": total_line_source,
+                "condition": condition_text,
+            })
+
+    if _live_edge_is_baseball_like(sport):
+        recent_runs = _live_edge_runs_recent(event, lookback_half_innings=4)
+        if recent_runs is not None and progress <= 0.93:
+            if recent_runs <= 1 and current_total is not None and current_total <= 7:
+                no_run_score = 67 + (1 - recent_runs) * 6 + confidence_bonus
+                candidates.append({
+                    "market": "NO_RUN_NEXT_INNING",
+                    "team": None,
+                    "line": None,
+                    "action": "BET",
+                    "text": _live_edge_build_pick_text("NO_RUN_NEXT_INNING", None, None),
+                    "score": no_run_score,
+                    "label": "next_inning_quiet",
+                    "reason": f"Ritmo ofensivo bajo en ultimas medias entradas ({recent_runs} carrera/s).",
+                })
+            elif recent_runs >= 4:
+                run_score = 64 + min(10, recent_runs) + confidence_bonus
+                candidates.append({
+                    "market": "RUN_NEXT_INNING",
+                    "team": None,
+                    "line": None,
+                    "action": "BET",
+                    "text": _live_edge_build_pick_text("RUN_NEXT_INNING", None, None),
+                    "score": run_score,
+                    "label": "next_inning_hot",
+                    "reason": f"Ritmo ofensivo alto reciente ({recent_runs} carreras).",
+                })
+
+    if _live_edge_is_basketball_like(sport) and lead_side and pick_side and lead_side != pick_side and margin is not None and margin <= 5 and progress <= 0.8:
+        spread_plus = 6.5 if margin >= 4 else 4.5
+        comeback_score = 66 + confidence_bonus + (2 if margin <= 3 else 0)
+        candidates.append({
+            "market": "SPREAD_LIVE",
+            "team": pick_team,
+            "line": f"+{spread_plus:.1f}",
+            "action": "BET",
+            "text": _live_edge_build_pick_text("SPREAD_LIVE", pick_team, f"+{spread_plus:.1f}"),
+            "score": comeback_score,
+            "label": "basket_comeback_spread",
+            "reason": f"Escenario de remontada; mejor proteger entrada con spread positivo (+{spread_plus:.1f}).",
+        })
+
+    valid_candidates = [c for c in candidates if c.get("score") is not None]
+    best_candidate = max(valid_candidates, key=lambda c: float(c.get("score") or 0.0))
+
+    live_pick_market = best_candidate.get("market")
+    live_pick_team = best_candidate.get("team")
+    live_pick_line = best_candidate.get("line")
+    entry_action = best_candidate.get("action") or ("BET" if (live_pick_market and live_pick_market != "NO_BET") else "WAIT")
+    live_pick_text = str(best_candidate.get("text") or _live_edge_build_pick_text(live_pick_market, live_pick_team, live_pick_line))
+    reason = str(best_candidate.get("reason") or reason)
+    live_pick_condition = best_candidate.get("condition")
+    odds_line_source = str(best_candidate.get("line_source") or ("model_logic" if live_pick_market else "n/a"))
+
+    if live_pick_market == "RUN_LINE_LIVE" and odds_line_source == "model_logic" and live_pick_line and not live_pick_condition:
+        live_pick_condition = f"Tomar solo si consigues linea {live_pick_line} o mejor en tu casa."
+
+    if entry_action == "BET":
+        recommendation = {
+            "TOTAL_LIVE": "APROVECHAR TOTAL EN VIVO",
+            "NO_RUN_NEXT_INNING": "SIN CARRERA EN PROXIMA ENTRADA",
+            "RUN_NEXT_INNING": "CARRERA EN PROXIMA ENTRADA",
+            "RUN_LINE_LIVE": "APROVECHAR RUN LINE A FAVOR",
+            "SPREAD_LIVE": "APROVECHAR SPREAD EN VIVO",
+            "MONEYLINE_LIVE": "VALOR EN MONEYLINE EN VIVO",
+        }.get(live_pick_market, recommendation)
+        recommendation_short = {
+            "TOTAL_LIVE": "Total",
+            "NO_RUN_NEXT_INNING": "No run",
+            "RUN_NEXT_INNING": "Run yes",
+            "RUN_LINE_LIVE": "Run line",
+            "SPREAD_LIVE": "Spread",
+            "MONEYLINE_LIVE": "ML",
+        }.get(live_pick_market, recommendation_short)
+        signal_state = "VALUE" if best_candidate.get("score", 0) < 72 else "FOLLOW"
+    elif entry_action == "NO_BET":
+        signal_state = "NO_BET"
+        recommendation_short = "No bet"
+        recommendation = "NO ENTRAR LIVE POR AHORA"
+    else:
+        signal_state = "WAIT"
+        recommendation_short = "Wait"
+        recommendation = "ESPERAR MEJOR MOMENTO DE ENTRADA"
 
     return {
         "separation_tag": "LIVE_EDGE_ONLY",
-        "model_key": "live_edge_v1",
+        "model_key": "live_edge_v3",
         "sport": sport,
         "sport_label": SPORTS_CONFIG.get(sport, {}).get("label") or sport.upper(),
         "game_id": str(event.get("game_id") or ""),
@@ -6082,7 +6996,16 @@ def _live_edge_build_signal(event: dict, sport: str):
         "pregame_confidence": confidence,
         "recommendation": recommendation,
         "recommendation_short": recommendation_short,
-        "recommended_market": "LIVE_MONEYLINE",
+        "recommended_market": live_pick_market or "NO_BET",
+        "entry_action": entry_action,
+        "live_pick_market": live_pick_market,
+        "live_pick_team": live_pick_team,
+        "live_pick_line": live_pick_line,
+        "live_pick_text": live_pick_text,
+        "live_pick_condition": live_pick_condition,
+        "odds_line_source": odds_line_source,
+        "estimated_progress": round(float(progress), 3),
+        "stats_snapshot": stats_snapshot,
         "risk_level": risk_level,
         "strength": strength,
         "signal_state": signal_state,
@@ -6097,6 +7020,8 @@ def get_live_edge_recommendations(
     sport: Optional[str] = None,
     include_no_signal: bool = False,
     limit: int = 120,
+    track: bool = True,
+    autosettle: bool = True,
 ):
     sports = [str(sport).strip().lower()] if sport else LIVE_EDGE_SPORTS
     normalized = []
@@ -6148,19 +7073,39 @@ def get_live_edge_recommendations(
 
         recommendations = sorted(recommendations, key=_rank, reverse=True)
 
+    tracked_new = 0
+    settle_info = {"settled": 0, "open": 0}
+    if track and recommendations:
+        tracked_new = _live_edge_track_signals(recommendations)
+    if autosettle:
+        settle_info = _live_edge_try_settle_open_entries()
+
     limit_value = max(1, min(int(limit or 120), 500))
     payload = {
         "separation_tag": "LIVE_EDGE_ONLY",
-        "model_key": "live_edge_v1",
+        "model_key": "live_edge_v3",
         "generated_at": datetime.now().isoformat(),
         "sports_requested": normalized,
         "summary": {
             "sports_active": len({item.get("sport") for item in recommendations}),
             "events_live_scanned": events_live_count,
             "recommendations": len(recommendations),
+            "tracked_new": tracked_new,
+            "settled_now": settle_info.get("settled", 0),
+            "open_tracked": settle_info.get("open", 0),
         },
         "recommendations": recommendations[:limit_value],
     }
+    return _sanitize_json_values(payload)
+
+
+@app.get("/api/live-edge/performance")
+def get_live_edge_performance(autosettle: bool = True, window: str = "30d"):
+    settle_info = {"settled": 0, "open": 0}
+    if autosettle:
+        settle_info = _live_edge_try_settle_open_entries()
+    payload = _live_edge_build_performance_payload(window=window)
+    payload["settle_info"] = settle_info
     return _sanitize_json_values(payload)
 
 

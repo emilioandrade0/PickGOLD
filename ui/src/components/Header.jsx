@@ -19,6 +19,7 @@ function getSportTitle(pathname, socialMode) {
   if (pathname.startsWith("/liga-mx")) return "Liga MX";
   if (pathname.startsWith("/laliga")) return "LaLiga";
   if (pathname.startsWith("/bundesliga")) return "Bundesliga";
+  if (pathname.startsWith("/live-edge")) return "Picks en vivo";
   if (pathname.startsWith("/live")) return "En Vivo";
   if (pathname.startsWith("/resumen-dia")) return "Resumen del dia";
   if (pathname.startsWith("/estadisticas")) return "Estadisticas";
@@ -63,6 +64,13 @@ export default function Header({ onLogout, userName }) {
                 className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
               >
                 Live
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/live-edge")}
+                className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
+              >
+                Picks en vivo
               </button>
               <button
                 type="button"
@@ -138,6 +146,13 @@ export default function Header({ onLogout, userName }) {
                     className="rounded-lg border border-white/12 bg-transparent px-3 py-1.5 text-xs font-semibold text-white/78 transition hover:border-white/22 hover:bg-white/[0.06] hover:text-white"
                   >
                     En vivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/live-edge")}
+                    className="rounded-lg border border-white/12 bg-transparent px-3 py-1.5 text-xs font-semibold text-white/78 transition hover:border-white/22 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    Picks en vivo
                   </button>
                 </div>
               ) : (

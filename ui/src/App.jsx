@@ -19,6 +19,7 @@ import InsightsPage from "./pages/InsightsPage.jsx";
 import WeekdayScoringPage from "./pages/WeekdayScoringPage.jsx";
 import BestPicksPage from "./pages/BestPicksPage.jsx";
 import LiveBoardPage from "./pages/LiveBoardPage.jsx";
+import LiveEdgePage from "./pages/LiveEdgePage.jsx";
 import DailySummaryPage from "./pages/DailySummaryPage.jsx";
 import TeamFormStatsPage from "./pages/TeamFormStatsPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
@@ -158,6 +159,7 @@ export default function App() {
         <Route path="/weekday-scoring" element={<WeekdayScoringPage />} />
         <Route path="/best-picks" element={<BestPicksPage />} />
         <Route path="/live" element={<LiveBoardPage />} />
+        <Route path="/live-edge" element={<LiveEdgePage />} />
         <Route path="/resumen-dia" element={<DailySummaryPage />} />
         <Route path="/estadisticas" element={<TeamFormStatsPage />} />
         {session?.role === "admin" && (

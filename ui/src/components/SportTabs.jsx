@@ -19,6 +19,7 @@ const SPORT_TABS = [
 
 const MODULE_TABS = [
   { key: "live", label: "En Vivo", path: "/live" },
+  { key: "live_edge", label: "Live Edge", path: "/live-edge" },
   { key: "resumen_dia", label: "Resumen del día", path: "/resumen-dia" },
   { key: "best_picks", label: "Best Picks", path: "/best-picks" },
   { key: "estadisticas", label: "Estadisticas", path: "/estadisticas" },
