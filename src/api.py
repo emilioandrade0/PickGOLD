@@ -5873,12 +5873,326 @@ LIVE_EDGE_SPORTS = [
 LIVE_EDGE_TRACKING_DIR = BASE_DIR / "data" / "insights" / "live_edge_tracking"
 LIVE_EDGE_TRACKING_DIR.mkdir(parents=True, exist_ok=True)
 LIVE_EDGE_TRACKING_FILE = LIVE_EDGE_TRACKING_DIR / "picks.json"
+PATTERN_MODEL_CACHE_LOCK = threading.Lock()
+PATTERN_MODEL_CACHE: dict[str, dict] = {}
+PATTERN_MODEL_CACHE_TTL_SECONDS = 900
 
 
 def _live_edge_normalize_token(value: str | None):
     text = str(value or "").upper().strip()
     text = re.sub(r"[^A-Z0-9]", "", text)
     return text
+
+
+def _live_edge_score_from_record(record: dict):
+    away_candidates = ("away_score", "away_runs_total", "away_pts_total", "away_goals")
+    home_candidates = ("home_score", "home_runs_total", "home_pts_total", "home_goals")
+    away = None
+    home = None
+    for key in away_candidates:
+        away = _live_edge_score_number(record.get(key))
+        if away is not None:
+            break
+    for key in home_candidates:
+        home = _live_edge_score_number(record.get(key))
+        if home is not None:
+            break
+    return away, home
+
+
+def _live_edge_implied_probability(odds_value):
+    value = _live_edge_float(odds_value)
+    if value is None:
+        return None
+    if abs(value) >= 100:
+        if value > 0:
+            return 100.0 / (value + 100.0)
+        return abs(value) / (abs(value) + 100.0)
+    if value > 1.01:
+        return 1.0 / value
+    return None
+
+
+def _live_edge_favorite_side_from_odds(record: dict):
+    away_prob = _live_edge_implied_probability(record.get("away_moneyline_odds"))
+    home_prob = _live_edge_implied_probability(record.get("home_moneyline_odds"))
+    if away_prob is None or home_prob is None:
+        return None
+    if abs(away_prob - home_prob) < 1e-9:
+        return None
+    return "away" if away_prob > home_prob else "home"
+
+
+def _live_edge_token_from_record(record: dict):
+    away_score, home_score = _live_edge_score_from_record(record)
+    if away_score is None or home_score is None or away_score == home_score:
+        return None
+    winner_side = "away" if away_score > home_score else "home"
+    favorite_side = _live_edge_favorite_side_from_odds(record)
+    if favorite_side is None:
+        return None
+    winner_lr = "L" if winner_side == "away" else "R"
+    winner_type = "U" if winner_side != favorite_side else "F"
+    return f"{winner_lr}{winner_type}"
+
+
+def _live_edge_event_datetime_sort_key(record: dict):
+    date_text = str(record.get("date") or "").strip()
+    time_text = str(record.get("time") or "").strip()
+    dt = None
+    if date_text and time_text:
+        for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"):
+            try:
+                dt = datetime.strptime(f"{date_text} {time_text}", fmt)
+                break
+            except Exception:
+                continue
+    if dt is None and date_text:
+        try:
+            dt = datetime.strptime(date_text, "%Y-%m-%d")
+        except Exception:
+            dt = None
+    if dt is None:
+        dt = datetime.min
+    gid = str(record.get("game_id") or "")
+    return (dt, time_text, gid)
+
+
+def _live_edge_history_sequences_from_raw(sport: str, max_days: int = 220):
+    raw_path = SPORT_RAW_FILES.get(sport, {}).get("raw_history")
+    if not raw_path or not Path(raw_path).exists():
+        return []
+    needed_cols = [
+        "date",
+        "time",
+        "game_id",
+        "away_moneyline_odds",
+        "home_moneyline_odds",
+        "away_score",
+        "home_score",
+        "away_runs_total",
+        "home_runs_total",
+        "away_pts_total",
+        "home_pts_total",
+        "away_goals",
+        "home_goals",
+        "status_completed",
+    ]
+    try:
+        header_cols = list(pd.read_csv(raw_path, nrows=0).columns)
+    except Exception:
+        return []
+    usecols = [col for col in needed_cols if col in header_cols]
+    if "date" not in usecols:
+        return []
+    try:
+        df = pd.read_csv(raw_path, usecols=usecols, low_memory=False)
+    except Exception:
+        return []
+    if df.empty:
+        return []
+
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df[df["date"].notna()].copy()
+    if df.empty:
+        return []
+    cutoff = pd.Timestamp.today().normalize() - pd.Timedelta(days=max(30, int(max_days)))
+    df = df[df["date"] >= cutoff].copy()
+    if df.empty:
+        return []
+
+    records = df.to_dict(orient="records")
+    by_day: dict[str, list[dict]] = {}
+    for row in records:
+        date_obj = row.get("date")
+        if pd.isna(date_obj):
+            continue
+        day_key = pd.Timestamp(date_obj).strftime("%Y-%m-%d")
+        row["date"] = day_key
+        by_day.setdefault(day_key, []).append(row)
+
+    sequences = []
+    for _, day_rows in sorted(by_day.items(), key=lambda item: item[0]):
+        day_rows = sorted(day_rows, key=_live_edge_event_datetime_sort_key)
+        tokens = []
+        for row in day_rows:
+            token = _live_edge_token_from_record(row)
+            if token:
+                tokens.append(token)
+        if len(tokens) >= 5:
+            sequences.append(tokens)
+    return sequences
+
+
+def _live_edge_get_pattern_model(sport: str):
+    key = str(sport or "").strip().lower()
+    now_ts = datetime.now().timestamp()
+    with PATTERN_MODEL_CACHE_LOCK:
+        cache = PATTERN_MODEL_CACHE.get(key)
+        if cache and (now_ts - float(cache.get("created_ts", 0.0))) <= PATTERN_MODEL_CACHE_TTL_SECONDS:
+            return cache.get("payload")
+
+    sequences = _live_edge_history_sequences_from_raw(key)
+    transition_counts: dict[tuple[str, ...], dict[str, int]] = {}
+    overall = {"LU": 0, "LF": 0, "RU": 0, "RF": 0}
+    for seq in sequences:
+        for token in seq:
+            if token in overall:
+                overall[token] += 1
+        for k in (2, 3, 4, 5):
+            if len(seq) <= k:
+                continue
+            for idx in range(k, len(seq)):
+                prefix = tuple(seq[idx - k:idx])
+                nxt = seq[idx]
+                if nxt not in overall:
+                    continue
+                bucket = transition_counts.setdefault(prefix, {"LU": 0, "LF": 0, "RU": 0, "RF": 0})
+                bucket[nxt] += 1
+
+    payload = {
+        "sport": key,
+        "sequences": len(sequences),
+        "overall": overall,
+        "transitions": transition_counts,
+    }
+    with PATTERN_MODEL_CACHE_LOCK:
+        PATTERN_MODEL_CACHE[key] = {
+            "created_ts": now_ts,
+            "payload": payload,
+        }
+    return payload
+
+
+def _live_edge_today_context_map(rows: list[dict]):
+    sorted_rows = sorted(list(rows or []), key=_live_edge_event_datetime_sort_key)
+    tokens_so_far: list[str] = []
+    context_by_game: dict[str, list[str]] = {}
+    for row in sorted_rows:
+        game_id = str(row.get("game_id") or "")
+        if game_id:
+            context_by_game[game_id] = list(tokens_so_far[-5:])
+        is_completed = _live_edge_is_final_event(row)
+        if is_completed:
+            token = _live_edge_token_from_record(row)
+            if token:
+                tokens_so_far.append(token)
+    return context_by_game
+
+
+def _live_edge_pattern_edge_for_event(sport: str, event: dict, context_tokens: list[str], pick_side: str | None):
+    model = _live_edge_get_pattern_model(sport)
+    if not model or model.get("sequences", 0) < 25:
+        return {
+            "enabled": False,
+            "support_level": "LOW",
+            "confidence_pct": 0.0,
+            "samples": 0,
+            "context_used": [],
+            "projected_side": None,
+            "projected_underdog_rate": 0.0,
+            "alignment": "neutral",
+            "score_delta_pick": 0.0,
+            "explanation": "Sin muestra historica suficiente para patron util.",
+        }
+
+    transitions = model.get("transitions") or {}
+    selected_counts = None
+    selected_prefix: tuple[str, ...] | None = None
+    for k in (5, 4, 3, 2):
+        if len(context_tokens) < k:
+            continue
+        prefix = tuple(context_tokens[-k:])
+        bucket = transitions.get(prefix)
+        if not bucket:
+            continue
+        bucket_samples = int(sum(bucket.values()))
+        if bucket_samples >= (18 if k >= 4 else 24):
+            selected_counts = bucket
+            selected_prefix = prefix
+            break
+
+    if selected_counts is None:
+        selected_counts = model.get("overall") or {}
+        selected_prefix = tuple()
+
+    samples = int(sum(selected_counts.values()))
+    if samples <= 0:
+        return {
+            "enabled": False,
+            "support_level": "LOW",
+            "confidence_pct": 0.0,
+            "samples": 0,
+            "context_used": list(selected_prefix),
+            "projected_side": None,
+            "projected_underdog_rate": 0.0,
+            "alignment": "neutral",
+            "score_delta_pick": 0.0,
+            "explanation": "Sin conteos validos para patron live.",
+        }
+
+    p_left = float(selected_counts.get("LU", 0) + selected_counts.get("LF", 0)) / samples
+    p_right = float(selected_counts.get("RU", 0) + selected_counts.get("RF", 0)) / samples
+    p_underdog = float(selected_counts.get("LU", 0) + selected_counts.get("RU", 0)) / samples
+    projected_side = "away" if p_left >= p_right else "home"
+    side_edge = abs(p_left - p_right)
+    confidence_pct = max(p_left, p_right) * 100.0
+
+    if samples >= 60 and side_edge >= 0.12:
+        support_level = "HIGH"
+    elif samples >= 35 and side_edge >= 0.08:
+        support_level = "MEDIUM"
+    else:
+        support_level = "LOW"
+
+    score_delta_pick = 0.0
+    alignment = "neutral"
+    if pick_side in {"away", "home"} and support_level in {"HIGH", "MEDIUM"}:
+        if pick_side == projected_side:
+            alignment = "aligned"
+            score_delta_pick = min(7.0, 2.0 + samples / 25.0 + side_edge * 20.0)
+        else:
+            alignment = "opposed"
+            score_delta_pick = -min(6.0, 2.0 + samples / 28.0 + side_edge * 18.0)
+
+    explanation = (
+        f"Patron {support_level.lower()} ({samples} casos): "
+        f"proximo lado {'L' if projected_side == 'away' else 'R'} "
+        f"con {confidence_pct:.1f}% y tasa underdog {p_underdog*100:.1f}%."
+    )
+
+    favorite_side = _live_edge_favorite_side_from_odds(event)
+
+    def candidate_delta(candidate_side: str | None):
+        if candidate_side not in {"away", "home"}:
+            return 0.0
+        delta = 0.0
+        if support_level in {"HIGH", "MEDIUM"}:
+            if candidate_side == projected_side:
+                delta += min(6.0, 1.5 + samples / 30.0 + side_edge * 18.0)
+            else:
+                delta -= min(5.5, 1.5 + samples / 34.0 + side_edge * 16.0)
+        if favorite_side in {"away", "home"} and support_level in {"HIGH", "MEDIUM"}:
+            is_underdog_candidate = candidate_side != favorite_side
+            if is_underdog_candidate and p_underdog >= 0.56:
+                delta += 1.2
+            elif is_underdog_candidate and p_underdog <= 0.44:
+                delta -= 1.2
+        return round(delta, 2)
+
+    return {
+        "enabled": True,
+        "support_level": support_level,
+        "confidence_pct": round(confidence_pct, 2),
+        "samples": samples,
+        "context_used": list(selected_prefix),
+        "projected_side": projected_side,
+        "projected_underdog_rate": round(p_underdog * 100.0, 2),
+        "alignment": alignment,
+        "score_delta_pick": round(score_delta_pick, 2),
+        "explanation": explanation,
+        "candidate_delta": candidate_delta,
+    }
 
 
 def _live_edge_read_tracking_store():
@@ -5987,6 +6301,9 @@ def _live_edge_track_signals(signals: list[dict], dedupe_minutes: int = 30):
             "strength": signal.get("strength"),
             "confidence": signal.get("pregame_confidence"),
             "recommendation": signal.get("recommendation"),
+            "pattern_support_level": (signal.get("pattern_edge") or {}).get("support_level"),
+            "pattern_alignment": (signal.get("pattern_edge") or {}).get("alignment"),
+            "pattern_samples": (signal.get("pattern_edge") or {}).get("samples"),
         }
         entries.append(entry)
         inserted += 1
@@ -6266,6 +6583,7 @@ def _live_edge_build_performance_payload(window: str = "30d"):
 
     by_market = build_group(graded_rows, "market")
     by_sport = build_group(graded_rows, "sport")
+    by_pattern_support = build_group(graded_rows, "pattern_support_level")
 
     return {
         "generated_at": datetime.now().isoformat(),
@@ -6288,6 +6606,7 @@ def _live_edge_build_performance_payload(window: str = "30d"):
         },
         "by_market": by_market,
         "by_sport": by_sport,
+        "by_pattern_support": by_pattern_support,
     }
 
 
@@ -6563,7 +6882,7 @@ def _live_edge_resolve_pick_team(event: dict):
     return {"side": None, "team": None, "pick_raw": pick_raw}
 
 
-def _live_edge_build_signal(event: dict, sport: str):
+def _live_edge_build_signal(event: dict, sport: str, context_tokens: list[str] | None = None):
     away_team = str(event.get("away_team") or "").strip()
     home_team = str(event.get("home_team") or "").strip()
     away_score = _live_edge_score_number(event.get("away_score"))
@@ -6572,6 +6891,12 @@ def _live_edge_build_signal(event: dict, sport: str):
     pick_side = pick_context.get("side")
     pick_team = pick_context.get("team")
     pick_raw = pick_context.get("pick_raw")
+    pattern_edge = _live_edge_pattern_edge_for_event(
+        sport=sport,
+        event=event,
+        context_tokens=list(context_tokens or []),
+        pick_side=pick_side,
+    )
 
     confidence = None
     try:
@@ -6858,6 +7183,10 @@ def _live_edge_build_signal(event: dict, sport: str):
         "reason": reason,
     }]
 
+    pattern_delta_fn = pattern_edge.get("candidate_delta") if isinstance(pattern_edge, dict) else None
+    if not callable(pattern_delta_fn):
+        pattern_delta_fn = None
+
     current_total = None
     if away_score is not None and home_score is not None:
         current_total = float(away_score + home_score)
@@ -6933,6 +7262,18 @@ def _live_edge_build_signal(event: dict, sport: str):
         })
 
     valid_candidates = [c for c in candidates if c.get("score") is not None]
+    if pattern_delta_fn:
+        for candidate in valid_candidates:
+            candidate_team = str(candidate.get("team") or "").strip()
+            candidate_side = None
+            if candidate_team and candidate_team == away_team:
+                candidate_side = "away"
+            elif candidate_team and candidate_team == home_team:
+                candidate_side = "home"
+            delta = pattern_delta_fn(candidate_side)
+            candidate["pattern_delta"] = delta
+            candidate["score"] = float(candidate.get("score") or 0.0) + float(delta or 0.0)
+
     best_candidate = max(valid_candidates, key=lambda c: float(c.get("score") or 0.0))
 
     live_pick_market = best_candidate.get("market")
@@ -6974,6 +7315,14 @@ def _live_edge_build_signal(event: dict, sport: str):
         recommendation_short = "Wait"
         recommendation = "ESPERAR MEJOR MOMENTO DE ENTRADA"
 
+    pattern_public = dict(pattern_edge or {})
+    pattern_public.pop("candidate_delta", None)
+    pattern_selected_delta = _live_edge_float(best_candidate.get("pattern_delta")) or 0.0
+    if pattern_selected_delta > 0.1:
+        reason = f"{reason} Patron secuencial favorece este lado (+{pattern_selected_delta:.1f} pts)."
+    elif pattern_selected_delta < -0.1:
+        reason = f"{reason} Patron secuencial va en contra ({pattern_selected_delta:.1f} pts)."
+
     return {
         "separation_tag": "LIVE_EDGE_ONLY",
         "model_key": "live_edge_v3",
@@ -7010,6 +7359,7 @@ def _live_edge_build_signal(event: dict, sport: str):
         "strength": strength,
         "signal_state": signal_state,
         "reason": reason,
+        "pattern_edge": pattern_public,
         "expires_in_seconds": 90,
         "generated_at": datetime.now().isoformat(),
     }
@@ -7041,11 +7391,17 @@ def get_live_edge_recommendations(
             continue
 
         rows = _normalize_events_payload(events)
+        context_by_game = _live_edge_today_context_map(rows)
         for event in rows:
             if not _live_edge_is_live_event(event):
                 continue
             events_live_count += 1
-            signal = _live_edge_build_signal(event, sport_key)
+            game_id = str(event.get("game_id") or "")
+            signal = _live_edge_build_signal(
+                event,
+                sport_key,
+                context_tokens=context_by_game.get(game_id) or [],
+            )
             if not include_no_signal and signal.get("signal_state") == "NO_SIGNAL":
                 continue
             recommendations.append(signal)

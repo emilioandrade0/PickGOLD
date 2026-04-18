@@ -133,6 +133,7 @@ export default function LiveEdgePage() {
   const perfSummary = performance?.summary || {};
   const perfByMarket = Array.isArray(performance?.by_market) ? performance.by_market : [];
   const perfBySport = Array.isArray(performance?.by_sport) ? performance.by_sport : [];
+  const perfByPattern = Array.isArray(performance?.by_pattern_support) ? performance.by_pattern_support : [];
   const hasGradedSample = Number(perfSummary?.graded_bets || 0) > 0;
 
   return (
@@ -330,6 +331,37 @@ export default function LiveEdgePage() {
             </table>
           </div>
         )}
+
+        {perfByPattern.length > 0 && (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
+            <table className="min-w-full text-left text-xs text-white/80">
+              <thead className="bg-white/[0.04] text-[10px] uppercase tracking-[0.12em] text-white/55">
+                <tr>
+                  <th className="px-3 py-2">Pattern support</th>
+                  <th className="px-3 py-2">Bets</th>
+                  <th className="px-3 py-2">W-L-P</th>
+                  <th className="px-3 py-2">Hit %</th>
+                  <th className="px-3 py-2">ROI %</th>
+                  <th className="px-3 py-2">Units</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perfByPattern.slice(0, 8).map((row) => (
+                  <tr key={`pattern-${row.key}`} className="border-t border-white/10">
+                    <td className="px-3 py-2 font-semibold text-violet-100">{String(row.key || "N/A").toUpperCase()}</td>
+                    <td className="px-3 py-2">{row.bets}</td>
+                    <td className="px-3 py-2">{row.won}-{row.lost}-{row.push}</td>
+                    <td className="px-3 py-2">{Number(row.hit_rate || 0).toFixed(1)}%</td>
+                    <td className="px-3 py-2">{Number(row.roi || 0).toFixed(1)}%</td>
+                    <td className={`px-3 py-2 ${Number(row.units || 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {Number(row.units || 0).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {loading ? (
@@ -429,6 +461,19 @@ export default function LiveEdgePage() {
                   <p className="text-[11px] uppercase tracking-[0.12em] text-white/55">Recomendacion</p>
                   <p className="mt-1 text-sm font-semibold text-white">{item?.recommendation || "Monitor"}</p>
                   <p className="mt-1 text-xs text-white/70">{item?.reason || "Sin razon adicional."}</p>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-violet-300/20 bg-violet-400/10 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-violet-100/85">Pattern edge</p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    Soporte: {item?.pattern_edge?.support_level || "LOW"} | Alineacion: {item?.pattern_edge?.alignment || "neutral"}
+                  </p>
+                  <p className="mt-1 text-xs text-violet-100/80">
+                    {item?.pattern_edge?.explanation || "Sin patron util para este evento."}
+                  </p>
+                  <p className="mt-1 text-[11px] text-violet-100/70">
+                    Muestra: {item?.pattern_edge?.samples ?? 0} | Confianza lado: {Number(item?.pattern_edge?.confidence_pct || 0).toFixed(1)}%
+                  </p>
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/75">
