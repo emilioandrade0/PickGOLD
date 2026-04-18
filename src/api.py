@@ -5854,6 +5854,316 @@ def _best_picks_get_or_create_snapshot(date_str: str, generation_top_n: int, for
     return snapshot
 
 
+LIVE_EDGE_SPORTS = [
+    "nba",
+    "wnba",
+    "mlb",
+    "lmb",
+    "triple_a",
+    "tennis",
+    "kbo",
+    "nhl",
+    "euroleague",
+    "liga_mx",
+    "laliga",
+    "bundesliga",
+    "ligue1",
+]
+
+
+def _live_edge_normalize_token(value: str | None):
+    text = str(value or "").upper().strip()
+    text = re.sub(r"[^A-Z0-9]", "", text)
+    return text
+
+
+def _live_edge_score_number(value):
+    try:
+        n = float(value)
+    except Exception:
+        return None
+    if not np.isfinite(n):
+        return None
+    return int(round(n))
+
+
+def _live_edge_is_live_event(event: dict):
+    state = str(event.get("status_state") or "").strip().lower()
+    if state in {"post", "final", "completed"}:
+        return False
+    if event.get("result_available") is True or int(event.get("status_completed", 0) or 0) == 1:
+        return False
+    if state in {"in", "live", "in_progress", "inprogress", "status_in_progress", "halftime", "mid"}:
+        return True
+
+    status_description = str(event.get("status_description") or "").strip().lower()
+    status_detail = str(event.get("status_detail") or "").strip().lower()
+    status_text = f"{status_description} {status_detail}".strip()
+    return bool(re.search(r"\ben vivo\b|\bin progress\b|\blive\b|\bq[1-4]\b|\bquarter\b|\bhalftime\b|\bhalf\b|\bot\b|\bperiod\b|\btop\s*\d+\b|\bbot\s*\d+\b", status_text))
+
+
+def _live_edge_is_baseball_like(sport: str):
+    return sport in {"mlb", "lmb", "kbo", "triple_a", "ncaa_baseball"}
+
+
+def _live_edge_is_basketball_like(sport: str):
+    return sport in {"nba", "wnba", "euroleague"}
+
+
+def _live_edge_is_hockey_or_soccer(sport: str):
+    return sport in {"nhl", "liga_mx", "laliga", "bundesliga", "ligue1"}
+
+
+def _live_edge_margin_threshold(sport: str):
+    if _live_edge_is_basketball_like(sport):
+        return 6
+    if _live_edge_is_hockey_or_soccer(sport):
+        return 2
+    if _live_edge_is_baseball_like(sport):
+        return 2
+    return 2
+
+
+def _live_edge_resolve_pick_team(event: dict):
+    away_team = str(event.get("away_team") or "").strip()
+    home_team = str(event.get("home_team") or "").strip()
+    pick_raw = str(event.get("full_game_pick") or event.get("recommended_pick") or "").strip()
+    pick_token = _live_edge_normalize_token(pick_raw)
+    if not pick_token or pick_token in {"NA", "PENDIENTE", "PASS", "SINLINEADISPONIBLE"}:
+        return {"side": None, "team": None, "pick_raw": pick_raw}
+
+    away_token = _live_edge_normalize_token(away_team)
+    home_token = _live_edge_normalize_token(home_team)
+    away_name_token = _live_edge_normalize_token(event.get("away_team_name") or away_team)
+    home_name_token = _live_edge_normalize_token(event.get("home_team_name") or home_team)
+
+    away_match = (
+        (away_token and away_token in pick_token)
+        or (away_name_token and away_name_token in pick_token)
+    )
+    home_match = (
+        (home_token and home_token in pick_token)
+        or (home_name_token and home_name_token in pick_token)
+    )
+
+    if away_match and not home_match:
+        return {"side": "away", "team": away_team, "pick_raw": pick_raw}
+    if home_match and not away_match:
+        return {"side": "home", "team": home_team, "pick_raw": pick_raw}
+    return {"side": None, "team": None, "pick_raw": pick_raw}
+
+
+def _live_edge_build_signal(event: dict, sport: str):
+    away_team = str(event.get("away_team") or "").strip()
+    home_team = str(event.get("home_team") or "").strip()
+    away_score = _live_edge_score_number(event.get("away_score"))
+    home_score = _live_edge_score_number(event.get("home_score"))
+    pick_context = _live_edge_resolve_pick_team(event)
+    pick_side = pick_context.get("side")
+    pick_team = pick_context.get("team")
+    pick_raw = pick_context.get("pick_raw")
+
+    confidence = None
+    try:
+        confidence = float(event.get("full_game_confidence"))
+    except Exception:
+        confidence = None
+
+    status_description = str(event.get("status_description") or "").strip()
+    status_detail = str(event.get("status_detail") or "").strip()
+    clock_text = status_detail or status_description or "En vivo"
+
+    lead_side = None
+    lead_team = None
+    margin = None
+    if away_score is not None and home_score is not None:
+        margin = abs(away_score - home_score)
+        if away_score > home_score:
+            lead_side = "away"
+            lead_team = away_team
+        elif home_score > away_score:
+            lead_side = "home"
+            lead_team = home_team
+
+    threshold = _live_edge_margin_threshold(sport)
+    recommendation = "MONITOREAR"
+    recommendation_short = "Monitor"
+    risk_level = "medium"
+    strength = "NORMAL"
+    reason = "Se requiere mas contexto en vivo para una entrada clara."
+    signal_state = "WATCH"
+
+    if pick_side is None:
+        recommendation = "SIN SENAL LIVE"
+        recommendation_short = "No signal"
+        risk_level = "high"
+        strength = "NORMAL"
+        reason = "No hay pick pregame interpretable para construir una recomendacion live separada."
+        signal_state = "NO_SIGNAL"
+    elif margin is None:
+        recommendation = "MONITOREAR SIN SCORE CONFIRMADO"
+        recommendation_short = "Monitor"
+        risk_level = "high"
+        strength = "NORMAL"
+        reason = "El marcador en vivo aun no esta disponible o no es confiable."
+        signal_state = "WATCH"
+    elif lead_side is None:
+        if (confidence or 0) >= 65:
+            recommendation = "VALOR LIVE EN PICK PRINCIPAL"
+            recommendation_short = "Value"
+            risk_level = "medium"
+            strength = "STRONG"
+            reason = "Juego empatado con pick pregame de alta confianza."
+            signal_state = "VALUE"
+        else:
+            recommendation = "ESPERAR NUEVO MOVIMIENTO"
+            recommendation_short = "Wait"
+            risk_level = "medium"
+            strength = "NORMAL"
+            reason = "Juego empatado; conviene esperar una mejor ventana de entrada."
+            signal_state = "WAIT"
+    elif lead_side == pick_side:
+        if margin >= threshold and (confidence or 0) >= 60:
+            recommendation = "SEGUIR PICK PRINCIPAL EN LIVE"
+            recommendation_short = "Follow"
+            risk_level = "low"
+            strength = "PREMIUM"
+            reason = f"{pick_team} ya lidera por {margin}; el contexto favorece continuidad."
+            signal_state = "FOLLOW"
+        else:
+            recommendation = "MANTENER Y MONITOREAR LINEA"
+            recommendation_short = "Hold"
+            risk_level = "medium"
+            strength = "STRONG" if (confidence or 0) >= 60 else "NORMAL"
+            reason = f"{pick_team} va arriba, pero aun sin separacion fuerte para una entrada agresiva."
+            signal_state = "HOLD"
+    else:
+        if margin >= (threshold + 1):
+            recommendation = "NO ENTRAR LIVE POR AHORA"
+            recommendation_short = "No bet"
+            risk_level = "high"
+            strength = "NORMAL"
+            reason = f"{lead_team} domina por {margin}; riesgo alto para ir contra la inercia."
+            signal_state = "NO_BET"
+        elif margin <= 1 and (confidence or 0) >= 66:
+            recommendation = "VALOR CONTRARIAN EN PICK PRINCIPAL"
+            recommendation_short = "Contrarian"
+            risk_level = "medium"
+            strength = "STRONG"
+            reason = f"{pick_team} pierde por margen corto y mantiene respaldo de confianza pregame."
+            signal_state = "VALUE"
+        else:
+            recommendation = "ESPERAR MEJOR MOMENTO DE ENTRADA"
+            recommendation_short = "Wait"
+            risk_level = "medium"
+            strength = "NORMAL"
+            reason = "El juego va en contra del pick pregame sin ventaja estadistica suficiente."
+            signal_state = "WAIT"
+
+    return {
+        "separation_tag": "LIVE_EDGE_ONLY",
+        "model_key": "live_edge_v1",
+        "sport": sport,
+        "sport_label": SPORTS_CONFIG.get(sport, {}).get("label") or sport.upper(),
+        "game_id": str(event.get("game_id") or ""),
+        "event_date": str(event.get("date") or ""),
+        "event_time": str(event.get("time") or ""),
+        "status_clock": clock_text,
+        "status_state": str(event.get("status_state") or ""),
+        "away_team": away_team,
+        "home_team": home_team,
+        "away_score": away_score,
+        "home_score": home_score,
+        "lead_team": lead_team,
+        "lead_margin": margin,
+        "pregame_pick_raw": pick_raw,
+        "pregame_pick_team": pick_team,
+        "pregame_pick_side": pick_side,
+        "pregame_confidence": confidence,
+        "recommendation": recommendation,
+        "recommendation_short": recommendation_short,
+        "recommended_market": "LIVE_MONEYLINE",
+        "risk_level": risk_level,
+        "strength": strength,
+        "signal_state": signal_state,
+        "reason": reason,
+        "expires_in_seconds": 90,
+        "generated_at": datetime.now().isoformat(),
+    }
+
+
+@app.get("/api/live-edge/recommendations")
+def get_live_edge_recommendations(
+    sport: Optional[str] = None,
+    include_no_signal: bool = False,
+    limit: int = 120,
+):
+    sports = [str(sport).strip().lower()] if sport else LIVE_EDGE_SPORTS
+    normalized = []
+    for item in sports:
+        if item in SPORTS_CONFIG and item not in normalized:
+            normalized.append(item)
+
+    if not normalized:
+        raise HTTPException(status_code=400, detail="No hay deportes validos para Live Edge.")
+
+    recommendations = []
+    events_live_count = 0
+    for sport_key in normalized:
+        try:
+            events = get_today_predictions(sport_key)
+        except Exception:
+            continue
+
+        rows = _normalize_events_payload(events)
+        for event in rows:
+            if not _live_edge_is_live_event(event):
+                continue
+            events_live_count += 1
+            signal = _live_edge_build_signal(event, sport_key)
+            if not include_no_signal and signal.get("signal_state") == "NO_SIGNAL":
+                continue
+            recommendations.append(signal)
+
+    if recommendations:
+        def _rank(item: dict):
+            signal_weight = {
+                "FOLLOW": 5,
+                "VALUE": 4,
+                "HOLD": 3,
+                "WAIT": 2,
+                "NO_BET": 1,
+                "NO_SIGNAL": 0,
+                "WATCH": 1,
+            }.get(str(item.get("signal_state") or ""), 0)
+            try:
+                conf = float(item.get("pregame_confidence"))
+            except Exception:
+                conf = 0.0
+            try:
+                margin = float(item.get("lead_margin"))
+            except Exception:
+                margin = 0.0
+            return (signal_weight, conf, margin)
+
+        recommendations = sorted(recommendations, key=_rank, reverse=True)
+
+    limit_value = max(1, min(int(limit or 120), 500))
+    payload = {
+        "separation_tag": "LIVE_EDGE_ONLY",
+        "model_key": "live_edge_v1",
+        "generated_at": datetime.now().isoformat(),
+        "sports_requested": normalized,
+        "summary": {
+            "sports_active": len({item.get("sport") for item in recommendations}),
+            "events_live_scanned": events_live_count,
+            "recommendations": len(recommendations),
+        },
+        "recommendations": recommendations[:limit_value],
+    }
+    return _sanitize_json_values(payload)
+
+
 @app.get("/")
 def root():
     return {

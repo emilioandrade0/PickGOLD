@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { getTeamLogoUrl } from "../utils/teamLogos.js";
 import { resolveEventTeams, resolveSidePick } from "../utils/teams.js";
 import { expandTeamCodeInText, getTeamDisplayName } from "../utils/teamNames.js";
+import { fetchAvailableDates, fetchPredictionsByDate } from "../services/api.js";
 
 const ODDS_KEYS = {
   moneyline: [
@@ -98,6 +100,31 @@ function resolveResultState(event) {
   const hasResult = hasFinalState || hasFinalScoreFallback;
   const isLive = !hasResult && (liveStates.includes(state) || hasLiveHint);
   return { hasResult, isLive };
+}
+
+function normalizeTeamToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
+function isSameMatchup(baseEvent, candidateEvent) {
+  const baseTeams = resolveEventTeams(baseEvent);
+  const candidateTeams = resolveEventTeams(candidateEvent);
+
+  const baseAway = normalizeTeamToken(baseTeams.awayTeam);
+  const baseHome = normalizeTeamToken(baseTeams.homeTeam);
+  const candidateAway = normalizeTeamToken(candidateTeams.awayTeam);
+  const candidateHome = normalizeTeamToken(candidateTeams.homeTeam);
+
+  if (!baseAway || !baseHome || !candidateAway || !candidateHome) return false;
+  return (
+    (baseAway === candidateAway && baseHome === candidateHome)
+    || (baseAway === candidateHome && baseHome === candidateAway)
+  );
 }
 
 function parseScoreArray(value) {
@@ -247,15 +274,7 @@ function MarketBox({ title, pick, confidence, odds, action, hit }) {
   );
 }
 
-export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
-  if (!event) return null;
-
-  const teams = resolveEventTeams(event);
-  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
-  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
-  const { hasResult, isLive } = resolveResultState(event);
-  const segmentRows = buildSegmentRows(event, sportKey);
-
+function buildEventMarkets(event, sportKey, teams) {
   const fullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event?.full_game_pick, teams)) || "N/A";
   const fullGameHit = toHitValue(event?.full_game_hit);
   const fullGameOdds = resolveOddsValue(event, ODDS_KEYS.moneyline);
@@ -298,7 +317,7 @@ export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
   const totalHit = toHitValue(event?.correct_total_adjusted ?? event?.correct_total);
   const totalOdds = resolveOddsValue(event, ODDS_KEYS.total);
 
-  const candidates = [
+  return [
     {
       label: "Ganador del partido",
       pick: fullGamePick,
@@ -340,8 +359,10 @@ export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
       action: event?.total_action || "N/A",
     },
   ].filter((item) => item.pick && item.pick !== "N/A");
+}
 
-  const recommended = [...candidates]
+function resolveRecommendedMarket(candidates) {
+  return [...candidates]
     .filter((item) => Number.isFinite(Number(item.confidence)))
     .sort((a, b) => Number(b.confidence) - Number(a.confidence))[0] || candidates[0] || {
       label: "Pick recomendado",
@@ -351,10 +372,188 @@ export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
       odds: null,
       action: "N/A",
     };
+}
+
+function HistoricalPredictionBlock({ event, sportKey }) {
+  const teams = resolveEventTeams(event);
+  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
+  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
+  const { hasResult, isLive } = resolveResultState(event);
+  const segmentRows = buildSegmentRows(event, sportKey);
+  const marketCards = buildEventMarkets(event, sportKey, teams);
+  const finalScoreText = String(event?.final_score_text || "").trim();
+  const awayScore = toFiniteNumber(event?.away_score);
+  const homeScore = toFiniteNumber(event?.home_score);
+
+  return (
+    <section className="rounded-[20px] border border-[#a7aab2] bg-[#d5d6db] p-3">
+      <div className="mb-2 flex items-center justify-between text-[11px] text-[#3f4350]">
+        <p className="font-semibold uppercase tracking-[0.12em]">Prediccion IA</p>
+        <p className="font-semibold">{String(event?.date || "").trim()}</p>
+      </div>
+
+      <div className="rounded-[16px] border border-[#a7aab2] bg-[#dedee2] p-3">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <TeamLogo sportKey={sportKey} teamCode={teams.awayTeam} teamName={awayName} />
+            <p className="text-[11px] font-black uppercase tracking-[0.02em] text-[#252831] [font-family:var(--classic-display-font)]">{awayName}</p>
+          </div>
+
+          <div className="text-center">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#535865]">vs</p>
+          </div>
+
+          <div className="flex flex-col items-center gap-2 text-center">
+            <TeamLogo sportKey={sportKey} teamCode={teams.homeTeam} teamName={homeName} />
+            <p className="text-[11px] font-black uppercase tracking-[0.02em] text-[#252831] [font-family:var(--classic-display-font)]">{homeName}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] p-2 text-center">
+            <p className="text-[11px] uppercase text-[#636775]">{awayName}</p>
+            <p className="text-4xl font-black leading-none text-[#252831] [font-family:var(--classic-display-font)]">{awayScore ?? "-"}</p>
+          </div>
+          <div className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] p-2 text-center">
+            <p className="text-[11px] uppercase text-[#636775]">{homeName}</p>
+            <p className="text-4xl font-black leading-none text-[#252831] [font-family:var(--classic-display-font)]">{homeScore ?? "-"}</p>
+          </div>
+        </div>
+
+        {segmentRows.length > 0 && (
+          <div className="mt-3 overflow-x-auto rounded-[12px] border border-[#aeb1b8]">
+            <table className="min-w-full text-center text-[11px] text-[#3f4350]">
+              <thead className="bg-[#ececf0] text-[10px] uppercase tracking-[0.1em] text-[#616574]">
+                <tr>
+                  <th className="px-2 py-1 text-left">Parcial</th>
+                  <th className="px-2 py-1">{awayName}</th>
+                  <th className="px-2 py-1">{homeName}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {segmentRows.map((row) => (
+                  <tr key={row.label} className="border-t border-[#c4c6cd]">
+                    <td className="px-2 py-1 text-left font-semibold">{row.label}</td>
+                    <td className="px-2 py-1">{row.away ?? "-"}</td>
+                    <td className="px-2 py-1">{row.home ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5a5f6c]">{toStatusText(event, isLive, hasResult)}</p>
+          {finalScoreText && <p className="text-xs text-[#40444f]">{finalScoreText}</p>}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {marketCards.map((market) => (
+          <MarketBox
+            key={`${event?.game_id || "hist"}-${market.label}`}
+            title={market.label}
+            pick={market.pick}
+            confidence={market.confidence}
+            odds={market.odds}
+            action={market.action}
+            hit={market.hit}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
+  const [previousOpen, setPreviousOpen] = useState(false);
+  const [previousLoading, setPreviousLoading] = useState(false);
+  const [previousError, setPreviousError] = useState("");
+  const [previousGames, setPreviousGames] = useState([]);
+
+  if (!event) return null;
+
+  const teams = resolveEventTeams(event);
+  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
+  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
+  const { hasResult, isLive } = resolveResultState(event);
+  const segmentRows = buildSegmentRows(event, sportKey);
+  const marketCards = buildEventMarkets(event, sportKey, teams);
+
+  const recommended = resolveRecommendedMarket(marketCards);
 
   const finalScoreText = String(event?.final_score_text || "").trim();
   const awayScore = toFiniteNumber(event?.away_score);
   const homeScore = toFiniteNumber(event?.home_score);
+
+  useEffect(() => {
+    setPreviousOpen(false);
+    setPreviousLoading(false);
+    setPreviousError("");
+    setPreviousGames([]);
+  }, [event?.game_id, event?.date, sportKey]);
+
+  async function handleComparePrevious() {
+    const nextState = !previousOpen;
+    setPreviousOpen(nextState);
+
+    if (!nextState || previousLoading || previousGames.length > 0) return;
+
+    setPreviousLoading(true);
+    setPreviousError("");
+    try {
+      const currentDate = String(event?.date || "").trim();
+      if (!currentDate) {
+        setPreviousError("Este evento no tiene fecha valida para comparar.");
+        setPreviousGames([]);
+        return;
+      }
+
+      const allDates = await fetchAvailableDates(sportKey);
+      const previousDates = (Array.isArray(allDates) ? allDates : [])
+        .filter((d) => d < currentDate)
+        .sort()
+        .reverse()
+        .slice(0, 60);
+
+      const matches = [];
+      const seen = new Set();
+      for (const dateStr of previousDates) {
+        if (matches.length >= 3) break;
+        let dayEvents = [];
+        try {
+          dayEvents = await fetchPredictionsByDate(sportKey, dateStr);
+        } catch {
+          continue;
+        }
+        for (const item of dayEvents) {
+          if (matches.length >= 3) break;
+          if (!isSameMatchup(event, item)) continue;
+          const teamsItem = resolveEventTeams(item);
+          const dedupeKey = [
+            item?.date || dateStr,
+            item?.game_id || "",
+            normalizeTeamToken(teamsItem.awayTeam),
+            normalizeTeamToken(teamsItem.homeTeam),
+          ].join("|");
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+          matches.push(item);
+        }
+      }
+
+      setPreviousGames(matches);
+      if (matches.length === 0) {
+        setPreviousError("No encontramos partidos anteriores de este mismo enfrentamiento.");
+      }
+    } catch {
+      setPreviousError("No se pudieron cargar las predicciones anteriores.");
+      setPreviousGames([]);
+    } finally {
+      setPreviousLoading(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50">
@@ -365,8 +564,8 @@ export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
         aria-label="Cerrar panel"
       />
 
-      <aside className="classic-light-surface classic-light-event-drawer absolute right-0 top-0 h-full w-full max-w-[420px] overflow-y-auto border-l border-[#a5a8b0] bg-[#c6c7cc] p-4 shadow-[-18px_0_36px_rgba(0,0,0,0.2)]">
-        <div className="mb-3 flex items-center justify-between">
+      <aside className="classic-light-surface classic-light-event-drawer absolute right-0 top-0 flex h-full w-full max-w-[min(1180px,96vw)] flex-col border-l border-[#a5a8b0] bg-[#c6c7cc] p-4 shadow-[-18px_0_36px_rgba(0,0,0,0.2)]">
+        <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d5160]">Detalle del evento</p>
           <button
             type="button"
@@ -377,112 +576,131 @@ export default function ClassicLightEventDrawer({ event, sportKey, onClose }) {
           </button>
         </div>
 
-        <div className="rounded-[20px] border border-[#a7aab2] bg-[#dedee2] p-3">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <div className="flex flex-col items-center gap-2 text-center">
-              <TeamLogo sportKey={sportKey} teamCode={teams.awayTeam} teamName={awayName} />
-              <p className="text-[11px] font-black uppercase tracking-[0.02em] text-[#252831] [font-family:var(--classic-display-font)]">{awayName}</p>
+        <div className="mt-3 grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(350px,430px)_minmax(0,1fr)]">
+          <div className="min-h-0 overflow-y-auto pr-1">
+            <div className="rounded-[20px] border border-[#a7aab2] bg-[#dedee2] p-3">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <TeamLogo sportKey={sportKey} teamCode={teams.awayTeam} teamName={awayName} />
+                  <p className="text-[11px] font-black uppercase tracking-[0.02em] text-[#252831] [font-family:var(--classic-display-font)]">{awayName}</p>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#535865]">vs</p>
+                </div>
+
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <TeamLogo sportKey={sportKey} teamCode={teams.homeTeam} teamName={homeName} />
+                  <p className="text-[11px] font-black uppercase tracking-[0.02em] text-[#252831] [font-family:var(--classic-display-font)]">{homeName}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] p-2 text-center">
+                  <p className="text-[11px] uppercase text-[#636775]">{awayName}</p>
+                  <p className="text-4xl font-black leading-none text-[#252831] [font-family:var(--classic-display-font)]">{awayScore ?? "-"}</p>
+                </div>
+                <div className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] p-2 text-center">
+                  <p className="text-[11px] uppercase text-[#636775]">{homeName}</p>
+                  <p className="text-4xl font-black leading-none text-[#252831] [font-family:var(--classic-display-font)]">{homeScore ?? "-"}</p>
+                </div>
+              </div>
+
+              {segmentRows.length > 0 && (
+                <div className="mt-3 overflow-x-auto rounded-[12px] border border-[#aeb1b8]">
+                  <table className="min-w-full text-center text-[11px] text-[#3f4350]">
+                    <thead className="bg-[#ececf0] text-[10px] uppercase tracking-[0.1em] text-[#616574]">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Parcial</th>
+                        <th className="px-2 py-1">{awayName}</th>
+                        <th className="px-2 py-1">{homeName}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {segmentRows.map((row) => (
+                        <tr key={row.label} className="border-t border-[#c4c6cd]">
+                          <td className="px-2 py-1 text-left font-semibold">{row.label}</td>
+                          <td className="px-2 py-1">{row.away ?? "-"}</td>
+                          <td className="px-2 py-1">{row.home ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5a5f6c]">{toStatusText(event, isLive, hasResult)}</p>
+                {finalScoreText && <p className="text-xs text-[#40444f]">{finalScoreText}</p>}
+              </div>
             </div>
 
-            <div className="text-center">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#535865]">vs</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {marketCards.map((market) => (
+                <MarketBox
+                  key={market.label}
+                  title={market.label}
+                  pick={market.pick}
+                  confidence={market.confidence}
+                  odds={market.odds}
+                  action={market.action}
+                  hit={market.hit}
+                />
+              ))}
+              <MarketBox
+                title="Pick recomendado"
+                pick={recommended.pick}
+                confidence={recommended.confidence}
+                odds={recommended.odds}
+                action={recommended.label}
+                hit={recommended.hit}
+              />
             </div>
 
-            <div className="flex flex-col items-center gap-2 text-center">
-              <TeamLogo sportKey={sportKey} teamCode={teams.homeTeam} teamName={homeName} />
-              <p className="text-[11px] font-black uppercase tracking-[0.02em] text-[#252831] [font-family:var(--classic-display-font)]">{homeName}</p>
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleComparePrevious}
+                className="w-full rounded-[12px] border border-[#8f929c] bg-[#ececf0] px-3 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#2f3340] transition hover:bg-[#f3f3f6]"
+              >
+                {previousOpen ? "OCULTAR PREDICCIONES ANTERIORES(3DIAS)" : "COMPARAR PREDICCIONES ANTERIORES(3DIAS)"}
+              </button>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] p-2 text-center">
-              <p className="text-[11px] uppercase text-[#636775]">{awayName}</p>
-              <p className="text-4xl font-black leading-none text-[#252831] [font-family:var(--classic-display-font)]">{awayScore ?? "-"}</p>
-            </div>
-            <div className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] p-2 text-center">
-              <p className="text-[11px] uppercase text-[#636775]">{homeName}</p>
-              <p className="text-4xl font-black leading-none text-[#252831] [font-family:var(--classic-display-font)]">{homeScore ?? "-"}</p>
-            </div>
-          </div>
+          <section className="min-h-0 overflow-y-auto rounded-[20px] border border-[#a7aab2] bg-[#d0d1d6] p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4d5160]">
+              Predicciones anteriores ({previousGames.length})
+            </p>
 
-          {segmentRows.length > 0 && (
-            <div className="mt-3 overflow-x-auto rounded-[12px] border border-[#aeb1b8]">
-              <table className="min-w-full text-center text-[11px] text-[#3f4350]">
-                <thead className="bg-[#ececf0] text-[10px] uppercase tracking-[0.1em] text-[#616574]">
-                  <tr>
-                    <th className="px-2 py-1 text-left">Parcial</th>
-                    <th className="px-2 py-1">{awayName}</th>
-                    <th className="px-2 py-1">{homeName}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {segmentRows.map((row) => (
-                    <tr key={row.label} className="border-t border-[#c4c6cd]">
-                      <td className="px-2 py-1 text-left font-semibold">{row.label}</td>
-                      <td className="px-2 py-1">{row.away ?? "-"}</td>
-                      <td className="px-2 py-1">{row.home ?? "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            {!previousOpen && (
+              <div className="mt-3 rounded-[14px] border border-[#adb0b8] bg-[#ebebef] px-3 py-4 text-center text-xs text-[#4c5160]">
+                Activa el boton de comparar para ver los 3 juegos anteriores aqui, en paralelo.
+              </div>
+            )}
 
-          <div className="mt-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5a5f6c]">{toStatusText(event, isLive, hasResult)}</p>
-            {finalScoreText && <p className="text-xs text-[#40444f]">{finalScoreText}</p>}
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <MarketBox
-            title="Ganador del partido"
-            pick={fullGamePick}
-            confidence={event?.full_game_confidence}
-            odds={fullGameOdds}
-            action={event?.full_game_action}
-            hit={fullGameHit}
-          />
-          <MarketBox
-            title="1er parcial"
-            pick={q1Pick}
-            confidence={event?.q1_confidence}
-            odds={q1Odds}
-            action={event?.q1_action}
-            hit={q1Hit}
-          />
-          <MarketBox
-            title="Primera mitad"
-            pick={h1Pick}
-            confidence={event?.h1_confidence}
-            odds={null}
-            action={event?.h1_action}
-            hit={h1Hit}
-          />
-          <MarketBox
-            title="Handicap"
-            pick={handicapPick}
-            confidence={event?.spread_confidence}
-            odds={spreadOdds}
-            action={event?.spread_market}
-            hit={spreadHit}
-          />
-          <MarketBox
-            title="Over / Under"
-            pick={totalPick}
-            confidence={event?.total_confidence}
-            odds={totalOdds}
-            action={event?.total_action}
-            hit={totalHit}
-          />
-          <MarketBox
-            title="Pick recomendado"
-            pick={recommended.pick}
-            confidence={recommended.confidence}
-            odds={recommended.odds}
-            action={recommended.label}
-            hit={recommended.hit}
-          />
+            {previousOpen && (
+              <div className="mt-3 space-y-3">
+                {previousLoading && (
+                  <p className="rounded-[12px] border border-[#b0b3bb] bg-[#efeff2] px-3 py-2 text-xs text-[#454a58]">
+                    Cargando comparativa...
+                  </p>
+                )}
+                {!previousLoading && previousError && (
+                  <p className="rounded-[12px] border border-[#cf727f] bg-[#f8e8eb] px-3 py-2 text-xs text-[#8b2434]">
+                    {previousError}
+                  </p>
+                )}
+                {!previousLoading && !previousError && previousGames.map((pastEvent, index) => (
+                  <HistoricalPredictionBlock
+                    key={`${pastEvent?.date || "date"}-${pastEvent?.game_id || index}`}
+                    event={pastEvent}
+                    sportKey={sportKey}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </aside>
     </div>

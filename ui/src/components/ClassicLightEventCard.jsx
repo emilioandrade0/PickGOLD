@@ -1,6 +1,7 @@
 import { getTeamLogoUrl } from "../utils/teamLogos.js";
 import { resolveEventTeams } from "../utils/teams.js";
 import { getTeamDisplayName } from "../utils/teamNames.js";
+import { resolveEventTier, tierLabel } from "../utils/picks.js";
 
 function toHitValue(value) {
   if (value === true || value === false) return value;
@@ -55,6 +56,44 @@ function resolveResultState(event) {
   return { hasResult, isLive };
 }
 
+function normalizeToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
+function resolveWinnerHint(event, sportKey, teams) {
+  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
+  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
+  const pickRaw = String(event?.full_game_pick || "").trim();
+  const pickToken = normalizeToken(pickRaw);
+  if (!pickToken || ["N/A", "PENDIENTE", "PASS", "SINLINEADISPONIBLE"].includes(pickToken)) {
+    return null;
+  }
+
+  const awayCodeToken = normalizeToken(teams.awayTeam);
+  const homeCodeToken = normalizeToken(teams.homeTeam);
+  const awayNameToken = normalizeToken(awayName);
+  const homeNameToken = normalizeToken(homeName);
+
+  const awayMatch = (
+    (awayCodeToken && pickToken.includes(awayCodeToken))
+    || (awayNameToken && pickToken.includes(awayNameToken))
+  );
+  const homeMatch = (
+    (homeCodeToken && pickToken.includes(homeCodeToken))
+    || (homeNameToken && pickToken.includes(homeNameToken))
+  );
+
+  if (awayMatch && !homeMatch) return { side: "away", teamName: awayName };
+  if (homeMatch && !awayMatch) return { side: "home", teamName: homeName };
+
+  return { side: "unknown", teamName: pickRaw };
+}
+
 function formatEventDate(dateValue) {
   if (!dateValue) return "Sin fecha";
   const date = new Date(`${dateValue}T00:00:00`);
@@ -82,11 +121,15 @@ export default function ClassicLightEventCard({ event, sportKey, onOpen, active 
   const teams = resolveEventTeams(event);
   const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
   const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
+  const eventTier = resolveEventTier(event);
   const { hasResult, isLive } = resolveResultState(event);
   const gameHit = toHitValue(event?.full_game_hit);
+  const winnerHint = resolveWinnerHint(event, sportKey, teams);
   const { awayScore, homeScore } = resolveDisplayedScores(event);
+  const showLiveScore = isLive && awayScore !== null && homeScore !== null;
   const showFinalScore = hasResult && !isLive && awayScore !== null && homeScore !== null;
   const statusLabel = isLive ? "LIVE" : hasResult ? "FINAL" : "PREVIO";
+  const tierText = tierLabel(eventTier).replace(" PICK", "");
   const resultBorderClass =
     gameHit === true
       ? "border-[2.6px] border-[#64a981]"
@@ -120,14 +163,16 @@ export default function ClassicLightEventCard({ event, sportKey, onOpen, active 
           <TeamLogo sportKey={sportKey} teamCode={teams.awayTeam} teamName={awayName} />
         </div>
         <div className="text-center text-sm font-semibold uppercase tracking-[0.14em] text-[#3f424d]">
-          {showFinalScore ? (
+          {showFinalScore || showLiveScore ? (
             <div>
-              <div className="flex items-end justify-center gap-3 text-[#1f232c]">
-                <span className="text-5xl font-black leading-none [font-family:var(--classic-display-font)]">{awayScore}</span>
-                <span className="mb-1 text-xl font-semibold uppercase tracking-[0.16em] text-[#495061]">vs</span>
-                <span className="text-5xl font-black leading-none [font-family:var(--classic-display-font)]">{homeScore}</span>
+              <div className={`flex items-end justify-center gap-3 ${showLiveScore ? "text-[#f4fbff]" : "text-[#1f232c]"}`}>
+                <span className={`text-5xl font-black leading-none [font-family:var(--classic-display-font)] ${showLiveScore ? "text-[#79d8ff]" : ""}`}>{awayScore}</span>
+                <span className={`mb-1 text-xl font-semibold uppercase tracking-[0.16em] ${showLiveScore ? "text-[#d8e2f2]" : "text-[#495061]"}`}>vs</span>
+                <span className={`text-5xl font-black leading-none [font-family:var(--classic-display-font)] ${showLiveScore ? "text-[#79d8ff]" : ""}`}>{homeScore}</span>
               </div>
-              <p className="mt-1 text-lg font-black leading-none text-[#20242d] [font-family:var(--classic-display-font)]">FINAL</p>
+              <p className={`mt-1 text-lg font-black leading-none [font-family:var(--classic-display-font)] ${showLiveScore ? "text-[#ff6f8e]" : "text-[#20242d]"}`}>
+                {showLiveScore ? "LIVE" : "FINAL"}
+              </p>
             </div>
           ) : (
             <span>vs</span>
@@ -142,6 +187,30 @@ export default function ClassicLightEventCard({ event, sportKey, onOpen, active 
         <p className="text-[13px] font-black uppercase tracking-[0.02em] text-[#20232a]">{awayName}</p>
         <p className="text-[13px] font-black uppercase tracking-[0.02em] text-[#20232a]">{homeName}</p>
       </div>
+
+      {winnerHint && (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          <div className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${
+            winnerHint.side === "away"
+              ? "border-[#4d88c4] bg-[#d9ebfb] text-[#1f4a78]"
+              : winnerHint.side === "home"
+                ? "border-[#b68b39] bg-[#f8edcd] text-[#5b4412]"
+                : "border-[#8f929c] bg-[#ececf0] text-[#3f4350]"
+          }`}>
+            <span className={`h-2 w-2 rounded-full ${
+              winnerHint.side === "away"
+                ? "bg-[#3575b8]"
+                : winnerHint.side === "home"
+                  ? "bg-[#b68b39]"
+                  : "bg-[#737885]"
+            }`} />
+            Pick principal: {winnerHint.teamName}
+          </div>
+          <span className="inline-flex items-center rounded-full border border-[#9fa2ab] bg-[#eef0f4] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#353947]">
+            {tierText}
+          </span>
+        </div>
+      )}
     </button>
   );
 }

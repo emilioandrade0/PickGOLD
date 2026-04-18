@@ -284,7 +284,7 @@ function CompactScoreRow({ sportKey, abbr, score }) {
         />
         <span className="text-sm font-semibold text-white">{fullName}</span>
       </div>
-      <span className="text-2xl font-bold text-rose-100">{score}</span>
+      <span className="text-2xl font-bold text-cyan-100">{score}</span>
     </div>
   );
 }
@@ -330,9 +330,49 @@ function outcomeLabel(hit, socialMode) {
   return "N/A";
 }
 
+function normalizeToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .trim();
+}
+
+function resolveWinnerHint(fullGamePick, sportKey, teams) {
+  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
+  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
+  const pickRaw = String(fullGamePick || "").trim();
+  const pickToken = normalizeToken(pickRaw);
+  if (!pickToken || ["N/A", "PENDIENTE", "PASS", "SINLINEADISPONIBLE"].includes(pickToken)) {
+    return null;
+  }
+
+  const awayCodeToken = normalizeToken(teams.awayTeam);
+  const homeCodeToken = normalizeToken(teams.homeTeam);
+  const awayNameToken = normalizeToken(awayName);
+  const homeNameToken = normalizeToken(homeName);
+
+  const awayMatch = (
+    (awayCodeToken && pickToken.includes(awayCodeToken))
+    || (awayNameToken && pickToken.includes(awayNameToken))
+  );
+  const homeMatch = (
+    (homeCodeToken && pickToken.includes(homeCodeToken))
+    || (homeNameToken && pickToken.includes(homeNameToken))
+  );
+
+  if (awayMatch && !homeMatch) return { side: "away", teamName: awayName };
+  if (homeMatch && !awayMatch) return { side: "home", teamName: homeName };
+
+  return { side: "unknown", teamName: pickRaw };
+}
+
 export default function EventCard({ event, onOpen, sportKey }) {
   const { socialMode } = useAppSettings();
   const teams = resolveEventTeams(event);
+  const awayName = getTeamDisplayName(sportKey, teams.awayTeam);
+  const homeName = getTeamDisplayName(sportKey, teams.homeTeam);
   const eventTier = resolveEventTier(event);
   const { hasResult, isLive } = resolveResultState(event);
   const hasLiveScore =
@@ -343,6 +383,7 @@ export default function EventCard({ event, onOpen, sportKey }) {
   const firstHalfTotalCard = resolveFirstHalfTotalCard(event);
   const rawFullGamePick = expandTeamCodeInText(sportKey, resolveSidePick(event.full_game_pick, teams));
   const fullGamePick = rawFullGamePick || (sportKey === "ncaa_baseball" ? "Sin linea disponible" : "Pendiente");
+  const winnerHint = resolveWinnerHint(fullGamePick, sportKey, teams);
   const mainOdds = resolveOddsValue(event, ODDS_KEYS.moneyline);
   const spreadOdds = resolveOddsValue(event, ODDS_KEYS.spread);
   const totalOdds = resolveOddsValue(event, ODDS_KEYS.total);
@@ -512,6 +553,30 @@ export default function EventCard({ event, onOpen, sportKey }) {
             <div className="mt-4">
               <TeamRow sportKey={sportKey} abbr={teams.homeTeam} />
             </div>
+          </div>
+        )}
+
+        {winnerHint && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${
+              winnerHint.side === "away"
+                ? "border-cyan-300/45 bg-cyan-400/12 text-cyan-100"
+                : winnerHint.side === "home"
+                  ? "border-amber-300/45 bg-amber-400/12 text-amber-100"
+                  : "border-white/25 bg-white/10 text-white/90"
+            }`}>
+              <span className={`h-2 w-2 rounded-full ${
+                winnerHint.side === "away"
+                  ? "bg-cyan-300"
+                  : winnerHint.side === "home"
+                    ? "bg-amber-300"
+                    : "bg-white/70"
+              }`} />
+              Pick principal: {winnerHint.teamName}
+            </div>
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] ${tierClasses(eventTier)}`}>
+              {tierLabel(eventTier).replace(" PICK", "")}
+            </span>
           </div>
         )}
 

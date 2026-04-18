@@ -1,7 +1,7 @@
 {
   "snapshot_date": "2026-04-18",
-  "created_at": "2026-04-18T00:58:46.652743",
-  "updated_at": "2026-04-18T00:58:46.652743",
+  "created_at": "2026-04-18T13:38:51.347105",
+  "updated_at": "2026-04-18T13:38:51.347105",
   "is_partial": true,
   "window_games": 8,
   "sports": [
@@ -9,9 +9,9 @@
       "sport": "bundesliga",
       "sport_label": "Bundesliga",
       "picks": 3,
-      "hits": 0,
-      "pending": 3,
-      "hit_rate": 0.0
+      "hits": 2,
+      "pending": 0,
+      "hit_rate": 0.6667
     },
     {
       "sport": "kbo",
@@ -34,7 +34,7 @@
       "sport_label": "Ligue 1",
       "picks": 3,
       "hits": 0,
-      "pending": 3,
+      "pending": 1,
       "hit_rate": 0.0
     },
     {
@@ -73,12 +73,24 @@
       "sport": "triple_a",
       "sport_label": "Triple-A",
       "picks": 17,
-      "hits": 0,
-      "pending": 17,
-      "hit_rate": 0.0
+      "hits": 1,
+      "pending": 16,
+      "hit_rate": 0.0588
     }
   ],
   "teams": [
+    {
+      "sport": "triple_a",
+      "sport_label": "Triple-A",
+      "team": "Syracuse Mets",
+      "picks": 2,
+      "hits": 1,
+      "pending": 1,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 54.17,
+      "form_label": "Racha normal"
+    },
     {
       "sport": "kbo",
       "sport_label": "KBO",
@@ -104,16 +116,28 @@
       "form_label": "Muy buena racha"
     },
     {
-      "sport": "triple_a",
-      "sport_label": "Triple-A",
-      "team": "Syracuse Mets",
-      "picks": 2,
-      "hits": 0,
-      "pending": 2,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 54.17,
-      "form_label": "Racha normal"
+      "sport": "bundesliga",
+      "sport_label": "Bundesliga",
+      "team": "WOB",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 8.33,
+      "form_label": "Mala racha"
+    },
+    {
+      "sport": "bundesliga",
+      "sport_label": "Bundesliga",
+      "team": "RBL",
+      "picks": 1,
+      "hits": 1,
+      "pending": 0,
+      "settled": 1,
+      "hit_rate": 1.0,
+      "avg_form_score_pct": 70.83,
+      "form_label": "Buena racha"
     },
     {
       "sport": "triple_a",
@@ -598,38 +622,14 @@
     {
       "sport": "bundesliga",
       "sport_label": "Bundesliga",
-      "team": "WOB",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 8.33,
-      "form_label": "Mala racha"
-    },
-    {
-      "sport": "bundesliga",
-      "sport_label": "Bundesliga",
       "team": "B04",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 54.17,
       "form_label": "Racha normal"
-    },
-    {
-      "sport": "bundesliga",
-      "sport_label": "Bundesliga",
-      "team": "RBL",
-      "picks": 1,
-      "hits": 0,
-      "pending": 1,
-      "settled": 0,
-      "hit_rate": 0.0,
-      "avg_form_score_pct": 70.83,
-      "form_label": "Buena racha"
     },
     {
       "sport": "ligue1",
@@ -637,8 +637,8 @@
       "team": "OM",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 54.17,
       "form_label": "Racha normal"
@@ -649,8 +649,8 @@
       "team": "HAC",
       "picks": 1,
       "hits": 0,
-      "pending": 1,
-      "settled": 0,
+      "pending": 0,
+      "settled": 1,
       "hit_rate": 0.0,
       "avg_form_score_pct": 25.0,
       "form_label": "Mala racha"
@@ -828,7 +828,7 @@
     "sports_count": 9,
     "teams_count": 62,
     "picks": 64,
-    "hits": 2,
-    "pending": 59
+    "hits": 5,
+    "pending": 53
   }
 }
