@@ -74,9 +74,36 @@ function TabGroup({ title, tabs }) {
 export default function SportTabs({ userRole = null }) {
   const { socialMode, uiTheme } = useAppSettings();
   const isDashboardPro = uiTheme === "dashboard_pro";
+  const isClassicLight = uiTheme === "classic_light";
   const sports = SPORT_TABS.map((tab) => mapTabLabel(tab, socialMode));
   const modules = MODULE_TABS.map((tab) => mapTabLabel(tab, socialMode));
   const adminTabs = userRole === "admin" ? ADMIN_TABS.map((tab) => mapTabLabel(tab, socialMode)) : [];
+
+  if (isClassicLight) {
+    return (
+      <div className="classic-light-surface classic-light-tabs overflow-x-auto">
+        <div className="flex min-w-max items-center gap-2 whitespace-nowrap">
+          {sports.map((tab, index) => (
+            <div key={tab.key} className="flex items-center gap-2">
+              <NavLink
+                to={tab.path}
+                className={({ isActive }) =>
+                  `rounded-md px-1.5 py-1 text-sm font-semibold uppercase tracking-[0.06em] transition ${
+                    isActive
+                      ? "bg-[#ececf0] text-[#232730]"
+                      : "text-[#3f4452] hover:bg-[#ececf0] hover:text-[#20242d]"
+                  }`
+                }
+              >
+                {tab.label}
+              </NavLink>
+              {index < sports.length - 1 && <span className="text-[#656a77]">■</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">

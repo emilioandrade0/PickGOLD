@@ -3,9 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import EventCard from "../components/EventCard.jsx";
 import DetailModal from "../components/DetailModal.jsx";
+import ClassicLightEventCard from "../components/ClassicLightEventCard.jsx";
+import ClassicLightEventDrawer from "../components/ClassicLightEventDrawer.jsx";
 import SeasonStatusBanner from "../components/SeasonStatusBanner.jsx";
 import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { resolveEventTier } from "../utils/picks.js";
+import { buildCalendarDays, dateToYMDLocal, formatDateInput } from "../utils/date.js";
 import {
   fetchAvailableDates,
   fetchPredictionsByDate,
@@ -66,6 +69,8 @@ function isLiveEvent(event) {
 
 export default function LeaguePage({ sportKey, sportLabel }) {
   const { socialMode, uiTheme } = useAppSettings();
+  const isDashboardPro = uiTheme === "dashboard_pro";
+  const isClassicLight = uiTheme === "classic_light";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
@@ -75,6 +80,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
   const [error, setError] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
+  const [classicDrawerOpen, setClassicDrawerOpen] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
   const [eventSearch, setEventSearch] = useState("");
   const [dashboardSidebarCompact, setDashboardSidebarCompact] = useState(false);
@@ -101,6 +107,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     try {
       setLoading(true);
       setError("");
+      setClassicDrawerOpen(false);
 
       const localToday = toYmdLocal(new Date());
 
@@ -211,6 +218,7 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     try {
       setLoading(true);
       setError("");
+      setClassicDrawerOpen(false);
 
       let data = await fetchPredictionsByDate(sportKey, dateStr);
       let effectiveDate = dateStr;
@@ -325,6 +333,8 @@ export default function LeaguePage({ sportKey, sportLabel }) {
     setEvents([]);
     setSelectedDate("");
     setActiveEvent(null);
+    setClassicDrawerOpen(false);
+    setModalOpen(false);
     setError("");
     setLoading(true);
     setEventSearch("");
@@ -345,6 +355,10 @@ export default function LeaguePage({ sportKey, sportLabel }) {
 
   function handleOpenEvent(event) {
     setActiveEvent(event);
+    if (isClassicLight) {
+      setClassicDrawerOpen(true);
+      return;
+    }
     setModalOpen(true);
   }
 
@@ -393,7 +407,158 @@ export default function LeaguePage({ sportKey, sportLabel }) {
         return haystack.includes(normalizedEventSearch);
       })
     : events;
-  const isDashboardPro = uiTheme === "dashboard_pro";
+  const classicCalendarDays = buildCalendarDays(calendarMonth);
+  const enabledDateSet = new Set(Array.isArray(availableDates) ? availableDates : []);
+  const activeClassicGameId = String(activeEvent?.game_id || "");
+
+  if (isClassicLight) {
+    return (
+      <>
+        <main className="classic-light-surface classic-light-board mx-auto max-w-[1780px] px-4 py-6 xl:px-6 2xl:px-8">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
+            <section className="min-w-0">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-3 rounded-[18px] border border-[#b6b8bf] bg-[#d4d5da] px-4 py-3 text-[#252831]">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#535865]">{sportLabel}</p>
+                  <h2 className="mt-1 text-2xl font-black uppercase tracking-[0.02em] [font-family:var(--classic-display-font)]">Eventos del dia</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={loadToday}
+                    className="rounded-full border border-[#a9acb5] bg-[#ececf0] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
+                  >
+                    Hoy
+                  </button>
+                  <span className="rounded-full border border-[#a9acb5] bg-[#ececf0] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844]">
+                    {filteredEvents.length} juegos
+                  </span>
+                </div>
+              </div>
+
+              {showNcaaSearch && (
+                <div className="mb-4 rounded-[16px] border border-[#b6b8bf] bg-[#d8d9de] p-3">
+                  <label htmlFor="ncaa-event-search" className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5b6070]">
+                    Buscar evento NCAA Baseball
+                  </label>
+                  <input
+                    id="ncaa-event-search"
+                    type="text"
+                    value={eventSearch}
+                    onChange={(e) => setEventSearch(e.target.value)}
+                    placeholder="Escribe equipo, matchup u hora..."
+                    className="w-full rounded-xl border border-[#b7bac3] bg-[#f2f2f5] px-3 py-2 text-sm text-[#2a2e36] outline-none transition placeholder:text-[#7e8391] focus:border-[#8d91a0]"
+                  />
+                </div>
+              )}
+
+              {loading ? (
+                <div className="rounded-[18px] border border-[#b6b8bf] bg-[#d7d8de] p-8 text-center text-sm font-semibold text-[#505463]">
+                  Cargando eventos...
+                </div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="rounded-[18px] border border-[#b6b8bf] bg-[#d7d8de] p-8 text-center text-sm font-semibold text-[#505463]">
+                  {showNcaaSearch && normalizedEventSearch
+                    ? `No encontramos eventos para \"${eventSearch}\" en esta fecha.`
+                    : `No hay predicciones disponibles para ${sportLabel} en esta fecha.`}
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {filteredEvents.map((event) => (
+                    <ClassicLightEventCard
+                      key={event.game_id}
+                      event={event}
+                      sportKey={sportKey}
+                      onOpen={handleOpenEvent}
+                      active={classicDrawerOpen && activeClassicGameId !== "" && String(event.game_id || "") === activeClassicGameId}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <aside className="self-start space-y-4 xl:sticky xl:top-6">
+              <div className="rounded-[18px] border border-[#b6b8bf] bg-[#d7d8de] px-4 py-3 text-[#262a33] shadow-[0_8px_20px_rgba(0,0,0,0.12)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#565b69]">Eventos del dia</p>
+                <p className="mt-1 text-5xl font-black leading-none [font-family:var(--classic-display-font)]">{events.length}</p>
+                <p className="mt-2 text-sm font-semibold text-[#535865]">Ganados: {wins}</p>
+              </div>
+
+              <div className="rounded-[18px] border border-[#b6b8bf] bg-[#d7d8de] px-4 py-3 text-[#262a33] shadow-[0_8px_20px_rgba(0,0,0,0.12)]">
+                <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.12em] text-[#565b69]">
+                  <span>Calendario</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                      className="rounded-md border border-[#aeb1bb] bg-[#ececf0] px-2 py-0.5"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                      className="rounded-md border border-[#aeb1bb] bg-[#ececf0] px-2 py-0.5"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
+                <p className="mb-2 text-xs capitalize text-[#5f6372]">
+                  {calendarMonth.toLocaleDateString("es-MX", { month: "long", year: "numeric" })}
+                </p>
+                <div className="mb-1 grid grid-cols-7 text-center text-[10px] font-semibold uppercase text-[#6a6f7d]">
+                  {["L", "M", "M", "J", "V", "S", "D"].map((day, idx) => (
+                    <span key={`${day}-${idx}`}>{day}</span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {classicCalendarDays.map((dateObj, index) => {
+                    if (!dateObj) return <div key={`empty-${index}`} className="h-7" />;
+                    const dateStr = dateToYMDLocal(dateObj);
+                    const isActive = dateStr === selectedDate;
+                    const dateEnabled = enabledDateSet.size === 0 || enabledDateSet.has(dateStr);
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        disabled={!dateEnabled}
+                        onClick={() => loadByDate(dateStr)}
+                        className={`rounded-md py-1 text-xs font-semibold transition ${
+                          isActive
+                            ? "border border-[#6b707f] bg-[#f2f2f5] text-[#232731]"
+                            : dateEnabled
+                              ? "bg-[#ececf0] text-[#545968] hover:bg-[#f3f3f6]"
+                              : "cursor-not-allowed bg-[#d2d3d8] text-[#8d91a0]"
+                        }`}
+                      >
+                        {dateObj.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#b6b8bf] bg-[#d7d8de] px-4 py-3 text-[#262a33] shadow-[0_8px_20px_rgba(0,0,0,0.12)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#565b69]">Estado</p>
+                <p className="mt-2 text-sm font-semibold text-[#3f4450]">Fecha: {selectedDate ? formatDateInput(selectedDate) : "Sin fecha"}</p>
+                <p className="mt-1 text-sm text-[#5d6270]">Acierto global: {totalTracked > 0 ? `${hitRate.toFixed(1)}%` : "-"}</p>
+                {error && <p className="mt-2 text-xs font-semibold text-[#a23748]">{error}</p>}
+              </div>
+            </aside>
+          </div>
+        </main>
+
+        {classicDrawerOpen && activeEvent && (
+          <ClassicLightEventDrawer
+            event={activeEvent}
+            sportKey={sportKey}
+            onClose={() => setClassicDrawerOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>

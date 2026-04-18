@@ -256,13 +256,16 @@ export async function getAdminAppSettings() {
   });
 }
 
-export async function updateAdminAppSettings({ socialMode, uiTheme }) {
+export async function updateAdminAppSettings({ socialMode, uiTheme, classicLightNightMode }) {
   const session = getActiveSession();
   if (!session?.token) {
     return { ok: false, error: "Sesion invalida." };
   }
   const payload = { social_mode: Boolean(socialMode) };
   if (uiTheme) payload.ui_theme = String(uiTheme);
+  if (classicLightNightMode !== undefined && classicLightNightMode !== null) {
+    payload.classic_light_night_mode = Boolean(classicLightNightMode);
+  }
   return rawFetchAuth("/admin/app-settings", {
     method: "POST",
     headers: withAuthHeaders(session.token, { "Content-Type": "application/json" }),

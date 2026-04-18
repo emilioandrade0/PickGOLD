@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Teko:wght@500;600;700&display=swap");
 
 :root {
   --bg-0: #090a0c;
@@ -9,6 +10,7 @@
   --text-soft: rgba(243, 244, 246, 0.72);
   --accent-amber: #f6c453;
   --accent-cyan: #5cc8e8;
+  --classic-display-font: "Teko", "Rajdhani", "Segoe UI", sans-serif;
 }
 
 html, body, #root {
@@ -29,6 +31,144 @@ html[data-ui-theme="dashboard_pro"] body {
     radial-gradient(1200px 700px at -6% 10%, rgba(246, 196, 83, 0.1), transparent 58%),
     radial-gradient(900px 520px at 105% -8%, rgba(92, 200, 232, 0.1), transparent 62%),
     linear-gradient(180deg, #0a0d14, #070a10);
+}
+
+html[data-ui-theme="classic_light"] body {
+  background:
+    radial-gradient(1200px 700px at -6% 10%, rgba(255, 255, 255, 0.5), transparent 60%),
+    radial-gradient(900px 520px at 105% -8%, rgba(172, 175, 185, 0.25), transparent 62%),
+    linear-gradient(180deg, #d3d4d9, #cbccd1);
+  color: #242730;
+  font-family: "Rajdhani", "Segoe UI", sans-serif;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] body {
+  background:
+    radial-gradient(1200px 700px at -6% 10%, rgba(89, 107, 148, 0.16), transparent 60%),
+    radial-gradient(900px 520px at 105% -8%, rgba(120, 141, 196, 0.13), transparent 62%),
+    linear-gradient(180deg, #161c29, #101621);
+  color: #e8ebf4;
+  color-scheme: dark;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-header,
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-sidebar,
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-event-drawer,
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic {
+  border-color: #4e5870 !important;
+  background: #242c3b !important;
+  color: #e8ebf4 !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-event-card {
+  background: #2a3344 !important;
+  color: #e8ebf4 !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="bg-[#d"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="bg-[#e"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="bg-[#f"] {
+  background: rgba(44, 54, 73, 0.96) !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#2"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#3"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#4"] {
+  color: #e8ebf4 !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#5"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#6"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#7"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#8"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .classic-light-surface [class*="text-[#9"] {
+  color: #bdc5d8 !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="bg-white/[0.02]"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="bg-white/[0.03]"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="bg-white/[0.04]"],
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="bg-white/[0.05]"] {
+  background: rgba(31, 38, 52, 0.9) !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="bg-black/"] {
+  background: rgba(20, 24, 34, 0.92) !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="border-white/"] {
+  border-color: rgba(115, 127, 153, 0.55) !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class~="text-white"] {
+  color: #eef1fb !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic [class*="text-white/"] {
+  color: #b5c0d8 !important;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic input,
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic select,
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic textarea {
+  background: #1f2736;
+  color: #e6eaf7;
+  border-color: #5a647d;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic input::placeholder,
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic textarea::placeholder {
+  color: #96a2bf;
+}
+
+html[data-ui-theme="classic_light"][data-classic-light-night="1"] .admin-approval-shell--classic select option {
+  background: #1b2230;
+  color: #e6ebf8;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic {
+  color: #232730;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="bg-white/[0.02]"],
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="bg-white/[0.03]"],
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="bg-white/[0.04]"],
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="bg-white/[0.05]"] {
+  background: rgba(236, 238, 243, 0.9) !important;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="bg-black/"] {
+  background: rgba(241, 242, 246, 0.9) !important;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="border-white/"] {
+  border-color: rgba(144, 149, 160, 0.52) !important;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class~="text-white"] {
+  color: #222731 !important;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic [class*="text-white/"] {
+  color: #596077 !important;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic input,
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic select,
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic textarea {
+  background: #eef0f4;
+  color: #20252f;
+  border-color: #aab0bc;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic input::placeholder,
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic textarea::placeholder {
+  color: #777f91;
+}
+
+html[data-ui-theme="classic_light"]:not([data-classic-light-night="1"]) .admin-approval-shell--classic select option {
+  background: #f1f2f6;
+  color: #222731;
 }
 
 .team-logo {

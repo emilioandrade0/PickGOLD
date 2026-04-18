@@ -78,7 +78,15 @@ function AccessBadge({ user }) {
 }
 
 export default function AdminUserApproval() {
-  const { socialMode, setSocialMode, uiTheme, setUiTheme } = useAppSettings();
+  const {
+    socialMode,
+    setSocialMode,
+    uiTheme,
+    setUiTheme,
+    classicLightNightMode,
+    setClassicLightNightMode,
+  } = useAppSettings();
+  const isClassicLight = uiTheme === "classic_light";
   const [pending, setPending] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
   const [sportUpdates, setSportUpdates] = useState([]);
@@ -162,9 +170,10 @@ export default function AdminUserApproval() {
       if (appSettingsRes.ui_theme) {
         setUiTheme(String(appSettingsRes.ui_theme));
       }
+      setClassicLightNightMode(Boolean(appSettingsRes.classic_light_night_mode));
     }
     setLoading(false);
-  }, [setSocialMode, setUiTheme, snapshotMonth]);
+  }, [setClassicLightNightMode, setSocialMode, setUiTheme, snapshotMonth]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -329,10 +338,15 @@ export default function AdminUserApproval() {
     setAppSettingsBusy(true);
     setError("");
     setSuccess("");
-    const res = await updateAdminAppSettings({ socialMode: !socialMode, uiTheme });
+    const res = await updateAdminAppSettings({
+      socialMode: !socialMode,
+      uiTheme,
+      classicLightNightMode,
+    });
     if (res?.ok) {
       setSocialMode(Boolean(res.social_mode));
       if (res.ui_theme) setUiTheme(String(res.ui_theme));
+      setClassicLightNightMode(Boolean(res.classic_light_night_mode));
       setSuccess(res.social_mode ? "Modo redes activado." : "Modo redes desactivado.");
     } else {
       setError(res?.error || "No se pudo actualizar el modo redes.");
@@ -340,18 +354,56 @@ export default function AdminUserApproval() {
     setAppSettingsBusy(false);
   }
 
+  function normalizeThemeValue(nextTheme) {
+    const txt = String(nextTheme || "").toLowerCase().trim();
+    if (txt === "dashboard_pro") return "dashboard_pro";
+    if (txt === "classic_light") return "classic_light";
+    return "original";
+  }
+
+  function uiThemeLabel(themeValue) {
+    if (themeValue === "dashboard_pro") return "Dashboard Pro";
+    if (themeValue === "classic_light") return "Classic Light";
+    return "Original";
+  }
+
   async function handleUiThemeChange(nextTheme) {
-    const normalized = String(nextTheme || "").toLowerCase() === "dashboard_pro" ? "dashboard_pro" : "original";
+    const normalized = normalizeThemeValue(nextTheme);
     setAppSettingsBusy(true);
     setError("");
     setSuccess("");
-    const res = await updateAdminAppSettings({ socialMode, uiTheme: normalized });
+    const res = await updateAdminAppSettings({
+      socialMode,
+      uiTheme: normalized,
+      classicLightNightMode,
+    });
     if (res?.ok) {
       setUiTheme(res.ui_theme ? String(res.ui_theme) : normalized);
-      setSuccess(`Tema UI actualizado a: ${normalized === "dashboard_pro" ? "Dashboard Pro" : "Original"}.`);
+      setClassicLightNightMode(Boolean(res.classic_light_night_mode));
+      setSuccess(`Tema UI actualizado a: ${uiThemeLabel(normalized)}.`);
     } else {
       setUiTheme(normalized);
-      setSuccess(`Tema UI local actualizado a: ${normalized === "dashboard_pro" ? "Dashboard Pro" : "Original"}.`);
+      setSuccess(`Tema UI local actualizado a: ${uiThemeLabel(normalized)}.`);
+    }
+    setAppSettingsBusy(false);
+  }
+
+  async function handleToggleClassicLightNightMode() {
+    const nextValue = !classicLightNightMode;
+    setAppSettingsBusy(true);
+    setError("");
+    setSuccess("");
+    const res = await updateAdminAppSettings({
+      socialMode,
+      uiTheme,
+      classicLightNightMode: nextValue,
+    });
+    if (res?.ok) {
+      setClassicLightNightMode(Boolean(res.classic_light_night_mode));
+      setSuccess(Boolean(res.classic_light_night_mode) ? "Modo noche de Classic Light activado." : "Modo noche de Classic Light desactivado.");
+    } else {
+      setClassicLightNightMode(nextValue);
+      setSuccess(nextValue ? "Modo noche local activado." : "Modo noche local desactivado.");
     }
     setAppSettingsBusy(false);
   }
@@ -435,26 +487,57 @@ export default function AdminUserApproval() {
     loadCompare();
   }, [snapshotStatus?.snapshots_dates]);
 
+  const shellClass = isClassicLight
+    ? "admin-approval-shell admin-approval-shell--classic mx-auto mt-8 max-w-6xl rounded-[28px] border border-[#b7bac2] bg-[linear-gradient(180deg,#d4d5da,#c7c8ce)] p-6 text-[#1f2430] shadow-[0_20px_46px_rgba(0,0,0,0.14)]"
+    : "admin-approval-shell mx-auto mt-8 max-w-6xl rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(28,32,42,0.96),rgba(18,21,29,0.98))] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.22)]";
+  const headerKickerClass = isClassicLight
+    ? "text-[11px] uppercase tracking-[0.18em] text-[#5f6372]"
+    : "text-[11px] uppercase tracking-[0.18em] text-amber-200/75";
+  const headerSubtitleClass = isClassicLight
+    ? "mt-2 max-w-2xl text-sm leading-6 text-[#4e5465]"
+    : "mt-2 max-w-2xl text-sm leading-6 text-white/68";
+  const reloadButtonClass = isClassicLight
+    ? "rounded-2xl border border-[#a7abb6] bg-[#ececf0] px-4 py-2 text-sm font-semibold text-[#2c303a] transition hover:bg-[#f4f4f6]"
+    : "rounded-2xl border border-white/12 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-white/[0.08]";
+  const tabsWrapClass = isClassicLight
+    ? "mt-6 flex flex-wrap gap-2 rounded-2xl border border-[#aeb2bc] bg-[#d9dae0] p-2"
+    : "mt-6 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2";
+
+  function sectionTabClass(tabKey) {
+    if (isClassicLight) {
+      return `rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+        activeSection === tabKey
+          ? "border-[#8f94a1] bg-[#eef0f3] text-[#20242d]"
+          : "border-[#aeb2bc] bg-[#d2d4db] text-[#545b6d] hover:bg-[#e8e9ee] hover:text-[#222730]"
+      }`;
+    }
+    return `rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+      activeSection === tabKey
+        ? "border-amber-300/60 bg-amber-300/12 text-amber-100"
+        : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20 hover:text-white"
+    }`;
+  }
+
   return (
-    <div className="mx-auto mt-8 max-w-6xl rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(28,32,42,0.96),rgba(18,21,29,0.98))] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
+    <div className={shellClass}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/75">Admin control</p>
+          <p className={headerKickerClass}>Admin control</p>
           <h2 className="mt-2 text-2xl font-semibold">Configuración</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/68">
+          <p className={headerSubtitleClass}>
             Board de estado de la app.
           </p>
         </div>
         <button
           type="button"
           onClick={fetchAdminData}
-          className="rounded-2xl border border-white/12 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-white/[0.08]"
+          className={reloadButtonClass}
         >
           Recargar
         </button>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2">
+      <div className={tabsWrapClass}>
         {[
           { key: "overview", label: "Resumen" },
           { key: "sports", label: "Deportes" },
@@ -467,11 +550,7 @@ export default function AdminUserApproval() {
             key={tab.key}
             type="button"
             onClick={() => setActiveSection(tab.key)}
-            className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-              activeSection === tab.key
-                ? "border-amber-300/60 bg-amber-300/12 text-amber-100"
-                : "border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20 hover:text-white"
-            }`}
+            className={sectionTabClass(tab.key)}
           >
             {tab.label}
           </button>
@@ -545,7 +624,48 @@ export default function AdminUserApproval() {
               >
                 Dashboard Pro
               </button>
+              <button
+                type="button"
+                onClick={() => handleUiThemeChange("classic_light")}
+                disabled={appSettingsBusy}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                  uiTheme === "classic_light"
+                    ? "border-slate-300/60 bg-slate-200/15 text-slate-100"
+                    : "border-white/12 bg-white/[0.04] text-white/75 hover:border-white/22 hover:text-white"
+                }`}
+              >
+                Classic Light
+              </button>
             </div>
+
+            {uiTheme === "classic_light" && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">Modo noche</p>
+                    <p className="mt-1 text-xs text-white/60">Activa una variante nocturna sin salir de Classic Light.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleClassicLightNightMode}
+                    disabled={appSettingsBusy}
+                    className={`relative inline-flex h-8 w-16 items-center rounded-full border transition ${
+                      classicLightNightMode
+                        ? "border-emerald-300/50 bg-emerald-300/25"
+                        : "border-white/20 bg-white/[0.08]"
+                    } disabled:opacity-60`}
+                    aria-pressed={classicLightNightMode}
+                    title={classicLightNightMode ? "Desactivar modo noche" : "Activar modo noche"}
+                  >
+                    <span
+                      className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition ${
+                        classicLightNightMode ? "translate-x-8" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

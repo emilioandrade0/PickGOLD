@@ -44,6 +44,7 @@ export default function SidebarCalendar({
 }) {
   const { uiTheme } = useAppSettings();
   const isDashboardPro = uiTheme === "dashboard_pro";
+  const isClassicLight = uiTheme === "classic_light";
   const [sportsCollapsed, setSportsCollapsed] = useState(false);
 
   const calendarDays = buildCalendarDays(calendarMonth);
@@ -69,6 +70,94 @@ export default function SidebarCalendar({
     { label: "Tennis WTA", path: "/tennis" },
     { label: "NCAA Triple-A", path: "/triple-a" },
   ]), []);
+
+  if (isClassicLight) {
+    return (
+      <aside className="classic-light-surface classic-light-sidebar self-start rounded-[18px] border border-[#b6b8bf] bg-[#d7d8de] p-4 text-[#252831] shadow-[0_10px_24px_rgba(0,0,0,0.12)] lg:sticky lg:top-6">
+        <div className="mb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5c6070]">{sportLabel || "Pick Gold"}</p>
+          <h2 className="mt-1 text-xl font-black uppercase tracking-[0.02em] [font-family:var(--classic-display-font)]">{title}</h2>
+          <p className="mt-2 text-sm text-[#5b6070]">{subtitle}</p>
+        </div>
+
+        <div className="rounded-[16px] border border-[#b4b7c0] bg-[#e3e4e8] p-3">
+          <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.08em] text-[#575c6b]">
+            <button
+              type="button"
+              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+              className="rounded-md border border-[#aeb1bb] bg-[#f0f0f3] px-2 py-0.5"
+            >
+              ‹
+            </button>
+
+            <span className="capitalize">{monthLabel}</span>
+
+            <button
+              type="button"
+              onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+              className="rounded-md border border-[#aeb1bb] bg-[#f0f0f3] px-2 py-0.5"
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="mb-1 grid grid-cols-7 text-center text-[10px] font-semibold uppercase text-[#656a78]">
+            {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+              <div key={`${d}-${i}`}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.map((dateObj, index) => {
+              if (!dateObj) return <div key={`empty-${index}`} className="h-7" />;
+
+              const day = dateObj.getDate();
+              const dateStr = dateToYMDLocal(dateObj);
+              const active = dateStr === selectedDate;
+              const dateEnabled = enabledDateSet.size === 0 || enabledDateSet.has(dateStr);
+
+              return (
+                <button
+                  key={dateStr}
+                  disabled={!dateEnabled}
+                  onClick={() => onSelectDate(dateStr)}
+                  className={`rounded-md py-1 text-xs font-semibold transition ${
+                    active
+                      ? "border border-[#6a6f7e] bg-[#f2f2f5] text-[#232730]"
+                      : dateEnabled
+                        ? "bg-[#f0f0f3] text-[#535867] hover:bg-[#f6f6f8]"
+                        : "cursor-not-allowed bg-[#d2d3d8] text-[#8d91a0]"
+                  }`}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          <button
+            type="button"
+            onClick={onLoadToday}
+            className="w-full rounded-xl border border-[#aeb1bb] bg-[#ececf0] px-4 py-2 text-sm font-semibold uppercase tracking-[0.06em] text-[#353946] transition hover:bg-[#f5f5f7]"
+          >
+            {todayButtonLabel}
+          </button>
+
+          <div className="rounded-xl border border-[#b3b6bf] bg-[#e3e4e8] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#64697a]">Fecha seleccionada</p>
+            <p className="mt-1 text-sm font-semibold text-[#333742]">{selectedDate ? formatDateInput(selectedDate) : "Sin fecha"}</p>
+          </div>
+
+          {loading && <div className="rounded-xl border border-[#b3b6bf] bg-[#e3e4e8] p-3 text-xs font-semibold text-[#535867]">Cargando...</div>}
+          {error && <div className="rounded-xl border border-[#cf8f99] bg-[#f5dde2] p-3 text-xs font-semibold text-[#9a3d4f]">{error}</div>}
+        </div>
+      </aside>
+    );
+  }
 
   if (!isDashboardPro) {
     return (

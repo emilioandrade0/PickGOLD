@@ -1484,8 +1484,14 @@ def admin_delete_user(payload: dict = Body(...), authorization: Optional[str] = 
 def _app_settings_payload() -> dict:
     social_mode_raw = str(get_app_setting("social_mode", "0") or "0").strip().lower()
     social_mode = social_mode_raw in {"1", "true", "yes", "si", "on"}
+    ui_theme_raw = str(get_app_setting("ui_theme", "original") or "original").strip().lower()
+    ui_theme = ui_theme_raw if ui_theme_raw in {"original", "dashboard_pro", "classic_light"} else "original"
+    classic_light_night_mode_raw = str(get_app_setting("classic_light_night_mode", "0") or "0").strip().lower()
+    classic_light_night_mode = classic_light_night_mode_raw in {"1", "true", "yes", "si", "on"}
     return {
         "social_mode": social_mode,
+        "ui_theme": ui_theme,
+        "classic_light_night_mode": classic_light_night_mode,
     }
 
 
@@ -1511,6 +1517,20 @@ def update_admin_app_settings(payload: dict = Body(...), authorization: Optional
     _require_admin_session(authorization)
     social_mode = bool(payload.get("social_mode"))
     set_app_setting("social_mode", "1" if social_mode else "0")
+
+    ui_theme_raw = str(payload.get("ui_theme", "") or "").strip().lower()
+    if ui_theme_raw in {"original", "dashboard_pro", "classic_light"}:
+        set_app_setting("ui_theme", ui_theme_raw)
+
+    if "classic_light_night_mode" in payload:
+        classic_light_night_mode_raw = payload.get("classic_light_night_mode")
+        if isinstance(classic_light_night_mode_raw, str):
+            txt = classic_light_night_mode_raw.strip().lower()
+            classic_light_night_mode = txt in {"1", "true", "yes", "si", "on"}
+        else:
+            classic_light_night_mode = bool(classic_light_night_mode_raw)
+        set_app_setting("classic_light_night_mode", "1" if classic_light_night_mode else "0")
+
     return {
         "ok": True,
         **_app_settings_payload(),

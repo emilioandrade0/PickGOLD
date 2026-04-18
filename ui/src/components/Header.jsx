@@ -32,7 +32,72 @@ export default function Header({ onLogout, userName }) {
   const sportTitle = getSportTitle(location.pathname, socialMode);
   const userRole = getActiveSession()?.role || null;
   const isDashboardPro = uiTheme === "dashboard_pro";
+  const isClassicLight = uiTheme === "classic_light";
   const sectionLabel = sportTitle;
+
+  if (isClassicLight) {
+    return (
+      <header className="classic-light-surface classic-light-header border-b border-[#aeb0b7] bg-[#b6b7bd] text-[#23262f]">
+        <div className="mx-auto max-w-[1780px] px-4 py-3 xl:px-6 2xl:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/nba")}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#8e919b] bg-[#e8e8ec] px-3 py-1.5 text-[#242730] transition hover:bg-[#f2f2f5]"
+              title="Volver al menu principal"
+            >
+              <span className="text-base">⬢</span>
+              <span className="text-3xl font-black uppercase tracking-[0.01em] [font-family:var(--classic-display-font)]">Pick Gold</span>
+            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {userName ? (
+                <span className="rounded-full border border-[#989ba5] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#4d5260]">
+                  {userName}
+                </span>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => navigate("/live")}
+                className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
+              >
+                Live
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/resumen-dia")}
+                className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
+              >
+                Eventos del dia
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(userRole === "admin" ? "/admin/approve-users" : "/estadisticas")}
+                className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
+              >
+                Configuracion
+              </button>
+
+              {onLogout ? (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="rounded-full border border-[#9b7f60] bg-[#efe0c8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#5b4630] transition hover:bg-[#f6e8d3]"
+                >
+                  Salir
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-[14px] border border-[#aeb0b7] bg-[#d0d1d6] px-3 py-2">
+            <SportTabs userRole={userRole} />
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className={`relative border-b border-white/8 ${isDashboardPro ? "bg-[radial-gradient(circle_at_top_left,rgba(255,194,73,0.10),transparent_30%),radial-gradient(circle_at_top_right,rgba(52,211,153,0.08),transparent_24%),linear-gradient(180deg,#090d16,#090d14)]" : "bg-[radial-gradient(circle_at_top_left,rgba(255,194,73,0.12),transparent_24%),radial-gradient(circle_at_top_right,rgba(52,211,153,0.08),transparent_18%),linear-gradient(180deg,#0b0e15,#0a0d14)]"}`}>
