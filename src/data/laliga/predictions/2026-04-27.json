@@ -1,0 +1,209 @@
+{
+  "date": "2026-04-27",
+  "sport": "laliga",
+  "generated_at": "2026-04-18T00:05:25.171001",
+  "games": [
+    {
+      "game_id": "748461",
+      "date": "2026-04-27",
+      "time": "13:00",
+      "game_name": "LEV @ ESP",
+      "home_team": "ESP",
+      "away_team": "LEV",
+      "full_game_pick": "ESP",
+      "full_game_confidence": 84,
+      "full_game_tier": "ELITE",
+      "base_probability": 0.840388,
+      "adjusted_probability": 0.816426,
+      "adjustment_amount": -0.023962,
+      "adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_btts_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Ambos con tendencia BTTS.",
+          "category": "trend"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_btts_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "explanation": "Ambos con tendencia BTTS.",
+          "category": "trend"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_patterns": [],
+      "pattern_edge": 0.0,
+      "recommended_pick": "ESP",
+      "recommended_confidence": 82,
+      "recommended_score": 81.6,
+      "recommended": true,
+      "spread_pick": "DNB ESP",
+      "spread_market": "DNB / 1X",
+      "total_pick": "OVER 2.5",
+      "total_confidence": 56,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.556543,
+      "total_adjusted_probability": 0.569036,
+      "total_adjustment_amount": 0.012493,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.015,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_btts_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.0225,
+          "explanation": "Ambos con tendencia BTTS.",
+          "category": "trend"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "total_recommended_pick": "OVER 2.5",
+      "total_recommended_score": 56.9,
+      "odds_over_under": 2.5,
+      "home_price": null,
+      "draw_price": null,
+      "away_price": null,
+      "closing_moneyline_odds": -115.0,
+      "home_moneyline_odds": -115.0,
+      "away_moneyline_odds": 300.0,
+      "closing_spread_odds": -130.0,
+      "closing_total_odds": -115.0,
+      "odds_data_quality": "real",
+      "btts_pick": "BTTS YES",
+      "btts_confidence": 89,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.885589,
+      "btts_adjusted_probability": 0.905558,
+      "btts_adjustment_amount": 0.019969,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.015,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_btts_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.0225,
+          "explanation": "Ambos con tendencia BTTS.",
+          "category": "trend"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "btts_recommended_pick": "BTTS YES",
+      "btts_recommended_score": 90.6,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "OVER 9.5",
+      "corners_confidence": 63,
+      "corners_model_prob_over": 0.626243,
+      "corners_recommended_pick": "OVER 9.5",
+      "corners_recommended_score": 62.6,
+      "corners_action": "JUGAR",
+      "status_state": "pre",
+      "status_description": "nan"
+    }
+  ]
+}

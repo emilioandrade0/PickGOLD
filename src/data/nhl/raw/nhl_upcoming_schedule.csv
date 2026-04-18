@@ -1,39 +1,58 @@
 game_id,date,time,season,home_team,away_team,home_score,away_score,home_p1_goals,away_p1_goals,total_p1_goals,total_goals,is_draw,completed,venue_name,odds_over_under,odds_details,home_moneyline_odds,away_moneyline_odds,closing_moneyline_odds,closing_spread_odds,closing_total_odds,odds_data_quality,home_goalie_name,away_goalie_name,home_goalie_id,away_goalie_id,home_goalie_confirmed,away_goalie_confirmed,home_goalie_found,away_goalie_found,goalie_data_quality
 401803179,2026-01-26,19:00,2026,CBJ,LAK,0,0,,,,0,1,0,Nationwide Arena,6.5,CBJ -118,-118.0,-102.0,-118.0,215.0,110.0,real,,,,,0,0,0,0,missing
-401803627,2026-04-12,14:00,2026,WSH,PIT,3,0,0.0,0.0,0.0,3,0,1,Capital One Arena,6.5,WSH -148,-148.0,124.0,-148.0,154.0,-142.0,real,Logan Thompson,Stuart Skinner,4272888,4268767,0,0,1,1,found_both
-401803628,2026-04-12,17:00,2026,NYI,MTL,1,4,0.0,0.0,0.0,5,0,1,UBS Arena,6.5,NYI -125,-125.0,105.0,-125.0,195.0,105.0,real,Ilya Sorokin,Jacob Fowler,3151981,5188437,0,0,1,1,found_both
-401803629,2026-04-12,17:00,2026,CBJ,BOS,2,3,1.0,1.0,2.0,5,0,1,Nationwide Arena,6.5,CBJ -205,-205.0,170.0,-205.0,130.0,-105.0,real,Jet Greaves,Joonas Korpisalo,4894366,3069266,0,0,1,1,found_both
-401803630,2026-04-12,18:00,2026,NJD,OTT,4,3,2.0,0.0,2.0,7,0,1,Prudential Center,6.5,NJ -125,-125.0,105.0,-125.0,205.0,105.0,real,Nico Daws,James Reimer,4697683,3870,0,0,1,1,found_both
-401803631,2026-04-12,19:00,2026,ANA,VAN,3,4,1.0,2.0,3.0,7,0,1,Honda Center,7.5,ANA -325,-325.0,260.0,-325.0,-130.0,140.0,real,Lukas Dostal,Nikita Tolopilo,4588165,5188534,0,0,1,1,found_both
-401803632,2026-04-12,20:00,2026,CGY,UTA,4,1,2.0,0.0,2.0,5,0,1,Scotiabank Saddledome,6.5,UTAH -162,136.0,-162.0,-162.0,-185.0,110.0,real,Dustin Wolf,Vitek Vanecek,4587952,3114996,0,0,1,1,found_both
-401803633,2026-04-13,18:00,2026,TBL,DET,0,0,,,,0,1,0,Benchmark International Arena,6.5,TB -205,-205.0,170.0,-205.0,120.0,105.0,real,,,,,0,0,0,0,missing
-401803634,2026-04-13,18:00,2026,FLA,NYR,0,0,,,,0,1,0,Amerant Bank Arena,6.5,FLA -105,-105.0,-115.0,-115.0,225.0,114.0,real,,,,,0,0,0,0,missing
-401803635,2026-04-13,18:00,2026,PHI,CAR,0,0,,,,0,1,0,Xfinity Mobile Arena,5.5,CAR -115,-105.0,-115.0,-115.0,-265.0,-135.0,real,,,,,0,0,0,0,missing
-401803636,2026-04-13,18:30,2026,TOR,DAL,0,0,,,,0,1,0,Scotiabank Arena,6.5,DAL -170,142.0,-170.0,-170.0,-192.0,110.0,real,,,,,0,0,0,0,missing
-401803637,2026-04-13,19:00,2026,STL,MIN,0,0,,,,0,1,0,Enterprise Center,6.5,MIN -125,105.0,-125.0,-125.0,-230.0,114.0,real,,,,,0,0,0,0,missing
-401803638,2026-04-13,19:00,2026,NSH,SJS,0,0,,,,0,1,0,Bridgestone Arena,6.5,NSH -155,-155.0,130.0,-155.0,164.0,-105.0,real,,,,,0,0,0,0,missing
-401803639,2026-04-13,19:30,2026,CHI,BUF,0,0,,,,0,1,0,United Center,6.5,BUF -218,180.0,-218.0,-218.0,-135.0,102.0,real,,,,,0,0,0,0,missing
-401803640,2026-04-13,20:30,2026,EDM,COL,0,0,,,,0,1,0,Rogers Place,6.5,COL -115,-105.0,-115.0,-115.0,-250.0,-115.0,real,,,,,0,0,0,0,missing
-401803642,2026-04-13,20:30,2026,SEA,LAK,0,0,,,,0,1,0,Climate Pledge Arena,5.5,LA -148,124.0,-148.0,-148.0,-225.0,-125.0,real,,,,,0,0,0,0,missing
-401803641,2026-04-13,21:00,2026,VGK,WPG,0,0,,,,0,1,0,T-Mobile Arena,5.5,VGK -192,-192.0,160.0,-192.0,136.0,-130.0,real,,,,,0,0,0,0,missing
-401803643,2026-04-14,18:00,2026,BOS,NJD,0,0,,,,0,1,0,TD Garden,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803644,2026-04-14,18:00,2026,NYI,CAR,0,0,,,,0,1,0,UBS Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803645,2026-04-14,18:00,2026,PHI,MTL,0,0,,,,0,1,0,Xfinity Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803646,2026-04-14,18:00,2026,CBJ,WSH,0,0,,,,0,1,0,Nationwide Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803647,2026-04-14,19:00,2026,MIN,ANA,0,0,,,,0,1,0,Grand Casino Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803648,2026-04-14,20:00,2026,UTA,WPG,0,0,,,,0,1,0,Delta Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803649,2026-04-14,20:00,2026,CGY,COL,0,0,,,,0,1,0,Scotiabank Saddledome,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803650,2026-04-14,20:30,2026,STL,PIT,0,0,,,,0,1,0,Enterprise Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803651,2026-04-14,21:00,2026,VAN,LAK,0,0,,,,0,1,0,Rogers Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803652,2026-04-15,18:00,2026,BUF,DAL,0,0,,,,0,1,0,KeyBank Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803653,2026-04-15,18:00,2026,TBL,NYR,0,0,,,,0,1,0,Benchmark International Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803654,2026-04-15,18:00,2026,FLA,DET,0,0,,,,0,1,0,Amerant Bank Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803655,2026-04-15,18:30,2026,OTT,TOR,0,0,,,,0,1,0,Canadian Tire Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803656,2026-04-15,19:30,2026,CHI,SJS,0,0,,,,0,1,0,United Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803657,2026-04-15,21:00,2026,VGK,SEA,0,0,,,,0,1,0,T-Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803660,2026-04-16,18:30,2026,UTA,STL,0,0,,,,0,1,0,Delta Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803658,2026-04-16,19:00,2026,NSH,ANA,0,0,,,,0,1,0,Bridgestone Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803659,2026-04-16,19:00,2026,WPG,SJS,0,0,,,,0,1,0,Canada Life Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803661,2026-04-16,20:00,2026,CGY,LAK,0,0,,,,0,1,0,Scotiabank Saddledome,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803662,2026-04-16,20:00,2026,EDM,VAN,0,0,,,,0,1,0,Rogers Place,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
-401803663,2026-04-16,21:00,2026,COL,SEA,0,0,,,,0,1,0,Ball Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869715,2026-04-18,14:00,2026,CAR,OTT,0,0,,,,0,1,0,Lenovo Center,6.5,CAR -148,-148.0,124.0,-148.0,164.0,114.0,real,,,,,0,0,0,0,missing
+401869716,2026-04-18,16:30,2026,DAL,MIN,0,0,,,,0,1,0,American Airlines Center,5.5,DAL -120,-120.0,100.0,-120.0,200.0,-125.0,real,,,,,0,0,0,0,missing
+401869717,2026-04-18,19:00,2026,PIT,PHI,0,0,,,,0,1,0,PPG Paints Arena,6.5,PIT -148,-148.0,124.0,-148.0,164.0,110.0,real,,,,,0,0,0,0,missing
+401869721,2026-04-19,14:00,2026,COL,LAK,0,0,,,,0,1,0,Ball Arena,5.5,COL -250,-250.0,205.0,-250.0,105.0,-130.0,real,,,,,0,0,0,0,missing
+401869718,2026-04-19,16:45,2026,TBL,MTL,0,0,,,,0,1,0,Benchmark International Arena,6.5,TB -185,-185.0,154.0,-185.0,130.0,114.0,real,,,,,0,0,0,0,missing
+401869719,2026-04-19,18:30,2026,BUF,BOS,0,0,,,,0,1,0,KeyBank Center,6.5,BUF -155,-155.0,130.0,-155.0,160.0,114.0,real,,,,,0,0,0,0,missing
+401869720,2026-04-19,21:00,2026,VGK,UTA,0,0,,,,0,1,0,T-Mobile Arena,6.5,VGK -155,-155.0,130.0,-155.0,160.0,114.0,real,,,,,0,0,0,0,missing
+401869794,2026-04-20,18:00,2026,PIT,PHI,0,0,,,,0,1,0,PPG Paints Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869781,2026-04-20,18:30,2026,CAR,OTT,0,0,,,,0,1,0,Lenovo Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869780,2026-04-20,20:30,2026,DAL,MIN,0,0,,,,0,1,0,American Airlines Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869722,2026-04-20,21:00,2026,EDM,ANA,0,0,,,,0,1,0,Rogers Place,6.5,EDM -170,-170.0,142.0,-170.0,145.0,-125.0,real,,,,,0,0,0,0,missing
+401869769,2026-04-21,18:00,2026,TBL,MTL,0,0,,,,0,1,0,Benchmark International Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869757,2026-04-21,18:30,2026,BUF,BOS,0,0,,,,0,1,0,KeyBank Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869756,2026-04-21,20:30,2026,VGK,UTA,0,0,,,,0,1,0,T-Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869792,2026-04-21,21:00,2026,COL,LAK,0,0,,,,0,1,0,Ball Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869796,2026-04-22,18:00,2026,PHI,PIT,0,0,,,,0,1,0,Xfinity Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869782,2026-04-22,20:30,2026,MIN,DAL,0,0,,,,0,1,0,Grand Casino Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869768,2026-04-22,21:00,2026,EDM,ANA,0,0,,,,0,1,0,Rogers Place,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869759,2026-04-23,18:00,2026,BOS,BUF,0,0,,,,0,1,0,TD Garden,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869783,2026-04-23,18:30,2026,OTT,CAR,0,0,,,,0,1,0,Canadian Tire Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869793,2026-04-23,21:00,2026,LAK,COL,0,0,,,,0,1,0,crypto.com Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869771,2026-04-24,18:00,2026,MTL,TBL,0,0,,,,0,1,0,Bell Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869758,2026-04-24,20:30,2026,UTA,VGK,0,0,,,,0,1,0,Delta Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869770,2026-04-24,21:00,2026,ANA,EDM,0,0,,,,0,1,0,Honda Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869786,2026-04-25,14:00,2026,OTT,CAR,0,0,,,,0,1,0,Canadian Tire Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869784,2026-04-25,16:30,2026,MIN,DAL,0,0,,,,0,1,0,Grand Casino Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869799,2026-04-25,19:00,2026,PHI,PIT,0,0,,,,0,1,0,Xfinity Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869762,2026-04-26,13:00,2026,BOS,BUF,0,0,,,,0,1,0,TD Garden,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869795,2026-04-26,15:30,2026,LAK,COL,0,0,,,,0,1,0,crypto.com Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869773,2026-04-26,18:00,2026,MTL,TBL,0,0,,,,0,1,0,Bell Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869772,2026-04-26,20:30,2026,ANA,EDM,0,0,,,,0,1,0,Honda Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869760,2026-04-26,23:00,2026,UTA,VGK,0,0,,,,0,1,0,Delta Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869788,2026-04-26,23:00,2026,CAR,OTT,0,0,,,,0,1,0,Lenovo Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869801,2026-04-26,23:00,2026,PIT,PHI,0,0,,,,0,1,0,PPG Paints Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869764,2026-04-27,23:00,2026,BUF,BOS,0,0,,,,0,1,0,KeyBank Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869774,2026-04-27,23:00,2026,EDM,ANA,0,0,,,,0,1,0,Rogers Place,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869785,2026-04-27,23:00,2026,DAL,MIN,0,0,,,,0,1,0,American Airlines Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869761,2026-04-28,23:00,2026,VGK,UTA,0,0,,,,0,1,0,T-Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869775,2026-04-28,23:00,2026,TBL,MTL,0,0,,,,0,1,0,Benchmark International Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869797,2026-04-28,23:00,2026,COL,LAK,0,0,,,,0,1,0,Ball Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869802,2026-04-28,23:00,2026,PHI,PIT,0,0,,,,0,1,0,Xfinity Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869776,2026-04-29,23:00,2026,ANA,EDM,0,0,,,,0,1,0,Honda Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869787,2026-04-29,23:00,2026,MIN,DAL,0,0,,,,0,1,0,Grand Casino Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869790,2026-04-29,23:00,2026,OTT,CAR,0,0,,,,0,1,0,Canadian Tire Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869763,2026-04-30,23:00,2026,UTA,VGK,0,0,,,,0,1,0,Delta Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869765,2026-04-30,23:00,2026,BOS,BUF,0,0,,,,0,1,0,TD Garden,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869777,2026-04-30,23:00,2026,MTL,TBL,0,0,,,,0,1,0,Bell Centre,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869798,2026-04-30,23:00,2026,LAK,COL,0,0,,,,0,1,0,crypto.com Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869778,2026-05-01,23:00,2026,EDM,ANA,0,0,,,,0,1,0,Rogers Place,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869789,2026-05-01,23:00,2026,DAL,MIN,0,0,,,,0,1,0,American Airlines Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869791,2026-05-01,23:00,2026,CAR,OTT,0,0,,,,0,1,0,Lenovo Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869803,2026-05-01,23:00,2026,PIT,PHI,0,0,,,,0,1,0,PPG Paints Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869766,2026-05-02,23:00,2026,BUF,BOS,0,0,,,,0,1,0,KeyBank Center,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869767,2026-05-02,23:00,2026,VGK,UTA,0,0,,,,0,1,0,T-Mobile Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869779,2026-05-02,23:00,2026,TBL,MTL,0,0,,,,0,1,0,Benchmark International Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing
+401869800,2026-05-02,23:00,2026,COL,LAK,0,0,,,,0,1,0,Ball Arena,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,missing

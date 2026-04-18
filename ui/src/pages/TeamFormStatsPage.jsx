@@ -6,6 +6,7 @@ const SPORTS = [
   { key: "nba", label: "NBA" },
   { key: "wnba", label: "WNBA" },
   { key: "mlb", label: "MLB" },
+  { key: "lmb", label: "LMB" },
   { key: "triple_a", label: "Triple-A" },
   { key: "tennis", label: "Tennis" },
   { key: "kbo", label: "KBO" },

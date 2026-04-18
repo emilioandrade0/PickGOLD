@@ -39,6 +39,33 @@ const TEAM_NAMES = {
     SEA: "Seattle Mariners", STL: "St. Louis Cardinals", TBR: "Tampa Bay Rays", TB: "Tampa Bay Rays",
     TEX: "Texas Rangers", TOR: "Toronto Blue Jays", WSN: "Washington Nationals", WAS: "Washington Nationals",
   },
+  lmb: {
+    AGS: "Rieleros de Aguascalientes",
+    CAM: "Piratas de Campeche",
+    CHI: "Dorados de Chihuahua",
+    DUR: "Caliente de Durango",
+    JAL: "Charros de Jalisco",
+    LAG: "Algodoneros Union Laguna",
+    LAR: "Tecos de los Dos Laredos",
+    LEO: "Bravos de Leon",
+    MEX: "Diablos Rojos del Mexico",
+    MTY: "Sultanes de Monterrey",
+    MVA: "Acereros del Norte",
+    OAX: "Guerreros de Oaxaca",
+    PUE: "Pericos de Puebla",
+    QRO: "Conspiradores de Queretaro",
+    SLW: "Saraperos de Saltillo",
+    SLT: "Saraperos de Saltillo",
+    TAB: "Olmecas de Tabasco",
+    TIG: "Tigres de Quintana Roo",
+    TIJ: "Toros de Tijuana",
+    VER: "El Aguila de Veracruz",
+    YUC: "Leones de Yucatan",
+    "ACEREROS DE MONCLOVA": "Acereros del Norte",
+    "DIABLOS ROJOS": "Diablos Rojos del Mexico",
+    "EL AGUILA": "El Aguila de Veracruz",
+    "TECOS DE DOS LAREDOS": "Tecos de los Dos Laredos",
+  },
   triple_a: {
     ABQ: "Albuquerque Isotopes", BUF: "Buffalo Bisons", CLT: "Charlotte Knights", COL: "Columbus Clippers",
     DUR: "Durham Bulls", ELP: "El Paso Chihuahuas", GWN: "Gwinnett Stripers", IND: "Indianapolis Indians",
@@ -195,13 +222,21 @@ const TEAM_NAMES = {
   },
 };
 
+function normalizeTeamLookupKey(value) {
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
 export function getTeamDisplayName(sportKey, teamCodeOrName) {
   const raw = String(teamCodeOrName || "").trim();
   if (!raw) return raw;
 
   const sport = String(sportKey || "").toLowerCase();
   const map = TEAM_NAMES[sport] || {};
-  const key = raw.toUpperCase();
+  const key = normalizeTeamLookupKey(raw);
 
   return map[key] || raw;
 }
@@ -212,7 +247,7 @@ export function expandTeamCodeInText(sportKey, text) {
 
   const sport = String(sportKey || "").toLowerCase();
   const map = TEAM_NAMES[sport] || {};
-  const upper = raw.toUpperCase();
+  const upper = normalizeTeamLookupKey(raw);
 
   if (map[upper]) {
     return map[upper];
@@ -220,7 +255,7 @@ export function expandTeamCodeInText(sportKey, text) {
 
   const firstSpace = raw.indexOf(" ");
   if (firstSpace > 0) {
-    const first = raw.slice(0, firstSpace).toUpperCase();
+    const first = normalizeTeamLookupKey(raw.slice(0, firstSpace));
     if (map[first]) {
       return `${map[first]}${raw.slice(firstSpace)}`;
     }

@@ -7,6 +7,10 @@ set "ACTIVATE=C:\Users\andra\miniconda3\Scripts\activate.bat"
 
 cd /d "%ROOT%"
 
+if exist "%ROOT%\tools\mlb_apply_profile.bat" (
+    call "%ROOT%\tools\mlb_apply_profile.bat"
+)
+
 echo ==========================================
 echo   NBA GOLD - LEVANTAR SOLO APP (API + UI)
 echo ==========================================
@@ -17,6 +21,14 @@ if errorlevel 1 (
     echo ERROR: No se pudo activar entorno conda nba.
     pause
     exit /b 1
+)
+
+if exist "%ROOT%\tools\mlb_daily_semaforo.py" (
+    python "%ROOT%\tools\mlb_daily_semaforo.py" --apply-profile --quiet >nul 2>&1
+)
+
+if exist "%ROOT%\tools\mlb_apply_profile.bat" (
+    call "%ROOT%\tools\mlb_apply_profile.bat"
 )
 
 echo Cerrando proceso previo en puerto 8000 (si existe)...

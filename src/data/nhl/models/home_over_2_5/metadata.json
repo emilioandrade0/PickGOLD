@@ -2,7 +2,7 @@
   "market": "home_over_2_5",
   "target_col": "TARGET_home_over_25",
   "problem_type": "binary",
-  "threshold": 0.35,
+  "threshold": 0.36,
   "feature_columns": [
     "away_elo_pre",
     "away_games_last_3",
@@ -141,11 +141,11 @@
     "win_rate_l10_diff",
     "win_rate_l5_diff"
   ],
-  "n_rows": 1303,
+  "n_rows": 1340,
   "n_features": 136,
-  "valid_accuracy": 0.5593869731800766,
-  "valid_logloss": 0.8274533181108884,
-  "valid_auc": 0.5043694623133876,
+  "valid_accuracy": 0.5932835820895522,
+  "valid_logloss": 0.7776521187576435,
+  "valid_auc": 0.4927331568108267,
   "classes": [
     0,
     1

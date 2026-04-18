@@ -16,6 +16,7 @@ VALIDATION_JSON = REPORTS_DIR / "odds_overrides_validation_summary.json"
 SPORTS_PREDICTIONS_DIR = {
     "nba": BASE_DIR / "data" / "predictions",
     "mlb": BASE_DIR / "data" / "mlb" / "predictions",
+    "lmb": BASE_DIR / "data" / "lmb" / "predictions",
     "kbo": BASE_DIR / "data" / "kbo" / "predictions",
     "nhl": BASE_DIR / "data" / "nhl" / "predictions",
     "liga_mx": BASE_DIR / "data" / "liga_mx" / "predictions",

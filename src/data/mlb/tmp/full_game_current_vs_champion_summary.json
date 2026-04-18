@@ -1,0 +1,218 @@
+{
+  "old_detail": "src\\data\\mlb\\tmp\\full_game_detail_segment_off.csv",
+  "new_detail": "src\\data\\mlb\\walkforward\\full_game\\walkforward_predictions_detail.csv",
+  "features": "C:\\Users\\andra\\Desktop\\NBA GOLD\\src\\data\\mlb\\processed\\model_ready_features_mlb.csv",
+  "rows_compared": 588,
+  "overall": [
+    {
+      "segment": "overall",
+      "rows": 588,
+      "old_hits": 340,
+      "new_hits": 312,
+      "delta_hits": -28,
+      "old_acc": 0.5782312925170068,
+      "new_acc": 0.5306122448979592,
+      "delta_pp": -4.761904761904756
+    }
+  ],
+  "favorite_balance": [
+    {
+      "segment": "heavy_favorite",
+      "rows": 172,
+      "old_hits": 95,
+      "new_hits": 87,
+      "delta_hits": -8,
+      "old_acc": 0.5523255813953488,
+      "new_acc": 0.5058139534883721,
+      "delta_pp": -4.651162790697672
+    },
+    {
+      "segment": "mid_gap",
+      "rows": 249,
+      "old_hits": 139,
+      "new_hits": 128,
+      "delta_hits": -11,
+      "old_acc": 0.5582329317269076,
+      "new_acc": 0.5140562248995983,
+      "delta_pp": -4.417670682730924
+    },
+    {
+      "segment": "balanced",
+      "rows": 167,
+      "old_hits": 106,
+      "new_hits": 97,
+      "delta_hits": -9,
+      "old_acc": 0.6347305389221557,
+      "new_acc": 0.5808383233532934,
+      "delta_pp": -5.389221556886225
+    }
+  ],
+  "strength_tier": [
+    {
+      "segment": "high",
+      "rows": 76,
+      "old_hits": 51,
+      "new_hits": 47,
+      "delta_hits": -4,
+      "old_acc": 0.6710526315789473,
+      "new_acc": 0.618421052631579,
+      "delta_pp": -5.263157894736836
+    },
+    {
+      "segment": "mid",
+      "rows": 52,
+      "old_hits": 30,
+      "new_hits": 27,
+      "delta_hits": -3,
+      "old_acc": 0.5769230769230769,
+      "new_acc": 0.5192307692307693,
+      "delta_pp": -5.769230769230759
+    },
+    {
+      "segment": "low",
+      "rows": 460,
+      "old_hits": 259,
+      "new_hits": 238,
+      "delta_hits": -21,
+      "old_acc": 0.5630434782608695,
+      "new_acc": 0.5173913043478261,
+      "delta_pp": -4.565217391304344
+    }
+  ],
+  "favorite_side": [
+    {
+      "segment": "home_favorite",
+      "rows": 21,
+      "old_hits": 14,
+      "new_hits": 14,
+      "delta_hits": 0,
+      "old_acc": 0.6666666666666666,
+      "new_acc": 0.6666666666666666,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "away_favorite",
+      "rows": 558,
+      "old_hits": 322,
+      "new_hits": 294,
+      "delta_hits": -28,
+      "old_acc": 0.5770609318996416,
+      "new_acc": 0.5268817204301075,
+      "delta_pp": -5.017921146953408
+    },
+    {
+      "segment": "unknown",
+      "rows": 9,
+      "old_hits": 4,
+      "new_hits": 4,
+      "delta_hits": 0,
+      "old_acc": 0.4444444444444444,
+      "new_acc": 0.4444444444444444,
+      "delta_pp": 0.0
+    }
+  ],
+  "confidence_tier_old": [
+    {
+      "segment": "0.65+",
+      "rows": 7,
+      "old_hits": 4,
+      "new_hits": 4,
+      "delta_hits": 0,
+      "old_acc": 0.5714285714285714,
+      "new_acc": 0.5714285714285714,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "0.60-0.65",
+      "rows": 33,
+      "old_hits": 15,
+      "new_hits": 15,
+      "delta_hits": 0,
+      "old_acc": 0.45454545454545453,
+      "new_acc": 0.45454545454545453,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "0.56-0.60",
+      "rows": 122,
+      "old_hits": 60,
+      "new_hits": 60,
+      "delta_hits": 0,
+      "old_acc": 0.4918032786885246,
+      "new_acc": 0.4918032786885246,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "0.53-0.56",
+      "rows": 147,
+      "old_hits": 88,
+      "new_hits": 86,
+      "delta_hits": -2,
+      "old_acc": 0.5986394557823129,
+      "new_acc": 0.5850340136054422,
+      "delta_pp": -1.3605442176870763
+    },
+    {
+      "segment": "<=0.53",
+      "rows": 279,
+      "old_hits": 173,
+      "new_hits": 147,
+      "delta_hits": -26,
+      "old_acc": 0.6200716845878136,
+      "new_acc": 0.5268817204301075,
+      "delta_pp": -9.31899641577061
+    }
+  ],
+  "confidence_tier_new": [
+    {
+      "segment": "0.65+",
+      "rows": 7,
+      "old_hits": 4,
+      "new_hits": 4,
+      "delta_hits": 0,
+      "old_acc": 0.5714285714285714,
+      "new_acc": 0.5714285714285714,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "0.60-0.65",
+      "rows": 37,
+      "old_hits": 15,
+      "new_hits": 15,
+      "delta_hits": 0,
+      "old_acc": 0.40540540540540543,
+      "new_acc": 0.40540540540540543,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "0.56-0.60",
+      "rows": 111,
+      "old_hits": 55,
+      "new_hits": 55,
+      "delta_hits": 0,
+      "old_acc": 0.4954954954954955,
+      "new_acc": 0.4954954954954955,
+      "delta_pp": 0.0
+    },
+    {
+      "segment": "0.53-0.56",
+      "rows": 127,
+      "old_hits": 67,
+      "new_hits": 68,
+      "delta_hits": 1,
+      "old_acc": 0.5275590551181102,
+      "new_acc": 0.5354330708661418,
+      "delta_pp": 0.7874015748031593
+    },
+    {
+      "segment": "<=0.53",
+      "rows": 306,
+      "old_hits": 199,
+      "new_hits": 170,
+      "delta_hits": -29,
+      "old_acc": 0.6503267973856209,
+      "new_acc": 0.5555555555555556,
+      "delta_pp": -9.477124183006536
+    }
+  ]
+}

@@ -2,16 +2,16 @@
   "market_key": "full_game",
   "target_col": "TARGET_full_game",
   "problem_type": "multiclass",
-  "train_rows": 917,
+  "train_rows": 919,
   "valid_rows": 230,
   "feature_count": 94,
   "catboost_feature_count": 97,
   "ensemble_threshold": null,
   "ensemble_weights": {
-    "xgboost": 0.0,
-    "lightgbm_primary": 0.75,
-    "lightgbm_secondary": 0.25,
-    "draw_scale": 0.95,
+    "xgboost": 0.1,
+    "lightgbm_primary": 0.1,
+    "lightgbm_secondary": 0.8,
+    "draw_scale": 0.85,
     "catboost": 1.0
   },
   "catboost_feature_columns": [
@@ -115,29 +115,29 @@
   ],
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.4434782608695652,
-      "logloss": 1.1107164684940587,
-      "roc_auc": 0.6235499842677389
+      "accuracy": 0.4652173913043478,
+      "logloss": 1.107870127896575,
+      "roc_auc": 0.6234182442924637
     },
     "lightgbm_valid": {
-      "accuracy": 0.4826086956521739,
-      "logloss": 1.2651659408888878,
-      "roc_auc": 0.611994372053707
+      "accuracy": 0.4434782608695652,
+      "logloss": 1.2173303234710051,
+      "roc_auc": 0.6146815662036448
     },
     "lightgbm_secondary_valid": {
-      "accuracy": 0.45652173913043476,
-      "logloss": 1.2261074365637485,
-      "roc_auc": 0.604664856926782
+      "accuracy": 0.46956521739130436,
+      "logloss": 1.195363145470526,
+      "roc_auc": 0.6215761567289221
     },
     "ensemble_valid": {
-      "accuracy": 0.5304347826086957,
-      "logloss": 1.035129802771354,
-      "roc_auc": 0.6464353654011045
+      "accuracy": 0.5391304347826087,
+      "logloss": 1.069282217372176,
+      "roc_auc": 0.6383099639399817
     }
   },
   "confidence_profile": {
-    "acc_conf_045": 0.7567567567567568,
-    "acc_conf_050": 0.8333333333333334,
+    "acc_conf_045": 0.0,
+    "acc_conf_050": 0.0,
     "acc_conf_055": 0.0,
     "acc_conf_060": 0.0
   },

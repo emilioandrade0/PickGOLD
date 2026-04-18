@@ -1816,11 +1816,55 @@ def build_features() -> pd.DataFrame:
             lm = pd.read_csv(LINE_MOVEMENT_FILE)
             # expected columns: game_id, open_line, current_line
             if {"game_id", "open_line", "current_line"}.issubset(lm.columns):
-                lm["game_id"] = lm["game_id"].astype(str)
-                df = df.merge(lm, left_on="game_id", right_on="game_id", how="left")
+                lm_keep = [
+                    "game_id",
+                    "open_line",
+                    "current_line",
+                    "open_total",
+                    "current_total",
+                    "total_movement",
+                    "current_home_moneyline",
+                    "current_away_moneyline",
+                    "current_total_line",
+                    "bookmakers_count",
+                    "snapshot_count",
+                ]
+                lm_cols = [c for c in lm_keep if c in lm.columns]
+                lm = lm[lm_cols].copy()
+                lm["game_id"] = lm["game_id"].astype(str).str.strip()
+                df["game_id"] = df["game_id"].astype(str).str.strip()
+                df = df.merge(lm, on="game_id", how="left", suffixes=("", "_lm"))
+
+                # Resolve any duplicated market columns introduced by cache files.
+                for col in [c for c in lm_cols if c != "game_id"]:
+                    lm_col = f"{col}_lm"
+                    if lm_col in df.columns:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors="coerce").combine_first(
+                                pd.to_numeric(df[lm_col], errors="coerce")
+                            )
+                        else:
+                            df[col] = df[lm_col]
+                        df = df.drop(columns=[lm_col])
+
                 df["line_movement"] = df["current_line"] - df["open_line"].fillna(df["current_line"])
     except Exception:
         pass
+
+    # Defensive schema guard: keep canonical team columns after any merge.
+    for team_col in ["home_team", "away_team"]:
+        x_col = f"{team_col}_x"
+        y_col = f"{team_col}_y"
+
+        if team_col not in df.columns:
+            if x_col in df.columns:
+                df = df.rename(columns={x_col: team_col})
+            elif y_col in df.columns:
+                df = df.rename(columns={y_col: team_col})
+
+        drop_cols = [c for c in [x_col, y_col] if c in df.columns and c != team_col]
+        if drop_cols:
+            df = df.drop(columns=drop_cols)
 
     market_micro_cols = [
         "open_line",

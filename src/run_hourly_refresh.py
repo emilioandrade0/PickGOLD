@@ -12,6 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent
 CRITICAL_STEPS = {
     "sports/nba/data_ingest.py",
     "sports/mlb/data_ingest_mlb.py",
+    "sports/lmb/data_ingest_lmb.py",
     "sports/kbo/data_ingest_kbo.py",
     "sports/nhl/data_ingest_nhl.py",
     "sports/ligamx/data_ingest_liga_mx.py",
@@ -79,6 +80,8 @@ STEPS = [
     "sports/nba/data_ingest.py",
     # MLB
     "sports/mlb/data_ingest_mlb.py",
+    # LMB
+    "sports/lmb/data_ingest_lmb.py",
     # KBO
     "sports/kbo/data_ingest_kbo.py",
     # NHL
@@ -100,6 +103,7 @@ STEPS = [
     # Predictions
     "sports/nba/predict_today.py",
     "sports/mlb/predict_today_mlb.py",
+    "sports/lmb/predict_today_lmb.py",
     "sports/kbo/predict_today_kbo.py",
     "sports/nhl/predict_today_nhl.py",
     "sports/ligamx/predict_today_liga_mx.py",

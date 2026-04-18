@@ -1,0 +1,55 @@
+{
+  "as_of": "2026-04-14",
+  "sources": {
+    "raw_history": "src/data/mlb/raw/mlb_advanced_history.csv",
+    "line_movement_cache": "src/data/mlb/cache/line_movement.csv",
+    "line_movement_history": "src/data/mlb/cache/line_movement_history.csv",
+    "historical_daily_cache_dir": "src/data/mlb/cache/theodds_historical_daily"
+  },
+  "global": {
+    "raw_rows": 6554,
+    "line_movement_rows": 84,
+    "line_movement_history_rows": 191,
+    "line_movement_history_date_min": "2026-04-01",
+    "line_movement_history_date_max": "2026-04-13",
+    "historical_daily_cache_files": 0,
+    "odds_over_under_missing_rows": 6326,
+    "moneyline_missing_rows": 6311,
+    "odds_over_under_missing_unique_dates": 519,
+    "odds_over_under_missing_date_min": "2024-02-22",
+    "odds_over_under_missing_date_max": "2026-04-12",
+    "odds_over_under_fillable_from_current_line_cache": 0,
+    "moneyline_fillable_from_current_line_cache": 0
+  },
+  "season_stats": [
+    {
+      "season": "2024",
+      "rows": 2927,
+      "ou_missing_rate": 1.0,
+      "ou_missing_fillable_rate": 0.0,
+      "ml_missing_rate": 1.0,
+      "ml_missing_fillable_rate": 0.0
+    },
+    {
+      "season": "2025",
+      "rows": 2936,
+      "ou_missing_rate": 1.0,
+      "ou_missing_fillable_rate": 0.0,
+      "ml_missing_rate": 1.0,
+      "ml_missing_fillable_rate": 0.0
+    },
+    {
+      "season": "2026",
+      "rows": 691,
+      "ou_missing_rate": 0.6700434153400868,
+      "ou_missing_fillable_rate": 0.0,
+      "ml_missing_rate": 0.6483357452966715,
+      "ml_missing_fillable_rate": 0.0
+    }
+  ],
+  "notes": [
+    "Current line_movement cache only covers recent 2026 dates, so it cannot backfill historical seasons yet.",
+    "The historical daily cache directory is still empty, indicating historical endpoint backfill has not been executed for MLB.",
+    "data_ingest_mlb.py already contains apply_theodds_line_backfill(), so once cache coverage grows, raw odds fields can be materialized automatically during ingest."
+  ]
+}

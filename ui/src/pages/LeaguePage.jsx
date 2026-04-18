@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import SidebarCalendar from "../components/SidebarCalendar.jsx";
 import EventCard from "../components/EventCard.jsx";
 import DetailModal from "../components/DetailModal.jsx";
+import SeasonStatusBanner from "../components/SeasonStatusBanner.jsx";
 import { useAppSettings } from "../context/AppSettingsContext.jsx";
 import { resolveEventTier } from "../utils/picks.js";
 import {
@@ -489,6 +490,8 @@ export default function LeaguePage({ sportKey, sportLabel }) {
                 ))}
               </div>
             )}
+
+            <SeasonStatusBanner sportKey={sportKey} sportLabel={sportLabel} />
 
             {filteredEvents.length === 0 && !loading ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-white/70">

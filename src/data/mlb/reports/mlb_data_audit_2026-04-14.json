@@ -1,0 +1,883 @@
+{
+  "dataset_summary": {
+    "rows": 6534,
+    "columns": 409,
+    "numeric_columns": 405,
+    "date_min": "2024-02-23",
+    "date_max": "2026-04-13",
+    "date_unique": 536,
+    "duplicate_game_date_rows": 0
+  },
+  "global_quality": {
+    "numeric_feature_count": 400,
+    "constant_numeric_features_count": 81,
+    "constant_numeric_features": [
+      "home_games_in_season_before",
+      "away_games_in_season_before",
+      "diff_games_in_season_before",
+      "home_prev_win_pct",
+      "away_prev_win_pct",
+      "diff_prev_win_pct",
+      "home_prev_run_diff_pg",
+      "away_prev_run_diff_pg",
+      "diff_prev_run_diff_pg",
+      "home_prev_runs_scored_pg",
+      "away_prev_runs_scored_pg",
+      "diff_prev_runs_scored_pg",
+      "home_prev_runs_allowed_pg",
+      "away_prev_runs_allowed_pg",
+      "diff_prev_runs_allowed_pg",
+      "home_season_blend_weight",
+      "away_season_blend_weight",
+      "diff_season_blend_weight",
+      "prev_season_data_available",
+      "home_bullpen_outs_5d",
+      "away_bullpen_outs_5d",
+      "diff_bullpen_outs_5d",
+      "home_bullpen_ip_5d",
+      "away_bullpen_ip_5d",
+      "diff_bullpen_ip_5d",
+      "home_bullpen_games_3d",
+      "away_bullpen_games_3d",
+      "diff_bullpen_games_3d",
+      "home_bullpen_games_5d",
+      "away_bullpen_games_5d",
+      "diff_bullpen_games_5d",
+      "home_bullpen_heavy_use_3d",
+      "away_bullpen_heavy_use_3d",
+      "diff_bullpen_heavy_use_3d",
+      "home_bullpen_heavy_use_5d",
+      "away_bullpen_heavy_use_5d",
+      "diff_bullpen_heavy_use_5d",
+      "home_bullpen_extreme_use_3d",
+      "away_bullpen_extreme_use_3d",
+      "diff_bullpen_extreme_use_3d",
+      "both_pitchers_available",
+      "home_park_factor",
+      "away_park_factor",
+      "avg_park_factor",
+      "weather_humidity",
+      "home_umpire_consistency_rate",
+      "home_umpire_favor_abs_mean",
+      "home_umpire_weighted_score",
+      "park_factor_delta",
+      "umpire_consistency_delta"
+    ],
+    "top_global_missing_numeric_features": [
+      {
+        "feature": "home_elo_pre",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "away_elo_pre",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "diff_elo",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "elo_sum",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "elo_gap_abs",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "favorite_elo_gap_signed",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "elo_form_interaction",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "elo_rest_interaction",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "elo_pitcher_alignment",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "series_game_number",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "series_run_diff_so_far",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "did_home_win_previous_game_in_series",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "home_rest_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "away_rest_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "diff_rest_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "home_is_b2b",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "away_is_b2b",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "diff_is_b2b",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "home_games_last_3_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "away_games_last_3_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "diff_games_last_3_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "home_games_last_5_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "away_games_last_5_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "diff_games_last_5_days",
+        "missing_rate": 0.0
+      },
+      {
+        "feature": "home_games_last_7_days",
+        "missing_rate": 0.0
+      }
+    ]
+  },
+  "market_diagnostics": {
+    "full_game": {
+      "feature_count": 43,
+      "rows_with_target": 6534,
+      "target_positive_rate": 0.5316804407713499,
+      "high_missing_features": [],
+      "top_missing_features": [
+        {
+          "feature": "diff_elo",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_elo_pre",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_elo_pre",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_rest_days",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_win_pct_L10_blend",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_run_diff_L10_blend",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_scored_L5_blend",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_allowed_L5_blend",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_games_last_5_days",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_win_pct_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_run_diff_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_scored_L5",
+          "missing_rate": 0.0
+        }
+      ],
+      "top_zero_dominant_features": [
+        {
+          "feature": "diff_bullpen_load_L3",
+          "zero_rate": 0.997398224670952
+        },
+        {
+          "feature": "diff_rest_days",
+          "zero_rate": 0.8846036118763392
+        },
+        {
+          "feature": "diff_games_last_5_days",
+          "zero_rate": 0.6244260789715336
+        },
+        {
+          "feature": "diff_fatigue_index",
+          "zero_rate": 0.5850933578206305
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "zero_rate": 0.39807162534435264
+        },
+        {
+          "feature": "diff_surface_win_pct_L5",
+          "zero_rate": 0.20997857361493724
+        },
+        {
+          "feature": "diff_pitcher_blowup_rate_L10",
+          "zero_rate": 0.18579736761554944
+        },
+        {
+          "feature": "diff_pitcher_quality_start_rate_L10",
+          "zero_rate": 0.1685032139577594
+        },
+        {
+          "feature": "diff_win_pct_L10_blend",
+          "zero_rate": 0.1463116008570554
+        },
+        {
+          "feature": "diff_win_pct_L10",
+          "zero_rate": 0.1463116008570554
+        },
+        {
+          "feature": "diff_win_pct_L10_vs_league",
+          "zero_rate": 0.1463116008570554
+        },
+        {
+          "feature": "umpire_sample_log",
+          "zero_rate": 0.11952861952861953
+        }
+      ]
+    },
+    "yrfi": {
+      "feature_count": 33,
+      "rows_with_target": 6534,
+      "target_positive_rate": 0.485307621671258,
+      "high_missing_features": [],
+      "top_missing_features": [
+        {
+          "feature": "home_r1_scored_rate_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_r1_scored_rate_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_r1_scored_rate_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_r1_scored_rate_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_r1_allowed_rate_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_r1_allowed_rate_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_r1_allowed_rate_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_r1_allowed_rate_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_pitcher_r1_allowed_rate_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_pitcher_r1_allowed_rate_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_pitcher_r1_allowed_rate_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_pitcher_r1_allowed_rate_L10",
+          "missing_rate": 0.0
+        }
+      ],
+      "top_zero_dominant_features": [
+        {
+          "feature": "away_pitcher_r1_allowed_rate_L5",
+          "zero_rate": 0.23140495867768596
+        },
+        {
+          "feature": "home_pitcher_r1_allowed_rate_L5",
+          "zero_rate": 0.22987450260177533
+        },
+        {
+          "feature": "away_r1_allowed_rate_L5",
+          "zero_rate": 0.19941842669115398
+        },
+        {
+          "feature": "away_r1_scored_rate_L5",
+          "zero_rate": 0.1960514233241506
+        },
+        {
+          "feature": "diff_pitcher_blowup_rate_L10",
+          "zero_rate": 0.18579736761554944
+        },
+        {
+          "feature": "home_r1_scored_rate_L5",
+          "zero_rate": 0.18411386593204776
+        },
+        {
+          "feature": "diff_yrfi_rate_L10",
+          "zero_rate": 0.18258340985613714
+        },
+        {
+          "feature": "home_r1_allowed_rate_L5",
+          "zero_rate": 0.18197122742577287
+        },
+        {
+          "feature": "diff_pitcher_quality_start_rate_L10",
+          "zero_rate": 0.1685032139577594
+        },
+        {
+          "feature": "home_r1_vs_away_pitcher",
+          "zero_rate": 0.15472910927456382
+        },
+        {
+          "feature": "away_r1_vs_home_pitcher",
+          "zero_rate": 0.14906642179369453
+        },
+        {
+          "feature": "diff_yrfi_pressure_L5",
+          "zero_rate": 0.13697581879400061
+        }
+      ]
+    },
+    "f5": {
+      "feature_count": 24,
+      "rows_with_target": 6534,
+      "target_positive_rate": 0.45500459136822774,
+      "high_missing_features": [],
+      "top_missing_features": [
+        {
+          "feature": "diff_elo",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_rest_days",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_win_pct_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_run_diff_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_f5_win_pct_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_f5_diff_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_surface_f5_win_pct_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_f5_win_pct_L5_vs_league",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_pitcher_f5_runs_allowed_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "favorite_elo_gap_signed",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_elo_pre",
+          "missing_rate": 0.0
+        }
+      ],
+      "top_zero_dominant_features": [
+        {
+          "feature": "diff_bullpen_load_L3",
+          "zero_rate": 0.997398224670952
+        },
+        {
+          "feature": "diff_rest_days",
+          "zero_rate": 0.8846036118763392
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "zero_rate": 0.39807162534435264
+        },
+        {
+          "feature": "diff_f5_win_pct_L5",
+          "zero_rate": 0.2202326293235384
+        },
+        {
+          "feature": "diff_f5_win_pct_L5_vs_league",
+          "zero_rate": 0.2202326293235384
+        },
+        {
+          "feature": "diff_win_pct_L5",
+          "zero_rate": 0.21441689623507806
+        },
+        {
+          "feature": "diff_surface_f5_win_pct_L5",
+          "zero_rate": 0.20951943679216406
+        },
+        {
+          "feature": "diff_pitcher_blowup_rate_L10",
+          "zero_rate": 0.18579736761554944
+        },
+        {
+          "feature": "diff_pitcher_quality_start_rate_L10",
+          "zero_rate": 0.1685032139577594
+        },
+        {
+          "feature": "diff_pitcher_era_trend",
+          "zero_rate": 0.0731558004285277
+        },
+        {
+          "feature": "diff_pitcher_whip_trend",
+          "zero_rate": 0.07269666360575451
+        },
+        {
+          "feature": "diff_bullpen_runs_allowed_L5",
+          "zero_rate": 0.06856443220079583
+        }
+      ]
+    },
+    "totals": {
+      "feature_count": 40,
+      "rows_with_target": 6534,
+      "target_positive_rate": null,
+      "high_missing_features": [],
+      "top_missing_features": [
+        {
+          "feature": "home_runs_scored_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_runs_scored_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_scored_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_runs_allowed_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_runs_allowed_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_allowed_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_runs_scored_std_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_runs_scored_std_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_runs_allowed_std_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_runs_allowed_std_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "home_hits_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "away_hits_L5",
+          "missing_rate": 0.0
+        }
+      ],
+      "top_zero_dominant_features": [
+        {
+          "feature": "odds_over_under",
+          "zero_rate": 0.9651056014692379
+        },
+        {
+          "feature": "weather_wind",
+          "zero_rate": 0.209366391184573
+        },
+        {
+          "feature": "diff_player_walks_allowed_L10",
+          "zero_rate": 0.12243648607284971
+        },
+        {
+          "feature": "diff_player_hits_L10",
+          "zero_rate": 0.11432506887052342
+        },
+        {
+          "feature": "diff_pitcher_bb_allowed_L5",
+          "zero_rate": 0.1026936026936027
+        },
+        {
+          "feature": "diff_player_slg_proxy_L10",
+          "zero_rate": 0.09595959595959595
+        },
+        {
+          "feature": "weather_temp",
+          "zero_rate": 0.0958065503520049
+        },
+        {
+          "feature": "away_pitcher_hr9_L5",
+          "zero_rate": 0.0933578206305479
+        },
+        {
+          "feature": "home_pitcher_hr9_L5",
+          "zero_rate": 0.08830731558004286
+        },
+        {
+          "feature": "diff_pitcher_baserunners_allowed_L5",
+          "zero_rate": 0.05815733088460361
+        },
+        {
+          "feature": "diff_pitcher_total_bases_allowed_L5",
+          "zero_rate": 0.04499540863177227
+        },
+        {
+          "feature": "diff_runs_scored_L5",
+          "zero_rate": 0.037496173859810224
+        }
+      ]
+    },
+    "run_line": {
+      "feature_count": 29,
+      "rows_with_target": 6534,
+      "target_positive_rate": null,
+      "high_missing_features": [],
+      "top_missing_features": [
+        {
+          "feature": "diff_elo",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_rest_days",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_games_last_5_days",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_win_pct_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_win_pct_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_run_diff_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_run_diff_L10",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_scored_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_runs_allowed_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_surface_win_pct_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_surface_run_diff_L5",
+          "missing_rate": 0.0
+        },
+        {
+          "feature": "diff_form_power",
+          "missing_rate": 0.0
+        }
+      ],
+      "top_zero_dominant_features": [
+        {
+          "feature": "diff_bullpen_load_L3",
+          "zero_rate": 0.997398224670952
+        },
+        {
+          "feature": "odds_over_under",
+          "zero_rate": 0.9651056014692379
+        },
+        {
+          "feature": "diff_rest_days",
+          "zero_rate": 0.8846036118763392
+        },
+        {
+          "feature": "diff_games_last_5_days",
+          "zero_rate": 0.6244260789715336
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "zero_rate": 0.39807162534435264
+        },
+        {
+          "feature": "diff_bounce_back_signal",
+          "zero_rate": 0.3800122436486073
+        },
+        {
+          "feature": "favorite_trap_signal",
+          "zero_rate": 0.3213957759412305
+        },
+        {
+          "feature": "underdog_upset_signal",
+          "zero_rate": 0.3213957759412305
+        },
+        {
+          "feature": "diff_win_pct_L5",
+          "zero_rate": 0.21441689623507806
+        },
+        {
+          "feature": "diff_surface_win_pct_L5",
+          "zero_rate": 0.20997857361493724
+        },
+        {
+          "feature": "diff_regression_risk",
+          "zero_rate": 0.2024793388429752
+        },
+        {
+          "feature": "diff_win_pct_L10",
+          "zero_rate": 0.1463116008570554
+        }
+      ]
+    }
+  },
+  "full_game_unused_univariate_candidates": [
+    {
+      "feature": "favorite_elo_gap_signed",
+      "auc_sym": 0.5516918396604469,
+      "abs_corr": 0.09963485502741651,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_baserunners_allowed_L10",
+      "auc_sym": 0.5424513942978841,
+      "abs_corr": 0.07399570782433695,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_hits_allowed_L10",
+      "auc_sym": 0.5352626984395754,
+      "abs_corr": 0.060783809052147274,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_player_hits_allowed_L10",
+      "auc_sym": 0.5352590297297195,
+      "abs_corr": 0.061843678130766556,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_run_diff_L10",
+      "auc_sym": 0.5316995345441957,
+      "abs_corr": 0.054657798291808016,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_run_diff_L10_blend",
+      "auc_sym": 0.5316995345441957,
+      "abs_corr": 0.054657798291808016,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_run_diff_L10_vs_league",
+      "auc_sym": 0.5309501300040262,
+      "abs_corr": 0.05296956044695934,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_baserunners_allowed_L10",
+      "auc_sym": 0.5302648338168505,
+      "abs_corr": 0.05447466734063859,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_form_power",
+      "auc_sym": 0.5300950854339049,
+      "abs_corr": 0.05125252754987394,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_home_only_run_diff_L5",
+      "auc_sym": 0.5299473022753527,
+      "abs_corr": 0.05234353080925915,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_run_diff_L10_vs_league",
+      "auc_sym": 0.5298606172463228,
+      "abs_corr": 0.05155491355326448,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_r1_allowed_rate_L10",
+      "auc_sym": 0.5295603474550442,
+      "abs_corr": 0.05434478534680569,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_player_total_bases_L10",
+      "auc_sym": 0.5287850738069167,
+      "abs_corr": 0.04907296756230659,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_player_walks_allowed_L10",
+      "auc_sym": 0.5285337671817911,
+      "abs_corr": 0.05013341945522917,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_run_diff_L10",
+      "auc_sym": 0.5283790228814611,
+      "abs_corr": 0.04919748725293878,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_run_diff_L10_blend",
+      "auc_sym": 0.5283790228814611,
+      "abs_corr": 0.04919748725293878,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_form_power",
+      "auc_sym": 0.5281485996816688,
+      "abs_corr": 0.04389751568435652,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_hits_allowed_L10",
+      "auc_sym": 0.527867473030279,
+      "abs_corr": 0.04787021882135975,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_r1_allowed_rate_L10",
+      "auc_sym": 0.5269634182592631,
+      "abs_corr": 0.04873160557284522,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_player_hits_allowed_L10",
+      "auc_sym": 0.5266338928586212,
+      "abs_corr": 0.026449414792103117,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_r1_allowed_std_L10",
+      "auc_sym": 0.5265597661056363,
+      "abs_corr": 0.037545019273241644,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_baserunners_allowed_L10",
+      "auc_sym": 0.5264573714728648,
+      "abs_corr": 0.04746465941081377,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_player_total_bases_allowed_L10",
+      "auc_sym": 0.5249349039174296,
+      "abs_corr": 0.04462400909757421,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_player_k_rate_L10",
+      "auc_sym": 0.5246164316810968,
+      "abs_corr": 0.04553257536934648,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "diff_baserunners_L10",
+      "auc_sym": 0.5244700125300552,
+      "abs_corr": 0.03992604347589961,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_win_pct_L10_vs_league",
+      "auc_sym": 0.52380174291939,
+      "abs_corr": 0.04453569573357298,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_hits_vs_home_whip",
+      "auc_sym": 0.5237380578790718,
+      "abs_corr": 0.044420091914274436,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "away_away_only_run_diff_L5",
+      "auc_sym": 0.5228532403174281,
+      "abs_corr": 0.04474627666244276,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_win_pct_L10",
+      "auc_sym": 0.5227690010949688,
+      "abs_corr": 0.03997155143949591,
+      "missing_rate": 0.0
+    },
+    {
+      "feature": "home_win_pct_L10_blend",
+      "auc_sym": 0.5227690010949688,
+      "abs_corr": 0.03997155143949591,
+      "missing_rate": 0.0
+    }
+  ]
+}

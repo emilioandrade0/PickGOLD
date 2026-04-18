@@ -1,5 +1,6 @@
 export {
   FALLBACK_LOGO,
+  getLMBLogo,
   getLigaMXLogo,
   getLigaMXLogoUrl,
   getMLBLogoUrl,

@@ -101,14 +101,14 @@ def run_export(days_ahead: int = 10, top_n: int = 600):
 
     priority[cols_out].to_csv(OUT_PRIORITY_CSV, index=False)
 
-    baseball_focus = priority[priority["sport"].isin(["mlb", "kbo", "ncaa_baseball"])].copy()
+    baseball_focus = priority[priority["sport"].isin(["mlb", "lmb", "kbo", "ncaa_baseball"])].copy()
     baseball_focus[cols_out].to_csv(OUT_PRIORITY_MLB_KBO_NCAA_CSV, index=False)
 
     today_only = priority[priority["date"] == str(today)].copy()
     today_only[cols_out].to_csv(OUT_PRIORITY_TODAY_CSV, index=False)
 
     print(f"[OK] priority subset: {OUT_PRIORITY_CSV} ({len(priority)})")
-    print(f"[OK] baseball focus: {OUT_PRIORITY_MLB_KBO_NCAA_CSV} ({len(baseball_focus)})")
+    print(f"[OK] baseball focus (MLB/LMB/KBO/NCAA): {OUT_PRIORITY_MLB_KBO_NCAA_CSV} ({len(baseball_focus)})")
     print(f"[OK] today subset: {OUT_PRIORITY_TODAY_CSV} ({len(today_only)})")
 
 

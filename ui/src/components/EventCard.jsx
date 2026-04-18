@@ -149,7 +149,7 @@ const LINE_KEYS = {
   total: ["closing_total_line", "odds_over_under"],
 };
 
-const BASEBALL_SPORTS = new Set(["mlb", "kbo", "ncaa_baseball", "triple_a"]);
+const BASEBALL_SPORTS = new Set(["mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"]);
 const BASKETBALL_SPORTS = new Set(["nba", "wnba", "euroleague"]);
 const HOCKEY_SPORTS = new Set(["nhl"]);
 const SOCCER_SPORTS = new Set(["liga_mx", "laliga", "bundesliga", "ligue1"]);

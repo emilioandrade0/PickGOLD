@@ -1,0 +1,31 @@
+{
+  "frozen_at": "2026-04-14 23:53:01",
+  "market": "full_game",
+  "status": "official_baseline",
+  "objective": "No regression of global accuracy while preserving reproducibility",
+  "config": {
+    "NBA_MLB_FULL_GAME_XGB_WEIGHT_GRID": [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0],
+    "NBA_MLB_FULL_GAME_BRIER_WEIGHT": 0.08,
+    "NBA_MLB_FULL_GAME_PROB_SHIFT_ENABLED": 1,
+    "NBA_MLB_FULL_GAME_PROB_SHIFT_MIN": -0.02,
+    "NBA_MLB_FULL_GAME_PROB_SHIFT_MAX": 0.02,
+    "NBA_MLB_FULL_GAME_PROB_SHIFT_STEP": 0.01,
+    "NBA_MLB_FULL_GAME_CALIBRATOR_MODE": "global_lr"
+  },
+  "metrics": {
+    "rows": 588,
+    "splits": 55,
+    "accuracy": 0.5782312925170068,
+    "brier": 0.2501804420149413,
+    "logloss": 0.6936392445294711,
+    "coverage": 0.07653061224489796,
+    "published_accuracy": 0.4666666666666667,
+    "published_coverage": 0.07653061224489796,
+    "roc_auc": 0.5169602883888598
+  },
+  "sources": {
+    "summary_file": "src/data/mlb/walkforward/walkforward_summary_mlb.json",
+    "sweep_file": "src/data/mlb/tmp/full_game_accuracy_sweep_final.csv",
+    "code_file": "src/sports/mlb/historical_predictions_mlb_walkforward.py"
+  }
+}

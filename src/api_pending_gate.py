@@ -7,6 +7,7 @@ from datetime import timedelta
 import re
 import uuid
 import hashlib
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import numpy as np
@@ -31,6 +32,7 @@ BASE_DIR = Path(__file__).resolve().parent
 NBA_RAW_HISTORY = BASE_DIR / "data" / "raw" / "nba_advanced_history.csv"
 WNBA_RAW_HISTORY = BASE_DIR / "data" / "wnba" / "raw" / "wnba_advanced_history.csv"
 MLB_RAW_HISTORY = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
+LMB_RAW_HISTORY = BASE_DIR / "data" / "lmb" / "raw" / "lmb_advanced_history.csv"
 NHL_RAW_HISTORY = BASE_DIR / "data" / "nhl" / "raw" / "nhl_advanced_history.csv"
 LIGA_MX_RAW_HISTORY = BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_advanced_history.csv"
 LALIGA_RAW_HISTORY = BASE_DIR / "data" / "laliga" / "raw" / "laliga_advanced_history.csv"
@@ -45,11 +47,14 @@ ESPN_SCOREBOARD_URLS = {
     "nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
     "wnba": "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard",
     "mlb": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
+    "lmb": "https://site.api.espn.com/apis/site/v2/sports/baseball/lmb/scoreboard",
     "kbo": "https://site.api.espn.com/apis/site/v2/sports/baseball/kbo/scoreboard",
     "nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
     "liga_mx": "https://site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard",
     "laliga": "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard",
 }
+LMB_OFFICIAL_CALENDAR_URL = "https://lmb.com.mx/juegos/api/calendar"
+LMB_OFFICIAL_TZ = ZoneInfo("America/Mexico_City")
 
 SPORTS_CONFIG = {
     "nba": {
@@ -66,6 +71,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "mlb" / "predictions",
         "historical_dir": BASE_DIR / "data" / "mlb" / "historical_predictions",
         "label": "MLB",
+    },
+    "lmb": {
+        "predictions_dir": BASE_DIR / "data" / "lmb" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "lmb" / "historical_predictions",
+        "label": "LMB",
     },
     "kbo": {
         "predictions_dir": BASE_DIR / "data" / "kbo" / "predictions",
@@ -411,6 +421,12 @@ def build_results_lookup_for_sport(sport: str):
             "game_id", "date", "home_team", "away_team",
             "home_runs_total", "away_runs_total", "home_r1", "away_r1", "home_runs_f5", "away_runs_f5",
         ]
+    elif sport == "lmb":
+        file_path = LMB_RAW_HISTORY
+        use_cols = [
+            "game_id", "date", "home_team", "away_team",
+            "home_runs_total", "away_runs_total", "home_r1", "away_r1", "home_runs_f5", "away_runs_f5",
+        ]
     elif sport == "kbo":
         file_path = KBO_RAW_HISTORY
         use_cols = [
@@ -496,7 +512,7 @@ def build_results_lookup_for_sport(sport: str):
                 away_score = int(row["away_pts_total"])
                 home_q1_score = int(row["home_q1"])
                 away_q1_score = int(row["away_q1"])
-            elif sport in {"mlb", "kbo", "ncaa_baseball"}:
+            elif sport in {"mlb", "lmb", "kbo", "ncaa_baseball"}:
                 home_score = int(row["home_runs_total"])
                 away_score = int(row["away_runs_total"])
                 home_q1_score = int(row["home_r1"])
@@ -571,6 +587,112 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             return first
         except Exception:
             return None
+
+    def _to_int_or_none(value):
+        try:
+            return int(value)
+        except Exception:
+            return None
+
+    def _fetch_live_lookup_lmb(target_date: str):
+        try:
+            target_dt = datetime.strptime(target_date, "%Y-%m-%d").date()
+        except Exception:
+            return {}
+
+        start_dt = datetime.combine(target_dt, datetime.min.time(), tzinfo=LMB_OFFICIAL_TZ)
+        end_dt = datetime.combine(target_dt, datetime.max.time().replace(microsecond=0), tzinfo=LMB_OFFICIAL_TZ)
+        params = {
+            "date": target_dt.strftime("%m/%d/%Y"),
+            "daysFromNow": abs((target_dt - date.today()).days),
+            "startDate": int(start_dt.timestamp() * 1000),
+            "endDate": int(end_dt.timestamp() * 1000),
+        }
+        try:
+            payload = requests.get(
+                LMB_OFFICIAL_CALENDAR_URL,
+                params=params,
+                timeout=20,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; NBA-GOLD/1.0)",
+                    "Accept": "application/json",
+                },
+            ).json() or {}
+        except Exception:
+            return {}
+
+        def _extract_lmb_lines(linescore_items):
+            if not isinstance(linescore_items, list):
+                return [], []
+            home_by_inning = {}
+            away_by_inning = {}
+            max_inning = 0
+            for item in linescore_items:
+                if not isinstance(item, dict):
+                    continue
+                inning = _to_int_or_none(item.get("inningNumber"))
+                if inning is None or inning <= 0:
+                    continue
+                max_inning = max(max_inning, inning)
+                home_by_inning[inning] = _to_int_or_none(item.get("homeTeamRuns"))
+                away_by_inning[inning] = _to_int_or_none(item.get("awayTeamRuns"))
+            if max_inning <= 0:
+                return [], []
+            home_scores = [home_by_inning.get(i) for i in range(1, max_inning + 1)]
+            away_scores = [away_by_inning.get(i) for i in range(1, max_inning + 1)]
+            while home_scores and home_scores[-1] is None:
+                home_scores.pop()
+            while away_scores and away_scores[-1] is None:
+                away_scores.pop()
+            return home_scores, away_scores
+
+        out = {}
+        for game in payload.get("games_info") or []:
+            try:
+                game_id = str(game.get("gameId") or "").strip()
+                if not game_id:
+                    continue
+                status_code = str(game.get("status") or "").strip().upper()
+                canceled_sub_status = str(game.get("canceledSubStatus") or "").strip()
+                detailed = str(game.get("detailedStatus") or "").strip()
+
+                if status_code == "L":
+                    state = "in"
+                    default_description = "In Progress"
+                elif status_code == "F":
+                    state = "post"
+                    default_description = "Final"
+                else:
+                    state = "pre"
+                    default_description = "Scheduled"
+
+                completed = (status_code == "F") and (not canceled_sub_status)
+                if canceled_sub_status:
+                    state = "pre"
+                    completed = False
+                    default_description = canceled_sub_status
+
+                description = detailed or default_description
+                detail = detailed or default_description
+
+                local_team = game.get("localTeam") or {}
+                away_team = game.get("awayTeam") or {}
+                home_lines, away_lines = _extract_lmb_lines(game.get("lineScore"))
+
+                payload_row = {
+                    "status_state": state,
+                    "status_description": description,
+                    "status_detail": detail,
+                    "status_completed": 1 if completed else 0,
+                    "home_score": _to_int_or_none(local_team.get("runsScored")) or 0,
+                    "away_score": _to_int_or_none(away_team.get("runsScored")) or 0,
+                    "home_q1_score": home_lines[0] if len(home_lines) > 0 else None,
+                    "away_q1_score": away_lines[0] if len(away_lines) > 0 else None,
+                }
+                out[game_id] = payload_row
+            except Exception:
+                continue
+        return out
 
     def _fetch_live_lookup_espn(target_sport: str, target_date: str):
         base_url = ESPN_SCOREBOARD_URLS.get(target_sport)
@@ -719,6 +841,8 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
         if abs((target_dt - date.today()).days) > 1:
             return {}
+        if target_sport == "lmb":
+            return _fetch_live_lookup_lmb(target_date)
         if target_sport in ESPN_SCOREBOARD_URLS:
             return _fetch_live_lookup_espn(target_sport, target_date)
         if target_sport == "euroleague":
@@ -758,12 +882,6 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 return False
 
         return False
-
-    def _to_int_or_none(value):
-        try:
-            return int(value)
-        except Exception:
-            return None
 
     def _same_event_date(item_date, result_date) -> bool:
         item_str = str(item_date or "")[:10]
@@ -972,7 +1090,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
         existing_q1 = _to_bool_or_none(item.get("q1_hit"))
         if existing_q1 is None:
-            if sport in {"mlb", "kbo", "ncaa_baseball"} and home_q1_score is not None and away_q1_score is not None:
+            if sport in {"mlb", "lmb", "kbo", "ncaa_baseball"} and home_q1_score is not None and away_q1_score is not None:
                 item["q1_hit"] = evaluate_mlb_q1_pick(
                     pick=str(item.get("q1_pick", "")),
                     home_r1=int(home_q1_score),
@@ -1169,7 +1287,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"}:
+    if sport in {"nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -1346,7 +1464,7 @@ def build_sport_insights_summary(sport: str):
 
 
 def build_tier_performance_summary():
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "euroleague", "ncaa_baseball"]
     tracked_tiers = ["ELITE", "PREMIUM", "STRONG"]
     rows = []
 
@@ -1681,7 +1799,7 @@ def _log_loss(probs: list[float], outcomes: list[int]):
 
 
 def build_probability_calibration_profiles():
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
     markets = ["full_game", "q1_yrfi", "spread", "total", "btts", "f5", "home_over", "corners"]
 
     grouped = {}
@@ -1921,6 +2039,7 @@ def _best_picks_sports():
     return [
         "nba",
         "mlb",
+        "lmb",
         "kbo",
         "nhl",
         "liga_mx",
@@ -2356,7 +2475,7 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
 
 @app.get("/api/insights/summary")
 def get_insights_summary():
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "euroleague"]
     summaries = [build_sport_insights_summary(s) for s in sports]
 
     return {
@@ -2388,6 +2507,14 @@ def get_weekday_scoring_insights():
             key="mlb",
             label="MLB",
             raw_file=MLB_RAW_HISTORY,
+            home_col="home_runs_total",
+            away_col="away_runs_total",
+            metric_label="Runs Totales",
+        ),
+        SportScoringConfig(
+            key="lmb",
+            label="LMB",
+            raw_file=LMB_RAW_HISTORY,
             home_col="home_runs_total",
             away_col="away_runs_total",
             metric_label="Runs Totales",

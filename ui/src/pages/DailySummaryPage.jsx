@@ -12,6 +12,7 @@ const SPORTS = [
   { key: "nba", label: "NBA", path: "/nba" },
   { key: "wnba", label: "WNBA", path: "/wnba" },
   { key: "mlb", label: "MLB", path: "/mlb" },
+  { key: "lmb", label: "LMB", path: "/lmb" },
   { key: "triple_a", label: "Triple-A", path: "/triple-a" },
   { key: "tennis", label: "Tennis", path: "/tennis" },
   { key: "kbo", label: "KBO", path: "/kbo" },
@@ -47,6 +48,34 @@ function normalizeTotalDirection(rawPick) {
   return null;
 }
 
+function extractNumericFromText(value) {
+  const match = String(value ?? "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function formatLineValue(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function buildTotalPickLabel(rawPick, fallbackLineValue) {
+  const raw = String(rawPick || "").trim();
+  if (!raw) return "N/A";
+
+  const direction = normalizeTotalDirection(raw);
+  if (!direction) return raw;
+
+  const explicitLine = extractNumericFromText(raw);
+  const explicitLineDisplay = formatLineValue(explicitLine);
+  if (explicitLineDisplay) return `${direction} ${explicitLineDisplay}`;
+
+  const fallbackLineDisplay = formatLineValue(fallbackLineValue);
+  if (fallbackLineDisplay) return `${direction} ${fallbackLineDisplay}`;
+
+  return direction;
+}
+
 function hasFinalResult(event) {
   const state = String(event?.status_state || "").trim().toLowerCase();
   return (
@@ -71,7 +100,7 @@ function pickBadgeTone(hit) {
 
 function resolveQ1ShortLabel(sportKey) {
   const sport = String(sportKey || "").trim().toLowerCase();
-  if (["mlb", "kbo", "ncaa_baseball", "triple_a"].includes(sport)) return "1IN";
+  if (["mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"].includes(sport)) return "1IN";
   if (["nba", "wnba", "euroleague"].includes(sport)) return "1Q";
   if (sport === "nhl") return "1P";
   if (["liga_mx", "laliga", "bundesliga", "ligue1"].includes(sport)) return "1T";
@@ -97,11 +126,29 @@ function resolveSummaryPicks(event, sportKey, teams) {
 
   const totalRaw = event.total_recommended_pick || event.total_pick;
   if (!isPendingPick(totalRaw)) {
-    const direction = normalizeTotalDirection(totalRaw) || String(totalRaw);
+    const value = buildTotalPickLabel(totalRaw, event.closing_total_line ?? event.odds_over_under);
     picks.push({
       label: "O/U",
-      value: direction,
+      value,
       hit: toHitValue(event.correct_total_adjusted ?? event.correct_total),
+    });
+  }
+
+  const hasTotalHitsMarket =
+    Object.prototype.hasOwnProperty.call(event, "total_hits_pick")
+    || Object.prototype.hasOwnProperty.call(event, "total_hits_recommended_pick")
+    || Object.prototype.hasOwnProperty.call(event, "total_hits_model_available");
+  const totalHitsRaw = event.total_hits_recommended_pick || event.total_hits_pick;
+  if (hasTotalHitsMarket) {
+    const normalizedRaw = String(totalHitsRaw || "PASS");
+    const value = buildTotalPickLabel(
+      normalizedRaw,
+      event.closing_total_hits_line ?? event.odds_total_hits_event ?? event.odds_total_hits,
+    );
+    picks.push({
+      label: "HITS",
+      value,
+      hit: toHitValue(event.correct_total_hits),
     });
   }
 

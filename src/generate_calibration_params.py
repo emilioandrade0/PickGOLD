@@ -20,6 +20,15 @@ TARGETS = {
             {"source": "f5", "output": "f5"},
         ],
     },
+    "lmb": {
+        "output": BASE_DIR / "data" / "lmb" / "models" / "calibration_params.json",
+        "historical_dir": BASE_DIR / "data" / "lmb" / "historical_predictions",
+        "markets": [
+            {"source": "full_game", "output": "full_game"},
+            {"source": "q1_yrfi", "output": "yrfi"},
+            {"source": "f5", "output": "f5"},
+        ],
+    },
     "kbo": {
         "output": BASE_DIR / "data" / "kbo" / "models" / "calibration_params.json",
         "historical_dir": BASE_DIR / "data" / "kbo" / "historical_predictions",

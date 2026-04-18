@@ -27,6 +27,11 @@ SPORTS = {
         "raw_file": BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv",
         "raw_type": "baseball",
     },
+    "lmb": {
+        "historical_dir": BASE_DIR / "data" / "lmb" / "historical_predictions",
+        "raw_file": BASE_DIR / "data" / "lmb" / "raw" / "lmb_advanced_history.csv",
+        "raw_type": "baseball",
+    },
     "kbo": {
         "historical_dir": BASE_DIR / "data" / "kbo" / "historical_predictions",
         "raw_file": BASE_DIR / "data" / "kbo" / "raw" / "kbo_advanced_history.csv",

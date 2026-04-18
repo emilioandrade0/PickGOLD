@@ -21,7 +21,7 @@
     "q1_confidence": 60.6,
     "q1_action": "PASAR Q1",
     "h1_pick": "DET",
-    "h1_confidence": 64.5,
+    "h1_confidence": 61.3,
     "h1_action": "JUGAR 1H",
     "total_pick": "UNDER 233.5",
     "total_prob_over": 0.4614,
@@ -50,9 +50,9 @@
     "q1_prob_home": 60.59,
     "q1_prob_away": 39.41,
     "h1_model_prob_home": 0.6557,
-    "h1_calibrated_prob_home": 0.6455,
-    "h1_prob_home": 64.55,
-    "h1_prob_away": 35.45
+    "h1_calibrated_prob_home": 0.6127,
+    "h1_prob_home": 61.27,
+    "h1_prob_away": 38.73
   },
   {
     "game_id": "401810817",
@@ -68,7 +68,7 @@
     "odds_data_quality": "real",
     "market_missing": 0,
     "full_game_pick": "NYK",
-    "full_game_pick_rule": "model_confident",
+    "full_game_pick_rule": "market_tiebreak",
     "full_game_error_risk_prob": null,
     "full_game_confidence": 62.5,
     "full_game_tier": "STRONG",
@@ -76,7 +76,7 @@
     "q1_confidence": 60.3,
     "q1_action": "PASAR Q1",
     "h1_pick": "NYK",
-    "h1_confidence": 73.1,
+    "h1_confidence": 66.9,
     "h1_action": "JUGAR 1H",
     "total_pick": "OVER 228.5",
     "total_prob_over": 0.5043,
@@ -105,9 +105,9 @@
     "q1_prob_home": 39.67,
     "q1_prob_away": 60.33,
     "h1_model_prob_home": 0.2601,
-    "h1_calibrated_prob_home": 0.2686,
-    "h1_prob_home": 26.86,
-    "h1_prob_away": 73.14
+    "h1_calibrated_prob_home": 0.3312,
+    "h1_prob_home": 33.12,
+    "h1_prob_away": 66.88
   },
   {
     "game_id": "401810818",
@@ -127,11 +127,11 @@
     "full_game_error_risk_prob": null,
     "full_game_confidence": 50.4,
     "full_game_tier": "PASS",
-    "q1_pick": "PHX",
+    "q1_pick": "TOR",
     "q1_confidence": 50.3,
     "q1_action": "PASAR Q1",
     "h1_pick": "TOR",
-    "h1_confidence": 51.9,
+    "h1_confidence": 50.2,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 221.5",
     "total_prob_over": 0.4139,
@@ -142,7 +142,7 @@
     "trained_until": "2026-03-12",
     "result_available": true,
     "full_game_hit": true,
-    "q1_hit": false,
+    "q1_hit": true,
     "h1_hit": false,
     "correct_spread": false,
     "total_hit": false,
@@ -160,9 +160,9 @@
     "q1_prob_home": 50.3,
     "q1_prob_away": 49.7,
     "h1_model_prob_home": 0.5013,
-    "h1_calibrated_prob_home": 0.5191,
-    "h1_prob_home": 51.91,
-    "h1_prob_away": 48.09
+    "h1_calibrated_prob_home": 0.5018,
+    "h1_prob_home": 50.18,
+    "h1_prob_away": 49.82
   },
   {
     "game_id": "401810819",
@@ -185,8 +185,8 @@
     "q1_pick": "HOU",
     "q1_confidence": 52.8,
     "q1_action": "PASAR Q1",
-    "h1_pick": "NOP",
-    "h1_confidence": 50.1,
+    "h1_pick": "HOU",
+    "h1_confidence": 50.9,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 230.5",
     "total_prob_over": 0.4349,
@@ -198,7 +198,7 @@
     "result_available": true,
     "full_game_hit": true,
     "q1_hit": true,
-    "h1_hit": false,
+    "h1_hit": true,
     "correct_spread": true,
     "total_hit": true,
     "final_score_text": "HOU 107 - NOP 105",
@@ -215,9 +215,9 @@
     "q1_prob_home": 52.79,
     "q1_prob_away": 47.21,
     "h1_model_prob_home": 0.5171,
-    "h1_calibrated_prob_home": 0.4992,
-    "h1_prob_home": 49.92,
-    "h1_prob_away": 50.08
+    "h1_calibrated_prob_home": 0.5092,
+    "h1_prob_home": 50.92,
+    "h1_prob_away": 49.08
   },
   {
     "game_id": "401810820",
@@ -241,7 +241,7 @@
     "q1_confidence": 61.1,
     "q1_action": "PASAR Q1",
     "h1_pick": "CLE",
-    "h1_confidence": 74.7,
+    "h1_confidence": 70.3,
     "h1_action": "JUGAR 1H",
     "total_pick": "OVER 236.5",
     "total_prob_over": 0.4878,
@@ -270,9 +270,9 @@
     "q1_prob_home": 38.91,
     "q1_prob_away": 61.09,
     "h1_model_prob_home": 0.1874,
-    "h1_calibrated_prob_home": 0.2529,
-    "h1_prob_home": 25.29,
-    "h1_prob_away": 74.71
+    "h1_calibrated_prob_home": 0.2971,
+    "h1_prob_home": 29.71,
+    "h1_prob_away": 70.29
   },
   {
     "game_id": "401810821",
@@ -295,8 +295,8 @@
     "q1_pick": "GSW",
     "q1_confidence": 52.6,
     "q1_action": "PASAR Q1",
-    "h1_pick": "MIN",
-    "h1_confidence": 52.2,
+    "h1_pick": "GSW",
+    "h1_confidence": 51.2,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 224.5",
     "total_prob_over": 0.4482,
@@ -308,7 +308,7 @@
     "result_available": true,
     "full_game_hit": true,
     "q1_hit": false,
-    "h1_hit": true,
+    "h1_hit": false,
     "correct_spread": true,
     "total_hit": false,
     "final_score_text": "GSW 117 - MIN 127",
@@ -325,9 +325,9 @@
     "q1_prob_home": 52.64,
     "q1_prob_away": 47.36,
     "h1_model_prob_home": 0.526,
-    "h1_calibrated_prob_home": 0.4779,
-    "h1_prob_home": 47.79,
-    "h1_prob_away": 52.21
+    "h1_calibrated_prob_home": 0.512,
+    "h1_prob_home": 51.2,
+    "h1_prob_away": 48.8
   },
   {
     "game_id": "401810822",
@@ -351,7 +351,7 @@
     "q1_confidence": 54.2,
     "q1_action": "PASAR Q1",
     "h1_pick": "POR",
-    "h1_confidence": 62.6,
+    "h1_confidence": 62.1,
     "h1_action": "JUGAR 1H",
     "total_pick": "OVER 235.5",
     "total_prob_over": 0.4948,
@@ -380,9 +380,9 @@
     "q1_prob_home": 54.23,
     "q1_prob_away": 45.77,
     "h1_model_prob_home": 0.6759,
-    "h1_calibrated_prob_home": 0.6258,
-    "h1_prob_home": 62.58,
-    "h1_prob_away": 37.42
+    "h1_calibrated_prob_home": 0.6207,
+    "h1_prob_home": 62.07,
+    "h1_prob_away": 37.93
   },
   {
     "game_id": "401810823",
@@ -406,7 +406,7 @@
     "q1_confidence": 55.2,
     "q1_action": "PASAR Q1",
     "h1_pick": "LAC",
-    "h1_confidence": 68.9,
+    "h1_confidence": 62.8,
     "h1_action": "JUGAR 1H",
     "total_pick": "OVER 235.5",
     "total_prob_over": 0.5057,
@@ -435,8 +435,8 @@
     "q1_prob_home": 55.18,
     "q1_prob_away": 44.82,
     "h1_model_prob_home": 0.6752,
-    "h1_calibrated_prob_home": 0.6889,
-    "h1_prob_home": 68.89,
-    "h1_prob_away": 31.11
+    "h1_calibrated_prob_home": 0.6284,
+    "h1_prob_home": 62.84,
+    "h1_prob_away": 37.16
   }
 ]

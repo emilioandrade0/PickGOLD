@@ -153,9 +153,10 @@ const ODDS_KEYS = {
 const LINE_KEYS = {
   spread: ["closing_spread_line", "home_spread", "spread_abs"],
   total: ["closing_total_line", "odds_over_under"],
+  total_hits: ["closing_total_hits_line", "odds_total_hits_event", "odds_total_hits"],
 };
 
-const BASEBALL_SPORTS = new Set(["mlb", "kbo", "ncaa_baseball", "triple_a"]);
+const BASEBALL_SPORTS = new Set(["mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"]);
 const BASKETBALL_SPORTS = new Set(["nba", "wnba", "euroleague"]);
 const HOCKEY_SPORTS = new Set(["nhl"]);
 const SOCCER_SPORTS = new Set(["liga_mx", "laliga", "bundesliga", "ligue1"]);
@@ -645,8 +646,9 @@ export default function DetailModal({ event, onClose, sportKey }) {
     : "bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.85)]";
   const scoreStateLabel = isLive ? "Live" : (hasResult ? "Final" : "Marcador");
   const scoreStateDetail = isLive ? liveClock : (String(event?.status_description || "").trim() || "Final");
-  const awayScoreName = isBaseballSport ? (teams.awayTeam || awayName) : awayName;
-  const homeScoreName = isBaseballSport ? (teams.homeTeam || homeName) : homeName;
+  const useAbbreviationInScoreRows = isBaseballSport && normalizedSportKey !== "lmb";
+  const awayScoreName = useAbbreviationInScoreRows ? (teams.awayTeam || awayName) : awayName;
+  const homeScoreName = useAbbreviationInScoreRows ? (teams.homeTeam || homeName) : homeName;
 
   const secondaryMarket = resolveSecondaryMarket(event, sportKey, teams, q1MarketLabel);
   const firstHalfCard = resolveFirstHalfCard(event, sportKey, teams);
@@ -688,6 +690,21 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const totalLineValue = extractNumericFromText(totalLineDisplay);
   const totalHit = resolveTotalHit(event, totalDirection, totalLineValue);
   const totalPickDisplay = buildTotalPickDisplay(totalPickRaw, totalDirection, totalLineDisplay);
+  const totalHitsMarketPresent =
+    Object.prototype.hasOwnProperty.call(event, "total_hits_pick")
+    || Object.prototype.hasOwnProperty.call(event, "total_hits_recommended_pick")
+    || Object.prototype.hasOwnProperty.call(event, "total_hits_model_available");
+  const totalHitsPickRaw = event.total_hits_recommended_pick || event.total_hits_pick;
+  const hasTotalHitsPick = !isPendingPick(totalHitsPickRaw);
+  const totalHitsDirection = normalizeTotalDirection(totalHitsPickRaw);
+  const totalHitsLineDisplay = resolveLineValue(event, LINE_KEYS.total_hits) || "Por definir";
+  const totalHitsPickDisplay = hasTotalHitsPick
+    ? buildTotalPickDisplay(totalHitsPickRaw, totalHitsDirection, totalHitsLineDisplay)
+    : "Pass";
+  const totalHitsConfidenceDisplay = totalHitsMarketPresent ? (event.total_hits_confidence ?? "-") : "-";
+  const totalHitsHit = hasTotalHitsPick ? toHitValue(event.correct_total_hits) : null;
+  const totalHitsTier = resolveMarketTier(event, "total");
+  const totalHitsModelAvailable = event.total_hits_model_available !== false;
   const q1PickRaw = String(event.q1_pick || "").trim();
   const q1PickDisplay = !isPendingPick(q1PickRaw)
     ? (expandTeamCodeInText(sportKey, resolveSidePick(q1PickRaw, teams)) || q1PickRaw)
@@ -758,6 +775,7 @@ export default function DetailModal({ event, onClose, sportKey }) {
   const h1TotalLabel = socialMode ? "Ritmo primera mitad" : "1T O/U 1.5";
   const spreadLabel = socialMode ? "Proyeccion de margen" : "Handicap";
   const totalLabel = socialMode ? "Proyeccion total" : "Over/Under";
+  const totalHitsLabel = socialMode ? "Proyeccion de hits" : "HITS O/U";
   const propLabelText = socialMode ? "Proyeccion recomendada" : propLabel;
   const bttsLabel = socialMode ? "Coincidencia ofensiva" : "BTTS";
   const cornersLabel = socialMode ? "Actividad ofensiva" : "Corners O/U";
@@ -1082,6 +1100,26 @@ export default function DetailModal({ event, onClose, sportKey }) {
                 </p>
               )}
             </div>
+
+            {totalHitsMarketPresent && (
+              <div className={`rounded-2xl border bg-black/15 p-5 ${marketBorderClass(totalHitsHit)}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-white/50">{totalHitsLabel}</p>
+                  <MarketTierBadge tier={totalHitsTier} />
+                </div>
+                <p className="mt-1 text-lg font-semibold">{socialMode ? "Lectura" : "Pick"}: {totalHitsPickDisplay}</p>
+                <p className="mt-2 text-sm text-white/65">{socialMode ? "Intensidad" : "Confianza"}: {totalHitsConfidenceDisplay === "-" ? "-" : `${totalHitsConfidenceDisplay}%`}</p>
+                {!socialMode && <p className="mt-1 text-sm text-white/65">Linea: {totalHitsLineDisplay}</p>}
+                {!socialMode && !totalHitsModelAvailable && (
+                  <p className="mt-1 text-sm text-white/55">Modelo HITS no disponible (mercado en PASS).</p>
+                )}
+                {hasResult && totalHitsHit !== undefined && totalHitsHit !== null && (
+                  <p className="mt-2 text-sm font-semibold text-white/85">
+                    {resultLabel}: {outcomeLabel(totalHitsHit, socialMode)}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className={`rounded-2xl border bg-black/15 p-5 md:col-span-2 xl:col-span-1 ${marketBorderClass(propHit)}`}>
               <div className="flex items-center justify-between gap-3">

@@ -1,0 +1,493 @@
+{
+  "old_window_end": "2024-09-29",
+  "new_window_start": "2025-08-31",
+  "old_rows": 2863,
+  "new_rows": 1127,
+  "markets": {
+    "full_game": {
+      "feature_count": 43,
+      "top_drift_features": [
+        {
+          "feature": "umpire_sample_log",
+          "smd_abs": 0.1426995851966653,
+          "mean_old": 1.119459179525251,
+          "mean_new": 1.047621363534484
+        },
+        {
+          "feature": "diff_surface_edge",
+          "smd_abs": 0.13983641251718357,
+          "mean_old": 0.06053659442587141,
+          "mean_new": 0.09858030168589173
+        },
+        {
+          "feature": "umpire_zone_delta",
+          "smd_abs": 0.13805899146632866,
+          "mean_old": 0.32100990794705675,
+          "mean_new": 0.27541676458414055
+        },
+        {
+          "feature": "home_elo_pre",
+          "smd_abs": 0.12432069700062667,
+          "mean_old": 1499.7658790399041,
+          "mean_new": 1506.00379716565
+        },
+        {
+          "feature": "diff_surface_win_pct_L5",
+          "smd_abs": 0.11466948882553764,
+          "mean_old": 0.051507742461287684,
+          "mean_new": 0.09245785270629993
+        },
+        {
+          "feature": "diff_surface_run_diff_L5",
+          "smd_abs": 0.10216153051129112,
+          "mean_old": -0.0244440563511468,
+          "mean_new": 0.30949423247559893
+        },
+        {
+          "feature": "diff_player_slg_proxy_L10",
+          "smd_abs": 0.08456325573694184,
+          "mean_old": -0.004276223591726899,
+          "mean_new": 0.0023235516717619873
+        },
+        {
+          "feature": "diff_elo",
+          "smd_abs": 0.055568509208762266,
+          "mean_old": -0.2806011793938408,
+          "mean_new": 3.705675509973824
+        },
+        {
+          "feature": "diff_player_obp_proxy_L10",
+          "smd_abs": 0.050478896062669455,
+          "mean_old": -0.0023288130594083353,
+          "mean_new": -0.00032117603946943846
+        },
+        {
+          "feature": "away_elo_pre",
+          "smd_abs": 0.04479623083687634,
+          "mean_old": 1500.0464802192978,
+          "mean_new": 1502.2981216556761
+        },
+        {
+          "feature": "diff_runs_allowed_L5_blend",
+          "smd_abs": 0.04072451625994516,
+          "mean_old": 0.029630923273955067,
+          "mean_new": -0.055900621118012396
+        },
+        {
+          "feature": "diff_runs_allowed_L5",
+          "smd_abs": 0.04072451625994516,
+          "mean_old": 0.029630923273955067,
+          "mean_new": -0.055900621118012396
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "smd_abs": 0.03688082809746979,
+          "mean_old": 0.03981837233670975,
+          "mean_new": -0.17391304347826086
+        },
+        {
+          "feature": "diff_pitcher_quality_start_rate_L10",
+          "smd_abs": 0.025129908316463938,
+          "mean_old": 0.0051746697048827665,
+          "mean_new": -0.0014253320375769364
+        },
+        {
+          "feature": "diff_pitcher_era_trend",
+          "smd_abs": 0.024678451499354083,
+          "mean_old": -0.24062920131998283,
+          "mean_new": -0.48060053669090985
+        }
+      ],
+      "high_drift_count_smd_ge_0_25": 0,
+      "high_drift_count_smd_ge_0_40": 0
+    },
+    "yrfi": {
+      "feature_count": 33,
+      "top_drift_features": [
+        {
+          "feature": "home_yrfi_rate_L10",
+          "smd_abs": 0.19225280407588832,
+          "mean_old": 0.4756349483558705,
+          "mean_new": 0.5075421472937001
+        },
+        {
+          "feature": "away_yrfi_rate_L10",
+          "smd_abs": 0.17584772845147412,
+          "mean_old": 0.4764922187293825,
+          "mean_new": 0.5062111801242236
+        },
+        {
+          "feature": "total_yrfi_pressure_L5",
+          "smd_abs": 0.16308541126025985,
+          "mean_old": 1.1165735242752357,
+          "mean_new": 1.1880360839988169
+        },
+        {
+          "feature": "yrfi_pressure_home_L5",
+          "smd_abs": 0.15725100758650504,
+          "mean_old": 0.5511235300966353,
+          "mean_new": 0.5999408459035789
+        },
+        {
+          "feature": "total_yrfi_pressure",
+          "smd_abs": 0.13912825375686577,
+          "mean_old": 1.120084798385532,
+          "mean_new": 1.1681074914437823
+        },
+        {
+          "feature": "home_r1_scored_rate_L10",
+          "smd_abs": 0.12742451177516212,
+          "mean_old": 0.2766290216167967,
+          "mean_new": 0.2957409050576752
+        },
+        {
+          "feature": "home_r1_allowed_rate_L10",
+          "smd_abs": 0.12460046863582008,
+          "mean_old": 0.2822225548736202,
+          "mean_new": 0.3012422360248448
+        },
+        {
+          "feature": "away_r1_allowed_rate_L10",
+          "smd_abs": 0.11967735252220042,
+          "mean_old": 0.27650552478530127,
+          "mean_new": 0.2946761313220941
+        },
+        {
+          "feature": "home_r1_scored_rate_L5",
+          "smd_abs": 0.11857794652243728,
+          "mean_old": 0.2756258004424264,
+          "mean_new": 0.3000887311446318
+        },
+        {
+          "feature": "away_r1_scored_rate_L10",
+          "smd_abs": 0.11458312391360555,
+          "mean_old": 0.28206704034507035,
+          "mean_new": 0.29964507542147295
+        },
+        {
+          "feature": "yrfi_pressure_home",
+          "smd_abs": 0.11371779883783514,
+          "mean_old": 0.5539732437392234,
+          "mean_new": 0.5821773636991028
+        },
+        {
+          "feature": "away_r1_allowed_rate_L5",
+          "smd_abs": 0.11281926158079954,
+          "mean_old": 0.2756723716381418,
+          "mean_new": 0.2993788819875776
+        },
+        {
+          "feature": "away_pitcher_r1_allowed_rate_L5",
+          "smd_abs": 0.1063953597059334,
+          "mean_old": 0.2754977296542089,
+          "mean_new": 0.2998521147589471
+        },
+        {
+          "feature": "yrfi_pressure_away",
+          "smd_abs": 0.08051967088461258,
+          "mean_old": 0.5661115546463084,
+          "mean_new": 0.5859301277446797
+        },
+        {
+          "feature": "yrfi_pressure_away_L5",
+          "smd_abs": 0.0720874235633367,
+          "mean_old": 0.5654499941786005,
+          "mean_new": 0.5880952380952381
+        }
+      ],
+      "high_drift_count_smd_ge_0_25": 0,
+      "high_drift_count_smd_ge_0_40": 0
+    },
+    "f5": {
+      "feature_count": 24,
+      "top_drift_features": [
+        {
+          "feature": "home_is_favorite",
+          "smd_abs": 0.5630531165877403,
+          "mean_old": -1.0,
+          "mean_new": -0.7551020408163265
+        },
+        {
+          "feature": "home_elo_pre",
+          "smd_abs": 0.12432069700062667,
+          "mean_old": 1499.7658790399041,
+          "mean_new": 1506.00379716565
+        },
+        {
+          "feature": "diff_surface_f5_win_pct_L5",
+          "smd_abs": 0.06848475509353255,
+          "mean_old": 0.04181511235300966,
+          "mean_new": 0.06583850931677018
+        },
+        {
+          "feature": "diff_elo",
+          "smd_abs": 0.055568509208762266,
+          "mean_old": -0.2806011793938408,
+          "mean_new": 3.705675509973824
+        },
+        {
+          "feature": "diff_pitcher_f5_runs_allowed_L5",
+          "smd_abs": 0.05254803776735884,
+          "mean_old": 0.002788450343462559,
+          "mean_new": -0.08865720201123926
+        },
+        {
+          "feature": "diff_baserunners_allowed_L10",
+          "smd_abs": 0.0461231578874233,
+          "mean_old": 0.011585416562713124,
+          "mean_new": -0.08731144631765748
+        },
+        {
+          "feature": "diff_f5_win_pct_L5",
+          "smd_abs": 0.04262236407455204,
+          "mean_old": -0.005384794504598907,
+          "mean_new": 0.009228039041703637
+        },
+        {
+          "feature": "diff_f5_win_pct_L5_vs_league",
+          "smd_abs": 0.04262236407455204,
+          "mean_old": -0.005384794504598907,
+          "mean_new": 0.009228039041703637
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "smd_abs": 0.03688082809746979,
+          "mean_old": 0.03981837233670975,
+          "mean_new": -0.17391304347826086
+        },
+        {
+          "feature": "diff_f5_diff_L5",
+          "smd_abs": 0.03134367502824401,
+          "mean_old": -0.06064151822098033,
+          "mean_new": 0.016681455190771955
+        },
+        {
+          "feature": "diff_win_pct_L5",
+          "smd_abs": 0.02816905614570099,
+          "mean_old": -0.0022587029921993223,
+          "mean_new": 0.007808340727595386
+        },
+        {
+          "feature": "diff_pitcher_quality_start_rate_L10",
+          "smd_abs": 0.025129908316463938,
+          "mean_old": 0.0051746697048827665,
+          "mean_new": -0.0014253320375769364
+        },
+        {
+          "feature": "diff_pitcher_era_trend",
+          "smd_abs": 0.024678451499354083,
+          "mean_old": -0.24062920131998283,
+          "mean_new": -0.48060053669090985
+        },
+        {
+          "feature": "diff_rest_days",
+          "smd_abs": 0.024490433149249136,
+          "mean_old": 0.026545581557806498,
+          "mean_new": 0.01064773735581189
+        },
+        {
+          "feature": "diff_run_diff_L5",
+          "smd_abs": 0.024115838086230856,
+          "mean_old": -0.057789032483409004,
+          "mean_new": 0.019343389529724937
+        }
+      ],
+      "high_drift_count_smd_ge_0_25": 1,
+      "high_drift_count_smd_ge_0_40": 1
+    },
+    "totals": {
+      "feature_count": 40,
+      "top_drift_features": [
+        {
+          "feature": "market_missing",
+          "smd_abs": 0.7122009939896335,
+          "mean_old": 1.0,
+          "mean_new": 0.7976929902395741
+        },
+        {
+          "feature": "odds_over_under",
+          "smd_abs": 0.7057444690839436,
+          "mean_old": 0.0,
+          "mean_new": 1.6459627329192548
+        },
+        {
+          "feature": "home_pitcher_ip_L5",
+          "smd_abs": 0.2876305207900264,
+          "mean_old": 4.6254336942601,
+          "mean_new": 4.318530020703934
+        },
+        {
+          "feature": "home_runs_scored_std_L10",
+          "smd_abs": 0.25210912407412106,
+          "mean_old": 2.9866992032564226,
+          "mean_new": 3.2332414920932164
+        },
+        {
+          "feature": "away_runs_scored_std_L10",
+          "smd_abs": 0.24617880265763714,
+          "mean_old": 2.9515497499506687,
+          "mean_new": 3.1857610074404965
+        },
+        {
+          "feature": "away_runs_allowed_std_L10",
+          "smd_abs": 0.23829703191206947,
+          "mean_old": 2.9855648000095574,
+          "mean_new": 3.216430525870732
+        },
+        {
+          "feature": "away_pitcher_ip_L5",
+          "smd_abs": 0.23789601104387736,
+          "mean_old": 4.58973978344394,
+          "mean_new": 4.3317953268263825
+        },
+        {
+          "feature": "home_runs_allowed_std_L10",
+          "smd_abs": 0.23324528756759177,
+          "mean_old": 2.9573742532950087,
+          "mean_new": 3.18146965874136
+        },
+        {
+          "feature": "weather_temp",
+          "smd_abs": 0.2254327496089164,
+          "mean_old": 63.96227733147049,
+          "mean_new": 69.37622005323868
+        },
+        {
+          "feature": "away_runs_allowed_L5",
+          "smd_abs": 0.1491283355374144,
+          "mean_old": 4.479269996507161,
+          "mean_new": 4.714640638864241
+        },
+        {
+          "feature": "home_pitcher_era_L5",
+          "smd_abs": 0.14480226873101054,
+          "mean_old": 5.596843518399252,
+          "mean_new": 6.6688385233663485
+        },
+        {
+          "feature": "home_pitcher_whip_L5",
+          "smd_abs": 0.14308205052070216,
+          "mean_old": 1.5311770091779484,
+          "mean_new": 1.6828733979396566
+        },
+        {
+          "feature": "away_pitcher_f5_runs_allowed_L5",
+          "smd_abs": 0.13503875272924032,
+          "mean_old": 2.5148969612294794,
+          "mean_new": 2.68416149068323
+        },
+        {
+          "feature": "home_pitcher_hr9_L5",
+          "smd_abs": 0.13279052012032178,
+          "mean_old": 1.4068904382086482,
+          "mean_new": 1.6837823089522883
+        },
+        {
+          "feature": "away_bullpen_load_L3",
+          "smd_abs": 0.13138736133141743,
+          "mean_old": 2.9853300733496333,
+          "mean_new": 3.0
+        }
+      ],
+      "high_drift_count_smd_ge_0_25": 4,
+      "high_drift_count_smd_ge_0_40": 2
+    },
+    "run_line": {
+      "feature_count": 29,
+      "top_drift_features": [
+        {
+          "feature": "market_missing",
+          "smd_abs": 0.7122009939896335,
+          "mean_old": 1.0,
+          "mean_new": 0.7976929902395741
+        },
+        {
+          "feature": "odds_over_under",
+          "smd_abs": 0.7057444690839436,
+          "mean_old": 0.0,
+          "mean_new": 1.6459627329192548
+        },
+        {
+          "feature": "home_is_favorite",
+          "smd_abs": 0.5630531165877403,
+          "mean_old": -1.0,
+          "mean_new": -0.7551020408163265
+        },
+        {
+          "feature": "diff_surface_win_pct_L5",
+          "smd_abs": 0.11466948882553764,
+          "mean_old": 0.051507742461287684,
+          "mean_new": 0.09245785270629993
+        },
+        {
+          "feature": "diff_surface_run_diff_L5",
+          "smd_abs": 0.10216153051129112,
+          "mean_old": -0.0244440563511468,
+          "mean_new": 0.30949423247559893
+        },
+        {
+          "feature": "diff_elo",
+          "smd_abs": 0.055568509208762266,
+          "mean_old": -0.2806011793938408,
+          "mean_new": 3.705675509973824
+        },
+        {
+          "feature": "favorite_trap_signal",
+          "smd_abs": 0.053935285559122116,
+          "mean_old": 0.49424994404633654,
+          "mean_new": 0.5484838245758937
+        },
+        {
+          "feature": "underdog_upset_signal",
+          "smd_abs": 0.053935285559122116,
+          "mean_old": -0.49424994404633654,
+          "mean_new": -0.5484838245758937
+        },
+        {
+          "feature": "diff_regression_risk",
+          "smd_abs": 0.05325424338894358,
+          "mean_old": 0.005622776052219139,
+          "mean_new": 0.08450146436765417
+        },
+        {
+          "feature": "diff_pitcher_ip_L5",
+          "smd_abs": 0.04097039721498366,
+          "mean_old": 0.035693910816160204,
+          "mean_new": -0.013265306122448988
+        },
+        {
+          "feature": "diff_runs_allowed_L5",
+          "smd_abs": 0.04072451625994516,
+          "mean_old": 0.029630923273955067,
+          "mean_new": -0.055900621118012396
+        },
+        {
+          "feature": "diff_pitcher_rest_days",
+          "smd_abs": 0.03688082809746979,
+          "mean_old": 0.03981837233670975,
+          "mean_new": -0.17391304347826086
+        },
+        {
+          "feature": "diff_win_pct_L5",
+          "smd_abs": 0.02816905614570099,
+          "mean_old": -0.0022587029921993223,
+          "mean_new": 0.007808340727595386
+        },
+        {
+          "feature": "diff_rest_days",
+          "smd_abs": 0.024490433149249136,
+          "mean_old": 0.026545581557806498,
+          "mean_new": 0.01064773735581189
+        },
+        {
+          "feature": "diff_run_diff_L5",
+          "smd_abs": 0.024115838086230856,
+          "mean_old": -0.057789032483409004,
+          "mean_new": 0.019343389529724937
+        }
+      ],
+      "high_drift_count_smd_ge_0_25": 3,
+      "high_drift_count_smd_ge_0_40": 3
+    }
+  }
+}

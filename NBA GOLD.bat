@@ -9,6 +9,10 @@ set "UPDATED_ANY=0"
 
 cd /d "%ROOT%"
 
+if exist "%ROOT%\tools\mlb_apply_profile.bat" (
+call "%ROOT%\tools\mlb_apply_profile.bat"
+)
+
 echo ==========================================================
 echo      NBA GOLD - ACTUALIZACION INTELIGENTE + LAUNCH
 echo ==========================================================
@@ -19,6 +23,14 @@ if errorlevel 1 (
     echo ERROR: No se pudo activar entorno conda nba.
     pause
     exit /b 1
+)
+
+if exist "%ROOT%\tools\mlb_daily_semaforo.py" (
+%PY% "%ROOT%\tools\mlb_daily_semaforo.py" --apply-profile --quiet >nul 2>&1
+)
+
+if exist "%ROOT%\tools\mlb_apply_profile.bat" (
+call "%ROOT%\tools\mlb_apply_profile.bat"
 )
 
 echo Entorno conda nba activado.

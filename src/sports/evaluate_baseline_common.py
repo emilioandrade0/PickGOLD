@@ -53,6 +53,16 @@ SPORT_CONFIG = {
             "src/data/liga_mx/predictions",
         ],
     },
+    "lmb": {
+        "label": "LMB",
+        "raw_candidates": [
+            "src/data/lmb/raw/lmb_advanced_history.csv",
+        ],
+        "pred_dir_candidates": [
+            "src/data/lmb/historical_predictions",
+            "src/data/lmb/predictions",
+        ],
+    },
     "mlb": {
         "label": "MLB",
         "raw_candidates": [
@@ -396,8 +406,9 @@ def _tier_counter_to_stats(counter: dict):
     return stats
 
 
-def _compute_mlb_tier_accuracy_from_walkforward(base_dir: Path):
-    walkforward_dir = base_dir / "src" / "data" / "mlb" / "walkforward"
+def _compute_mlb_tier_accuracy_from_walkforward(base_dir: Path, sport_key: str = "mlb"):
+    normalized_sport = str(sport_key or "mlb").strip().lower() or "mlb"
+    walkforward_dir = base_dir / "src" / "data" / normalized_sport / "walkforward"
     market_defs = [
         ("full_game", "FULL GAME"),
         ("yrfi", "YRFI"),
@@ -1217,70 +1228,130 @@ def _evaluate_nhl_markets(base_dir: Path, label: str, raw_path: Path, pred_dir: 
     return True
 
 
-def _evaluate_mlb_from_walkforward(base_dir: Path, return_reason: bool = False):
+def _evaluate_mlb_from_walkforward(base_dir: Path, sport_key: str = "mlb", return_reason: bool = False):
     def _ret(ok: bool, reason: str | None = None):
         if return_reason:
             return ok, reason
         return ok
 
-    summary_path = base_dir / "src" / "data" / "mlb" / "walkforward" / "walkforward_summary_mlb.json"
-    if not summary_path.exists():
-        return _ret(False, f"No existe walk-forward summary en {summary_path}")
+    normalized_sport = str(sport_key or "mlb").strip().lower() or "mlb"
+    sport_label = normalized_sport.upper()
+    walkforward_dir = base_dir / "src" / "data" / normalized_sport / "walkforward"
+    primary_summary_path = walkforward_dir / f"walkforward_summary_{normalized_sport}.json"
+    summary_candidates = list(
+        dict.fromkeys(
+            [
+                primary_summary_path,
+                walkforward_dir / "walkforward_summary_mlb.json",
+            ]
+        )
+    )
 
-    try:
-        summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    except Exception:
-        return _ret(False, f"No se pudo parsear JSON de {summary_path}")
+    summary = {}
+    summary_issue = None
+    summary_path = primary_summary_path
+    for candidate in summary_candidates:
+        if not candidate.exists():
+            continue
+        summary_path = candidate
+        try:
+            parsed = json.loads(candidate.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                summary = parsed
+                summary_issue = None
+                break
+            summary_issue = f"Summary invalido (no es objeto JSON): {candidate}"
+        except Exception as exc:
+            summary_issue = f"No se pudo parsear JSON de {candidate}: {exc}"
 
-    full_game = summary.get("full_game") or {}
-    yrfi = summary.get("yrfi") or {}
-    f5 = summary.get("f5") or {}
-    totals = summary.get("totals") or {}
-    run_line = summary.get("run_line") or {}
-    if not full_game:
-        return _ret(False, "El summary no contiene la clave full_game")
+    if not summary:
+        if summary_issue is None:
+            joined_candidates = ", ".join(str(path) for path in summary_candidates)
+            summary_issue = f"No existe walk-forward summary en ninguno de: {joined_candidates}"
+
+    market_keys = ["full_game", "yrfi", "f5", "totals", "run_line"]
+    market_metrics = {}
+    complemented_markets = []
+
+    for market_key in market_keys:
+        block = summary.get(market_key)
+        if isinstance(block, dict) and block:
+            market_metrics[market_key] = block
+            continue
+
+        market_metrics_path = walkforward_dir / market_key / "walkforward_metrics.json"
+        if not market_metrics_path.exists():
+            market_metrics[market_key] = {}
+            continue
+
+        try:
+            market_block = json.loads(market_metrics_path.read_text(encoding="utf-8"))
+        except Exception:
+            market_block = {}
+
+        if isinstance(market_block, dict) and market_block:
+            market_metrics[market_key] = market_block
+            complemented_markets.append(market_key)
+        else:
+            market_metrics[market_key] = {}
+
+    if not any(market_metrics.get(k) for k in market_keys):
+        if summary_issue:
+            return _ret(False, summary_issue)
+        return _ret(False, "No hay metricas walk-forward disponibles por mercado")
+
+    full_game = market_metrics.get("full_game") or {}
+    yrfi = market_metrics.get("yrfi") or {}
+    f5 = market_metrics.get("f5") or {}
+    totals = market_metrics.get("totals") or {}
+    run_line = market_metrics.get("run_line") or {}
 
     total_rows = int(full_game.get("rows", 0) or 0)
-    full_acc = _safe_pct(full_game.get("accuracy", 0.0))
-    full_pub_acc = _safe_pct(full_game.get("published_accuracy", 0.0))
-    full_pub_cov = _safe_pct(full_game.get("published_coverage", 0.0))
-    yrfi_acc = _safe_pct(yrfi.get("accuracy", 0.0))
-    yrfi_pub_acc = _safe_pct(yrfi.get("published_accuracy", 0.0))
-    yrfi_pub_cov = _safe_pct(yrfi.get("published_coverage", 0.0))
-    f5_acc = _safe_pct(f5.get("accuracy", 0.0))
-    f5_pub_acc = _safe_pct(f5.get("published_accuracy", 0.0))
-    f5_pub_cov = _safe_pct(f5.get("published_coverage", 0.0))
-    totals_acc = _safe_pct(totals.get("accuracy", 0.0))
-    totals_pub_acc = _safe_pct(totals.get("published_accuracy", 0.0))
-    totals_pub_cov = _safe_pct(totals.get("published_coverage", 0.0))
-    run_line_acc = _safe_pct(run_line.get("accuracy", 0.0))
-    run_line_pub_acc = _safe_pct(run_line.get("published_accuracy", 0.0))
-    run_line_pub_cov = _safe_pct(run_line.get("published_coverage", 0.0))
-    market_tier_report = _compute_mlb_tier_accuracy_from_walkforward(base_dir)
+    if total_rows <= 0:
+        total_rows = max(int((market_metrics.get(k) or {}).get("rows", 0) or 0) for k in market_keys)
+
+    def _print_market_block(label: str, block: dict):
+        rows = int((block or {}).get("rows", 0) or 0)
+        if rows <= 0:
+            print(f"{label.ljust(16)} Global    : N/A")
+            print(f"{label.ljust(16)} Publicado : N/A")
+            return
+
+        market_acc = _safe_pct(block.get("accuracy", 0.0))
+        market_pub_acc = _safe_pct(block.get("published_accuracy", 0.0))
+        market_pub_cov = _safe_pct(block.get("published_coverage", block.get("coverage", 0.0)))
+
+        print(
+            f"{label.ljust(16)} Global    : {market_acc:.2f}% "
+            + f"({_format_ratio_from_pct(market_acc, rows)})"
+        )
+        print(f"{label.ljust(16)} Publicado : {market_pub_acc:.2f}% | Cobertura {market_pub_cov:.2f}%")
+
+    market_tier_report = _compute_mlb_tier_accuracy_from_walkforward(base_dir, sport_key=normalized_sport)
 
     print("=" * 54)
-    print(f"REPORTE ACCURACY BASE - MLB (WALK-FORWARD, MUESTRA: {total_rows} JUEGOS)")
+    if int(full_game.get("rows", 0) or 0) > 0:
+        print(f"REPORTE ACCURACY BASE - {sport_label} (WALK-FORWARD, MUESTRA FULL GAME: {total_rows} JUEGOS)")
+    else:
+        print(f"REPORTE ACCURACY BASE - {sport_label} (WALK-FORWARD PARCIAL, MUESTRA REF: {total_rows} JUEGOS)")
     print("=" * 54)
-    print(f"FULL GAME Global    : {full_acc:.2f}% ({_format_ratio_from_pct(full_acc, total_rows)})")
-    print(f"FULL GAME Publicado : {full_pub_acc:.2f}% | Cobertura {full_pub_cov:.2f}%")
-    print(f"YRFI Global         : {yrfi_acc:.2f}%")
-    print(f"YRFI Publicado      : {yrfi_pub_acc:.2f}% | Cobertura {yrfi_pub_cov:.2f}%")
-    print(f"F5 Global           : {f5_acc:.2f}%")
-    print(f"F5 Publicado        : {f5_pub_acc:.2f}% | Cobertura {f5_pub_cov:.2f}%")
-    if totals:
-        print(f"TOTALS Global       : {totals_acc:.2f}%")
-        print(f"TOTALS Publicado    : {totals_pub_acc:.2f}% | Cobertura {totals_pub_cov:.2f}%")
-    if run_line:
-        print(f"RUN LINE Global     : {run_line_acc:.2f}%")
-        print(f"RUN LINE Publicado  : {run_line_pub_acc:.2f}% | Cobertura {run_line_pub_cov:.2f}%")
+    _print_market_block("FULL GAME", full_game)
+    _print_market_block("YRFI", yrfi)
+    _print_market_block("F5", f5)
+    _print_market_block("TOTALS", totals)
+    _print_market_block("RUN LINE", run_line)
     print("-" * 54)
     print("BUCKETS PUBLICADOS (FULL GAME)")
-    for bucket_name, bucket in (full_game.get("published_confidence_buckets") or {}).items():
-        published_rows = int(bucket.get("published_rows", 0) or 0)
-        if published_rows <= 0:
-            continue
-        bucket_acc = _safe_pct(bucket.get("published_accuracy", 0.0))
-        print(f"   {bucket_name.ljust(8)} : {bucket_acc:.2f}% ({_format_ratio_from_pct(bucket_acc, published_rows)})")
+    full_game_buckets = full_game.get("published_confidence_buckets") or {}
+    if full_game_buckets:
+        for bucket_name, bucket in full_game_buckets.items():
+            published_rows = int(bucket.get("published_rows", 0) or 0)
+            if published_rows <= 0:
+                continue
+            bucket_acc = _safe_pct(bucket.get("published_accuracy", 0.0))
+            print(f"   {bucket_name.ljust(8)} : {bucket_acc:.2f}% ({_format_ratio_from_pct(bucket_acc, published_rows)})")
+    else:
+        print("   N/A")
 
     if market_tier_report:
         print("-" * 54)
@@ -1320,7 +1391,15 @@ def _evaluate_mlb_from_walkforward(base_dir: Path, return_reason: bool = False):
                 print(f"   {label.ljust(12)}: {_format_tier_line(stats)}{best_text}")
 
     print("=" * 54)
-    print(f"Fuente: {summary_path}")
+    print(f"Fuente summary: {summary_path}")
+    if summary_issue:
+        print(f"AVISO: {summary_issue}")
+    if complemented_markets:
+        complemented = ", ".join(complemented_markets)
+        print(
+            "AVISO: summary incompleto; se complementaron mercados "
+            + f"desde walkforward_metrics.json: {complemented}"
+        )
     return _ret(True, None)
 
 
@@ -1401,12 +1480,12 @@ def evaluate_for_sport(sport_key: str):
     base_dir = Path(__file__).resolve().parent.parent.parent
     label = SPORT_CONFIG[sport_key]["label"]
 
-    # MLB usa walk-forward como referencia seria; los JSON historicos legacy pueden inflar el baseline.
-    if sport_key == "mlb":
-        wf_ok, wf_reason = _evaluate_mlb_from_walkforward(base_dir, return_reason=True)
+    # MLB/LMB usan walk-forward como referencia seria; los JSON historicos legacy pueden inflar el baseline.
+    if sport_key in {"mlb", "lmb"}:
+        wf_ok, wf_reason = _evaluate_mlb_from_walkforward(base_dir, sport_key=sport_key, return_reason=True)
         if wf_ok:
             return
-        print(f"AVISO MLB: no se pudo usar walk-forward ({wf_reason}). Se usa fallback legacy (JSON historicos).")
+        print(f"AVISO {label}: no se pudo usar walk-forward ({wf_reason}). Se usa fallback legacy (JSON historicos).")
 
     if sport_key == "ligamx":
         _, pred_dir = _resolve_paths(base_dir, sport_key)

@@ -13,7 +13,7 @@
     "odds_data_quality": "real",
     "market_missing": 0,
     "full_game_pick": "HOU",
-    "full_game_pick_rule": "model_confident",
+    "full_game_pick_rule": "market_tiebreak",
     "full_game_error_risk_prob": null,
     "full_game_confidence": 62.6,
     "full_game_tier": "STRONG",
@@ -21,7 +21,7 @@
     "q1_confidence": 60.3,
     "q1_action": "PASAR Q1",
     "h1_pick": "HOU",
-    "h1_confidence": 72.6,
+    "h1_confidence": 66.0,
     "h1_action": "JUGAR 1H",
     "total_pick": "UNDER 224.5",
     "total_prob_over": 0.4622,
@@ -50,9 +50,9 @@
     "q1_prob_home": 39.74,
     "q1_prob_away": 60.26,
     "h1_model_prob_home": 0.2712,
-    "h1_calibrated_prob_home": 0.2739,
-    "h1_prob_home": 27.39,
-    "h1_prob_away": 72.61
+    "h1_calibrated_prob_home": 0.34,
+    "h1_prob_home": 34.0,
+    "h1_prob_away": 66.0
   },
   {
     "game_id": "401810735",
@@ -76,7 +76,7 @@
     "q1_confidence": 53.9,
     "q1_action": "PASAR Q1",
     "h1_pick": "BOS",
-    "h1_confidence": 60.1,
+    "h1_confidence": 58.2,
     "h1_action": "JUGAR 1H",
     "total_pick": "OVER 216.5",
     "total_prob_over": 0.4916,
@@ -105,9 +105,9 @@
     "q1_prob_home": 46.07,
     "q1_prob_away": 53.93,
     "h1_model_prob_home": 0.4155,
-    "h1_calibrated_prob_home": 0.399,
-    "h1_prob_home": 39.9,
-    "h1_prob_away": 60.1
+    "h1_calibrated_prob_home": 0.4176,
+    "h1_prob_home": 41.76,
+    "h1_prob_away": 58.24
   },
   {
     "game_id": "401810736",
@@ -131,7 +131,7 @@
     "q1_confidence": 62.1,
     "q1_action": "JUGAR Q1",
     "h1_pick": "DEN",
-    "h1_confidence": 68.0,
+    "h1_confidence": 62.8,
     "h1_action": "JUGAR 1H",
     "total_pick": "UNDER 242.5",
     "total_prob_over": 0.4525,
@@ -160,9 +160,9 @@
     "q1_prob_home": 37.87,
     "q1_prob_away": 62.13,
     "h1_model_prob_home": 0.3395,
-    "h1_calibrated_prob_home": 0.3204,
-    "h1_prob_home": 32.04,
-    "h1_prob_away": 67.96
+    "h1_calibrated_prob_home": 0.3721,
+    "h1_prob_home": 37.21,
+    "h1_prob_away": 62.79
   },
   {
     "game_id": "401810737",
@@ -186,7 +186,7 @@
     "q1_confidence": 53.1,
     "q1_action": "PASAR Q1",
     "h1_pick": "LAC",
-    "h1_confidence": 53.8,
+    "h1_confidence": 54.6,
     "h1_action": "PASAR 1H",
     "total_pick": "OVER 216.5",
     "total_prob_over": 0.4837,
@@ -215,8 +215,8 @@
     "q1_prob_home": 53.09,
     "q1_prob_away": 46.91,
     "h1_model_prob_home": 0.4611,
-    "h1_calibrated_prob_home": 0.4622,
-    "h1_prob_home": 46.22,
-    "h1_prob_away": 53.78
+    "h1_calibrated_prob_home": 0.4536,
+    "h1_prob_home": 45.36,
+    "h1_prob_away": 54.64
   }
 ]

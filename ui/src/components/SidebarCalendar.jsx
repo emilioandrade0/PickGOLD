@@ -58,6 +58,7 @@ export default function SidebarCalendar({
     { label: "NBA", path: "/nba" },
     { label: "WNBA", path: "/wnba" },
     { label: "MLB", path: "/mlb" },
+    { label: "LMB", path: "/lmb" },
     { label: "NHL", path: "/nhl" },
     { label: "Liga MX", path: "/liga-mx" },
     { label: "LaLiga", path: "/laliga" },

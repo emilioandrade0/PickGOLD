@@ -90,6 +90,7 @@ BASE_DIR = Path(__file__).resolve().parent
 NBA_RAW_HISTORY = BASE_DIR / "data" / "raw" / "nba_advanced_history.csv"
 WNBA_RAW_HISTORY = BASE_DIR / "data" / "wnba" / "raw" / "wnba_advanced_history.csv"
 MLB_RAW_HISTORY = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
+LMB_RAW_HISTORY = BASE_DIR / "data" / "lmb" / "raw" / "lmb_advanced_history.csv"
 NHL_RAW_HISTORY = BASE_DIR / "data" / "nhl" / "raw" / "nhl_advanced_history.csv"
 LIGA_MX_RAW_HISTORY = BASE_DIR / "data" / "liga_mx" / "raw" / "liga_mx_advanced_history.csv"
 LALIGA_RAW_HISTORY = BASE_DIR / "data" / "laliga" / "raw" / "laliga_advanced_history.csv"
@@ -102,6 +103,7 @@ NCAA_BASEBALL_RAW_UPCOMING = BASE_DIR / "data" / "ncaa_baseball" / "raw" / "ncaa
 TENNIS_RAW_HISTORY = BASE_DIR / "data" / "tennis" / "raw" / "tennis_advanced_history.csv"
 TRIPLE_A_RAW_HISTORY = BASE_DIR / "data" / "triple_a" / "raw" / "triple_a_advanced_history.csv"
 TRIPLE_A_RAW_UPCOMING = BASE_DIR / "data" / "triple_a" / "raw" / "triple_a_upcoming_schedule.csv"
+LMB_RAW_UPCOMING = BASE_DIR / "data" / "lmb" / "raw" / "lmb_upcoming_schedule.csv"
 SPORT_RAW_FILES = {
     "nba": {
         "raw_history": NBA_RAW_HISTORY,
@@ -114,6 +116,10 @@ SPORT_RAW_FILES = {
     "mlb": {
         "raw_history": MLB_RAW_HISTORY,
         "upcoming_schedule": BASE_DIR / "data" / "mlb" / "raw" / "mlb_upcoming_schedule.csv",
+    },
+    "lmb": {
+        "raw_history": LMB_RAW_HISTORY,
+        "upcoming_schedule": LMB_RAW_UPCOMING,
     },
     "kbo": {
         "raw_history": KBO_RAW_HISTORY,
@@ -189,6 +195,11 @@ SPORTS_CONFIG = {
         "predictions_dir": BASE_DIR / "data" / "mlb" / "predictions",
         "historical_dir": BASE_DIR / "data" / "mlb" / "historical_predictions",
         "label": "MLB",
+    },
+    "lmb": {
+        "predictions_dir": BASE_DIR / "data" / "lmb" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "lmb" / "historical_predictions",
+        "label": "LMB",
     },
     "kbo": {
         "predictions_dir": BASE_DIR / "data" / "kbo" / "predictions",
@@ -302,6 +313,20 @@ SPORT_UPDATE_PIPELINES = {
             {"key": "train", "label": "Entrenamiento MLB", "script": BASE_DIR / "sports" / "mlb" / "train_models_mlb.py"},
             {"key": "historical", "label": "Walk-forward MLB", "script": BASE_DIR / "sports" / "mlb" / "historical_predictions_mlb_walkforward.py"},
             {"key": "today", "label": "Predicciones de hoy MLB", "script": BASE_DIR / "sports" / "mlb" / "predict_today_mlb.py"},
+        ],
+        "env": {"THE_ODDS_API_KEY": DEFAULT_THE_ODDS_API_KEY},
+    },
+    "lmb": {
+        "label": "LMB",
+        "steps": [
+            {"key": "ingest", "label": "Ingesta LMB", "script": BASE_DIR / "sports" / "lmb" / "data_ingest_lmb.py"},
+            {"key": "lineup_strength", "label": "Lineup strength LMB", "script": BASE_DIR / "sports" / "lmb" / "ingest_lineup_strength.py"},
+            {"key": "line_movement", "label": "Line movement LMB", "script": BASE_DIR / "sports" / "lmb" / "ingest_line_movement.py"},
+            {"key": "umpire_stats", "label": "Umpire stats LMB", "script": BASE_DIR / "sports" / "lmb" / "ingest_umpire_stats.py"},
+            {"key": "features", "label": "Features LMB", "script": BASE_DIR / "sports" / "lmb" / "feature_engineering_lmb.py"},
+            {"key": "train", "label": "Entrenamiento LMB", "script": BASE_DIR / "sports" / "lmb" / "train_models_lmb.py"},
+            {"key": "historical", "label": "Historicas LMB", "script": BASE_DIR / "sports" / "lmb" / "historical_predictions_lmb.py"},
+            {"key": "today", "label": "Predicciones de hoy LMB", "script": BASE_DIR / "sports" / "lmb" / "predict_today_lmb.py"},
         ],
         "env": {"THE_ODDS_API_KEY": DEFAULT_THE_ODDS_API_KEY},
     },
@@ -1900,6 +1925,12 @@ def build_results_lookup_for_sport(sport: str):
             "game_id", "date", "home_team", "away_team",
             "home_runs_total", "away_runs_total", "home_r1", "away_r1", "home_runs_f5", "away_runs_f5",
         ]
+    elif sport == "lmb":
+        file_path = LMB_RAW_HISTORY
+        use_cols = [
+            "game_id", "date", "home_team", "away_team",
+            "home_runs_total", "away_runs_total", "home_r1", "away_r1", "home_runs_f5", "away_runs_f5",
+        ]
     elif sport == "kbo":
         file_path = KBO_RAW_HISTORY
         use_cols = [
@@ -1962,7 +1993,7 @@ def build_results_lookup_for_sport(sport: str):
         return {}
 
     inning_score_cols = []
-    if sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"}:
+    if sport in {"mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"}:
         inning_col_pattern = re.compile(r"^(home|away)_r\d+$", re.IGNORECASE)
         inning_score_cols = [c for c in header_cols if inning_col_pattern.match(str(c))]
 
@@ -2057,7 +2088,7 @@ def build_results_lookup_for_sport(sport: str):
                 away_f5_score = None
                 home_inning_scores = None
                 away_inning_scores = None
-            elif sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"}:
+            elif sport in {"mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"}:
                 home_score = int(row["home_runs_total"])
                 away_score = int(row["away_runs_total"])
                 home_q1_score = _series_int(row, "home_r1")
@@ -2520,14 +2551,16 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 continue
         return out
 
-    def _fetch_live_lookup_triple_a(target_date: str):
+    def _fetch_live_lookup_mlb_statsapi(target_date: str, sport_id: int, league_id: int | None = None):
         try:
             params = {
-                "sportId": 11,
+                "sportId": int(sport_id),
                 "startDate": target_date,
                 "endDate": target_date,
                 "hydrate": "linescore,team,statusFlags",
             }
+            if league_id is not None:
+                params["leagueId"] = int(league_id)
             payload = requests.get(
                 "https://statsapi.mlb.com/api/v1/schedule",
                 params=params,
@@ -2547,31 +2580,47 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                     game_id = str(game.get("gamePk") or "").strip()
                     if not game_id:
                         continue
+
                     status = game.get("status") or {}
                     abstract = str(status.get("abstractGameState") or "").strip().lower()
-                    detailed = str(status.get("detailedState") or "").strip() or ("Final" if abstract == "final" else "Scheduled")
+                    state = "post" if abstract == "final" else ("in" if abstract in {"live", "in progress"} else "pre")
+                    detailed = str(status.get("detailedState") or "").strip()
+                    if not detailed:
+                        detailed = "Final" if state == "post" else ("In Progress" if state == "in" else "Scheduled")
+
                     home = ((game.get("teams") or {}).get("home") or {})
                     away = ((game.get("teams") or {}).get("away") or {})
                     linescore = game.get("linescore") or {}
                     innings = linescore.get("innings") or []
+
                     home_inning_scores = []
                     away_inning_scores = []
                     if isinstance(innings, list):
                         for inning in innings:
                             home_inning_scores.append(_to_int_or_none(((inning.get("home") or {}).get("runs"))))
                             away_inning_scores.append(_to_int_or_none(((inning.get("away") or {}).get("runs"))))
+
                     while home_inning_scores and home_inning_scores[-1] is None:
                         home_inning_scores.pop()
                     while away_inning_scores and away_inning_scores[-1] is None:
                         away_inning_scores.pop()
-                    state = "post" if abstract == "final" else ("in" if abstract == "live" else "pre")
+
+                    home_score = _to_int_or_none(home.get("score"))
+                    away_score = _to_int_or_none(away.get("score"))
+                    if home_score is None:
+                        home_score = _to_int_or_none((((linescore.get("teams") or {}).get("home") or {}).get("runs")))
+                    if away_score is None:
+                        away_score = _to_int_or_none((((linescore.get("teams") or {}).get("away") or {}).get("runs")))
+
                     payload = {
                         "status_state": state,
                         "status_description": detailed,
                         "status_detail": detailed,
                         "status_completed": 1 if state == "post" else 0,
-                        "home_score": int(float(home.get("score") or 0)),
-                        "away_score": int(float(away.get("score") or 0)),
+                        "home_score": int(home_score or 0),
+                        "away_score": int(away_score or 0),
+                        "home_q1_score": _score_at(home_inning_scores, 0),
+                        "away_q1_score": _score_at(away_inning_scores, 0),
                     }
                     if home_inning_scores:
                         payload["home_inning_scores"] = home_inning_scores
@@ -2581,6 +2630,13 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
                 except Exception:
                     continue
         return out
+
+    def _fetch_live_lookup_triple_a(target_date: str):
+        return _fetch_live_lookup_mlb_statsapi(target_date, sport_id=11)
+
+    def _fetch_live_lookup_lmb(target_date: str):
+        # MiLB Mexican scores use StatsAPI sportId=23 + leagueId=125.
+        return _fetch_live_lookup_mlb_statsapi(target_date, sport_id=23, league_id=125)
 
     def _fetch_live_lookup(target_sport: str, items: list[dict], target_date: str):
         try:
@@ -2602,6 +2658,8 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
             return _fetch_live_lookup_ncaa(target_date)
         if target_sport == "triple_a":
             return _fetch_live_lookup_triple_a(target_date)
+        if target_sport == "lmb":
+            return _fetch_live_lookup_lmb(target_date)
         return {}
 
     target_date = _target_date_from_events(events)
@@ -3163,7 +3221,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
         existing_q1 = _to_bool_or_none(item.get("q1_hit"))
         if existing_q1 is None:
-            if sport in {"mlb", "kbo", "ncaa_baseball", "triple_a"} and home_q1_score is not None and away_q1_score is not None:
+            if sport in {"mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"} and home_q1_score is not None and away_q1_score is not None:
                 item["q1_hit"] = evaluate_mlb_q1_pick(
                     pick=str(item.get("q1_pick", "")),
                     home_r1=int(home_q1_score),
@@ -3501,7 +3559,7 @@ def enrich_predictions_with_results(sport: str, events: list, lookup: dict | Non
 
 def enrich_predictions_if_available(sport: str, events: list, lookup: dict | None = None):
     events = _normalize_events_payload(events)
-    if sport in {"nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"}:
+    if sport in {"nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"}:
         return enrich_predictions_with_results(sport, events, lookup=lookup)
     return events
 
@@ -4005,7 +4063,7 @@ def _admin_capture_team_form_snapshot(date_str: str, window_games: int = 8, forc
     if (not force) and existing is not None and (not _snapshot_has_pending(existing)):
         return existing
 
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
 
     form_payload = build_team_form_summary(
         sports=sports,
@@ -4574,7 +4632,7 @@ def build_sport_insights_summary(sport: str):
 
 
 def build_tier_performance_summary():
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
     tracked_tiers = ["ELITE", "PREMIUM", "STRONG"]
     rows = []
 
@@ -4933,7 +4991,7 @@ def _log_loss(probs: list[float], outcomes: list[int]):
 
 
 def build_probability_calibration_profiles():
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
     markets = ["full_game", "q1_yrfi", "spread", "total", "btts", "f5", "home_over", "corners"]
 
     grouped = {}
@@ -5174,6 +5232,7 @@ def _best_picks_sports():
         "nba",
         "wnba",
         "mlb",
+        "lmb",
         "kbo",
         "nhl",
         "liga_mx",
@@ -5895,7 +5954,7 @@ def admin_sport_updates(authorization: Optional[str] = Header(default=None)):
     _require_admin_session(authorization)
     sports = [
         _build_admin_sport_pipeline_snapshot(sport)
-        for sport in ["nba", "wnba", "mlb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
+        for sport in ["nba", "wnba", "mlb", "lmb", "tennis", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "triple_a"]
     ]
     return {"ok": True, "sports": sports}
 
@@ -5914,6 +5973,7 @@ def admin_market_accuracy_report(authorization: Optional[str] = Header(default=N
         "nba",
         "wnba",
         "mlb",
+        "lmb",
         "tennis",
         "kbo",
         "nhl",
@@ -6091,7 +6151,7 @@ def get_prediction_detail(sport: str, date_str: str, game_id: str):
 
 @app.get("/api/insights/summary")
 def get_insights_summary():
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "triple_a"]
     summaries = [build_sport_insights_summary(s) for s in sports]
 
     return {
@@ -6106,7 +6166,7 @@ def get_team_form_insights(
     min_games: int = 3,
     force_refresh: bool = False,
 ):
-    sports = ["nba", "wnba", "mlb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
+    sports = ["nba", "wnba", "mlb", "lmb", "kbo", "nhl", "liga_mx", "laliga", "bundesliga", "ligue1", "euroleague", "ncaa_baseball", "tennis", "triple_a"]
     window = max(3, min(int(window_games), 20))
     min_sample = max(2, min(int(min_games), window))
     fingerprint = _team_form_sources_fingerprint(sports)
@@ -6204,6 +6264,14 @@ def get_weekday_scoring_insights():
             home_col="home_runs_total",
             away_col="away_runs_total",
             metric_label="Runs Totales",
+        ),
+        SportScoringConfig(
+            key="lmb",
+            label="LMB",
+            raw_file=LMB_RAW_HISTORY,
+            home_col="home_runs_total",
+            away_col="away_runs_total",
+            metric_label="Carreras Totales",
         ),
         SportScoringConfig(
             key="kbo",

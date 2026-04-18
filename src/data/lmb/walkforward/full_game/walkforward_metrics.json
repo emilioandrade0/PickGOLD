@@ -1,0 +1,130 @@
+{
+  "rows": 216,
+  "accuracy": 0.5185185185185185,
+  "brier": 0.25182583870179875,
+  "logloss": 0.6975895671342137,
+  "coverage": 0.24537037037037038,
+  "roc_auc": 0.48659340659340655,
+  "published_accuracy": 0.5094339622641509,
+  "splits": 26,
+  "fallback_splits": 0,
+  "published_coverage": 0.24537037037037038,
+  "avg_missing_pitchers_rate_test": 0.14225912975912977,
+  "avg_prob_shrink": 0.0,
+  "reliability_enabled_split_rate": 0.0,
+  "avg_reliability_mean_calib": 0.0,
+  "avg_reliability_mean_test": 1.0,
+  "avg_reliability_low_rate_test": 0.0,
+  "avg_reliability_conflict_rate_test": 0.0,
+  "avg_momentum_penalty_mean_calib": 0.0004916415939924984,
+  "avg_momentum_penalty_active_rate_calib": 0.05462684377694426,
+  "avg_calib_roi_per_bet": 0.0,
+  "avg_calib_priced_coverage": 0.0,
+  "avg_calib_mean_ev_edge": 0.0,
+  "threshold_objective_mode": "accuracy_cov",
+  "roi_threshold_splits": 0,
+  "roi_threshold_split_rate": 0.0,
+  "published_priced_picks": 0,
+  "published_total_return_units": 0.0,
+  "published_roi_per_bet": 0.0,
+  "published_yield_pct": 0.0,
+  "published_priced_coverage": 0.0,
+  "published_mean_ev_edge": 0.0,
+  "published_confidence_buckets": {
+    "0.53-0.56": {
+      "rows": 49,
+      "coverage": 0.0,
+      "accuracy": 0.40816326530612246,
+      "published_rows": 0,
+      "published_accuracy": 0.0
+    },
+    "0.56-0.60": {
+      "rows": 35,
+      "coverage": 0.37142857142857144,
+      "accuracy": 0.6285714285714286,
+      "published_rows": 13,
+      "published_accuracy": 0.6923076923076923
+    },
+    "0.60-0.65": {
+      "rows": 43,
+      "coverage": 0.23255813953488372,
+      "accuracy": 0.5813953488372093,
+      "published_rows": 10,
+      "published_accuracy": 0.3
+    },
+    "0.65+": {
+      "rows": 36,
+      "coverage": 0.8333333333333334,
+      "accuracy": 0.5555555555555556,
+      "published_rows": 30,
+      "published_accuracy": 0.5
+    },
+    "<=0.53": {
+      "rows": 53,
+      "coverage": 0.0,
+      "accuracy": 0.4716981132075472,
+      "published_rows": 0,
+      "published_accuracy": 0.0
+    }
+  },
+  "pitcher_momentum_analysis": {
+    "recent_quality_diff": {
+      "(-0.691, 0.0]": {
+        "rows": 210,
+        "accuracy": 0.5142857142857142,
+        "published_rows": 49,
+        "published_accuracy": 0.5102040816326531
+      },
+      "(0.0, 0.69]": {
+        "rows": 6,
+        "accuracy": 0.6666666666666666,
+        "published_rows": 4,
+        "published_accuracy": 0.5
+      }
+    },
+    "quality_start_rate_diff": {
+      "(-0.551, 0.0]": {
+        "rows": 210,
+        "accuracy": 0.5142857142857142,
+        "published_rows": 49,
+        "published_accuracy": 0.5102040816326531
+      },
+      "(0.0, 0.55]": {
+        "rows": 6,
+        "accuracy": 0.6666666666666666,
+        "published_rows": 4,
+        "published_accuracy": 0.5
+      }
+    },
+    "blowup_rate_diff": {
+      "(-0.301, 0.0]": {
+        "rows": 203,
+        "accuracy": 0.5172413793103449,
+        "published_rows": 52,
+        "published_accuracy": 0.5
+      },
+      "(0.0, 0.3]": {
+        "rows": 13,
+        "accuracy": 0.5384615384615384,
+        "published_rows": 1,
+        "published_accuracy": 1.0
+      }
+    },
+    "era_trend_diff": {
+      "nan": {
+        "rows": 216,
+        "accuracy": 0.5185185185185185,
+        "published_rows": 53,
+        "published_accuracy": 0.5094339622641509
+      }
+    },
+    "whip_trend_diff": {
+      "nan": {
+        "rows": 216,
+        "accuracy": 0.5185185185185185,
+        "published_rows": 53,
+        "published_accuracy": 0.5094339622641509
+      }
+    }
+  }
+}

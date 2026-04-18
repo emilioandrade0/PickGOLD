@@ -2,7 +2,7 @@
   "market": "full_game",
   "target_col": "TARGET_full_game",
   "problem_type": "binary",
-  "threshold": 0.55,
+  "threshold": 0.6000000000000001,
   "feature_columns": [
     "away_elo_pre",
     "away_games_last_3",
@@ -95,11 +95,11 @@
     "win_rate_l10_diff",
     "win_rate_l5_diff"
   ],
-  "n_rows": 1303,
+  "n_rows": 1340,
   "n_features": 90,
-  "valid_accuracy": 0.5095785440613027,
-  "valid_logloss": 0.8075430872432957,
-  "valid_auc": 0.5015268968757342,
+  "valid_accuracy": 0.5522388059701493,
+  "valid_logloss": 0.7449481105420692,
+  "valid_auc": 0.5520049077017455,
   "classes": [
     0,
     1

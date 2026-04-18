@@ -10,6 +10,7 @@ import joblib
 SPORT_LABELS = {
     "nba": "NBA",
     "mlb": "MLB",
+    "lmb": "LMB",
     "kbo": "KBO",
     "nhl": "NHL",
     "liga_mx": "Liga MX",
@@ -31,6 +32,7 @@ FROZEN_SPORT_MARKETS = {
     "liga_mx": {"full_game", "total", "btts"},
     "ligue1": {"full_game", "total", "btts"},
     "mlb": {"q1_yrfi"},
+    "lmb": {"q1_yrfi"},
 }
 
 MARKET_DEFINITIONS = [
@@ -76,7 +78,7 @@ MARKET_DEFINITIONS = [
     {
         "market": "f5",
         "display": "F5",
-        "sports": ["mlb", "kbo", "ncaa_baseball", "triple_a"],
+        "sports": ["mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"],
         "pick_keys": ["f5_pick", "assists_pick"],
         "tier_keys": ["extra_f5_tier"],
         "score_keys": ["extra_f5_recommended_score", "extra_f5_confidence"],

@@ -2121,6 +2121,8 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
         stats_flag = 0 if pd.isna(stats_flag_raw) else int(stats_flag_raw)
         row_completed_raw = pd.to_numeric(row.get("status_completed", 0), errors="coerce")
         row_completed = 0 if pd.isna(row_completed_raw) else int(row_completed_raw)
+        market_quality = safe_str(row.get("odds_data_quality")).lower()
+        recent_market_candidate = is_recent_market_refresh_candidate(row)
         batting_ready = True
         if row_completed == 1:
             batting_ready = (
@@ -2129,9 +2131,8 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
             )
         player_batting_ready = True
         if row_completed == 1:
-            player_batting_ready = _has_player_batting_stats(row)
-        market_quality = safe_str(row.get("odds_data_quality")).lower()
-        recent_market_candidate = is_recent_market_refresh_candidate(row)
+            # Player-level batting can be absent in older summaries; keep retry focus on recent games.
+            player_batting_ready = _has_player_batting_stats(row) if recent_market_candidate else True
 
         should_enrich = True
         if ONLY_ENRICH_MISSING_PITCHERS:
@@ -2199,7 +2200,11 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                 _is_missing_value(pitcher_info.get("home_walks"))
                 or _is_missing_value(pitcher_info.get("away_walks"))
             )
-            needs_player_batting_refresh = row_completed == 1 and (not _has_player_batting_stats(pitcher_info))
+            needs_player_batting_refresh = (
+                row_completed == 1
+                and recent_market_candidate
+                and (not _has_player_batting_stats(pitcher_info))
+            )
             needs_market_refresh = (
                 recent_market_candidate
                 and row_market_quality != "real"
@@ -2245,7 +2250,7 @@ def enrich_rows_with_historical_pitchers(rows: list[dict], label: str = "histór
                     )
                 )
                 pitcher_info.update(_extract_game_context_from_summary(summary_json))
-                needs_player_payload = row_completed == 1 and (not _has_player_batting_stats(pitcher_info))
+                needs_player_payload = row_completed == 1 and recent_market_candidate and (not _has_player_batting_stats(pitcher_info))
                 if needs_player_payload or (FORCE_CONTEXT_BACKFILL and (not has_min_context_fields(pitcher_info))):
                     mlb_payload = fetch_from_mlb_stats_api_if_possible(
                         game_id=game_id,

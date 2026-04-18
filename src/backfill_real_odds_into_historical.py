@@ -18,6 +18,11 @@ SPORTS = {
         "predictions_dir": BASE_DIR / "data" / "mlb" / "predictions",
         "historical_dir": BASE_DIR / "data" / "mlb" / "historical_predictions",
     },
+    "lmb": {
+        "raw_file": BASE_DIR / "data" / "lmb" / "raw" / "lmb_advanced_history.csv",
+        "predictions_dir": BASE_DIR / "data" / "lmb" / "predictions",
+        "historical_dir": BASE_DIR / "data" / "lmb" / "historical_predictions",
+    },
     "kbo": {
         "raw_file": BASE_DIR / "data" / "kbo" / "raw" / "kbo_advanced_history.csv",
         "predictions_dir": BASE_DIR / "data" / "kbo" / "predictions",

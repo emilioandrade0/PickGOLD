@@ -10,6 +10,7 @@ const LIVE_SPORTS = [
   { key: "nba", label: "NBA", path: "/nba" },
   { key: "wnba", label: "WNBA", path: "/wnba" },
   { key: "mlb", label: "MLB", path: "/mlb" },
+  { key: "lmb", label: "LMB", path: "/lmb" },
   { key: "triple_a", label: "Triple-A", path: "/triple-a" },
   { key: "tennis", label: "Tennis", path: "/tennis" },
   { key: "kbo", label: "KBO", path: "/kbo" },
@@ -84,7 +85,7 @@ function pickBadgeTone(hit) {
 
 function resolveQ1ShortLabel(sportKey) {
   const sport = String(sportKey || "").trim().toLowerCase();
-  if (["mlb", "kbo", "ncaa_baseball", "triple_a"].includes(sport)) return "1IN";
+  if (["mlb", "lmb", "kbo", "ncaa_baseball", "triple_a"].includes(sport)) return "1IN";
   if (["nba", "wnba", "euroleague"].includes(sport)) return "1Q";
   if (sport === "nhl") return "1P";
   if (["liga_mx", "laliga", "bundesliga", "ligue1"].includes(sport)) return "1T";

@@ -2,7 +2,7 @@
   "market": "spread_2_5",
   "target_col": "TARGET_over_55",
   "problem_type": "binary",
-  "threshold": 0.35,
+  "threshold": 0.36,
   "feature_columns": [
     "away_elo_pre",
     "away_games_last_3",
@@ -141,11 +141,11 @@
     "win_rate_l10_diff",
     "win_rate_l5_diff"
   ],
-  "n_rows": 1303,
+  "n_rows": 1340,
   "n_features": 136,
-  "valid_accuracy": 0.5555555555555556,
-  "valid_logloss": 0.7981854666278125,
-  "valid_auc": 0.4828619367209972,
+  "valid_accuracy": 0.5447761194029851,
+  "valid_logloss": 0.7887372125518539,
+  "valid_auc": 0.4964887239508992,
   "classes": [
     0,
     1

@@ -257,6 +257,62 @@ const TRIPLE_A_LOGO_IDS: Record<string, string> = {
   'WORCESTER RED SOX': '533',
 };
 
+const LMB_LOGO_IDS: Record<string, string> = {
+  AGS: '528',
+  'RIELEROS DE AGUASCALIENTES': '528',
+  CAM: '523',
+  'PIRATAS DE CAMPECHE': '523',
+  CHI: '575',
+  'DORADOS DE CHIHUAHUA': '575',
+  DUR: '4444',
+  'CALIENTE DE DURANGO': '4444',
+  JAL: '6304',
+  'CHARROS DE JALISCO': '6304',
+  LAG: '447',
+  'ALGODONEROS UNION LAGUNA': '447',
+  LAR: '536',
+  'TECOS DE LOS DOS LAREDOS': '536',
+  'TECOS DE DOS LAREDOS': '536',
+  LEO: '434',
+  'BRAVOS DE LEON': '434',
+  MEX: '532',
+  'DIABLOS ROJOS DEL MEXICO': '532',
+  'DIABLOS ROJOS': '532',
+  MTY: '562',
+  'SULTANES DE MONTERREY': '562',
+  MVA: '560',
+  'ACEREROS DEL NORTE': '560',
+  'ACEREROS DE MONCLOVA': '560',
+  OAX: '579',
+  'GUERREROS DE OAXACA': '579',
+  PUE: '520',
+  'PERICOS DE PUEBLA': '520',
+  QRO: '6303',
+  'CONSPIRADORES DE QUERETARO': '6303',
+  SLT: '502',
+  SLW: '502',
+  'SARAPEROS DE SALTILLO': '502',
+  TAB: '442',
+  'OLMECAS DE TABASCO': '442',
+  TIG: '569',
+  'TIGRES DE QUINTANA ROO': '569',
+  TIJ: '5010',
+  'TOROS DE TIJUANA': '5010',
+  VER: '5567',
+  'EL AGUILA DE VERACRUZ': '5567',
+  'EL AGUILA': '5567',
+  YUC: '496',
+  'LEONES DE YUCATAN': '496',
+};
+
+function normalizeLookupKey(value: string | null | undefined): string {
+  return String(value || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
 function normalizeAbbr(abbr: string | null | undefined): string {
   return String(abbr || '').trim().toUpperCase();
 }
@@ -334,8 +390,15 @@ export function getTripleALogo(teamCode: string | null | undefined): string {
   return id ? `https://www.mlbstatic.com/team-logos/${id}.svg` : FALLBACK_LOGO;
 }
 
+export function getLMBLogo(teamCode: string | null | undefined): string {
+  const normalized = normalizeLookupKey(teamCode);
+  const id = LMB_LOGO_IDS[normalized];
+  return id ? `https://www.mlbstatic.com/team-logos/${id}.svg` : FALLBACK_LOGO;
+}
+
 export function getTeamLogoUrl(sportKey: string, abbr: string | null | undefined): string | null {
   if (sportKey === 'mlb') return getMLBLogoUrl(abbr);
+  if (sportKey === 'lmb') return getLMBLogo(abbr);
   if (sportKey === 'nba') return getNBALogoUrl(abbr);
   if (sportKey === 'wnba') return getWNBALogoUrl(abbr);
   if (sportKey === 'nhl') return getNHLLogo(abbr);

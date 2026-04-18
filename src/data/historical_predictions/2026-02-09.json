@@ -21,8 +21,8 @@
     "q1_confidence": 61.6,
     "q1_action": "PASAR Q1",
     "h1_pick": "DET",
-    "h1_confidence": 59.0,
-    "h1_action": "JUGAR 1H",
+    "h1_confidence": 57.5,
+    "h1_action": "PASAR 1H",
     "total_pick": "UNDER 222.5",
     "total_prob_over": 0.4582,
     "spread_pick": "N/A",
@@ -50,9 +50,9 @@
     "q1_prob_home": 38.35,
     "q1_prob_away": 61.65,
     "h1_model_prob_home": 0.3738,
-    "h1_calibrated_prob_home": 0.4097,
-    "h1_prob_home": 40.97,
-    "h1_prob_away": 59.03
+    "h1_calibrated_prob_home": 0.425,
+    "h1_prob_home": 42.5,
+    "h1_prob_away": 57.5
   },
   {
     "game_id": "401810617",
@@ -76,7 +76,7 @@
     "q1_confidence": 59.1,
     "q1_action": "PASAR Q1",
     "h1_pick": "CHI",
-    "h1_confidence": 56.6,
+    "h1_confidence": 55.6,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 218.5",
     "total_prob_over": 0.4596,
@@ -105,9 +105,9 @@
     "q1_prob_home": 40.87,
     "q1_prob_away": 59.13,
     "h1_model_prob_home": 0.4283,
-    "h1_calibrated_prob_home": 0.4343,
-    "h1_prob_home": 43.43,
-    "h1_prob_away": 56.57
+    "h1_calibrated_prob_home": 0.4442,
+    "h1_prob_home": 44.42,
+    "h1_prob_away": 55.58
   },
   {
     "game_id": "401810618",
@@ -131,8 +131,8 @@
     "q1_confidence": 53.3,
     "q1_action": "PASAR Q1",
     "h1_pick": "MIA",
-    "h1_confidence": 71.8,
-    "h1_action": "JUGAR 1H",
+    "h1_confidence": 57.3,
+    "h1_action": "PASAR 1H",
     "total_pick": "UNDER 234.5",
     "total_prob_over": 0.4615,
     "spread_pick": "N/A",
@@ -160,9 +160,9 @@
     "q1_prob_home": 53.33,
     "q1_prob_away": 46.67,
     "h1_model_prob_home": 0.6783,
-    "h1_calibrated_prob_home": 0.7178,
-    "h1_prob_home": 71.78,
-    "h1_prob_away": 28.22
+    "h1_calibrated_prob_home": 0.5727,
+    "h1_prob_home": 57.27,
+    "h1_prob_away": 42.73
   },
   {
     "game_id": "401810619",
@@ -185,8 +185,8 @@
     "q1_pick": "MIL",
     "q1_confidence": 50.0,
     "q1_action": "PASAR Q1",
-    "h1_pick": "ORL",
-    "h1_confidence": 51.6,
+    "h1_pick": "MIL",
+    "h1_confidence": 52.7,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 220.5",
     "total_prob_over": 0.4598,
@@ -198,7 +198,7 @@
     "result_available": true,
     "full_game_hit": true,
     "q1_hit": false,
-    "h1_hit": false,
+    "h1_hit": true,
     "correct_spread": false,
     "total_hit": true,
     "final_score_text": "ORL 118 - MIL 99",
@@ -215,9 +215,9 @@
     "q1_prob_home": 49.99,
     "q1_prob_away": 50.01,
     "h1_model_prob_home": 0.4686,
-    "h1_calibrated_prob_home": 0.5162,
-    "h1_prob_home": 51.62,
-    "h1_prob_away": 48.38
+    "h1_calibrated_prob_home": 0.4733,
+    "h1_prob_home": 47.33,
+    "h1_prob_away": 52.67
   },
   {
     "game_id": "401810620",
@@ -240,8 +240,8 @@
     "q1_pick": "ATL",
     "q1_confidence": 51.3,
     "q1_action": "PASAR Q1",
-    "h1_pick": "MIN",
-    "h1_confidence": 54.6,
+    "h1_pick": "ATL",
+    "h1_confidence": 52.0,
     "h1_action": "PASAR 1H",
     "total_pick": "OVER 239.5",
     "total_prob_over": 0.4792,
@@ -253,7 +253,7 @@
     "result_available": true,
     "full_game_hit": true,
     "q1_hit": false,
-    "h1_hit": true,
+    "h1_hit": false,
     "correct_spread": false,
     "total_hit": true,
     "final_score_text": "MIN 138 - ATL 116",
@@ -270,9 +270,9 @@
     "q1_prob_home": 48.7,
     "q1_prob_away": 51.3,
     "h1_model_prob_home": 0.4683,
-    "h1_calibrated_prob_home": 0.5456,
-    "h1_prob_home": 54.56,
-    "h1_prob_away": 45.44
+    "h1_calibrated_prob_home": 0.4801,
+    "h1_prob_home": 48.01,
+    "h1_prob_away": 51.99
   },
   {
     "game_id": "401810621",
@@ -288,7 +288,7 @@
     "odds_data_quality": "real",
     "market_missing": 0,
     "full_game_pick": "NOP",
-    "full_game_pick_rule": "market_tiebreak",
+    "full_game_pick_rule": "model_confident",
     "full_game_error_risk_prob": null,
     "full_game_confidence": 57.6,
     "full_game_tier": "NORMAL",
@@ -296,8 +296,8 @@
     "q1_confidence": 54.5,
     "q1_action": "PASAR Q1",
     "h1_pick": "NOP",
-    "h1_confidence": 59.4,
-    "h1_action": "JUGAR 1H",
+    "h1_confidence": 50.7,
+    "h1_action": "PASAR 1H",
     "total_pick": "OVER 229.5",
     "total_prob_over": 0.5172,
     "spread_pick": "N/A",
@@ -325,9 +325,9 @@
     "q1_prob_home": 54.49,
     "q1_prob_away": 45.51,
     "h1_model_prob_home": 0.5302,
-    "h1_calibrated_prob_home": 0.5941,
-    "h1_prob_home": 59.41,
-    "h1_prob_away": 40.59
+    "h1_calibrated_prob_home": 0.5069,
+    "h1_prob_home": 50.69,
+    "h1_prob_away": 49.31
   },
   {
     "game_id": "401810622",
@@ -343,7 +343,7 @@
     "odds_data_quality": "real",
     "market_missing": 0,
     "full_game_pick": "DEN",
-    "full_game_pick_rule": "market_tiebreak",
+    "full_game_pick_rule": "model_confident",
     "full_game_error_risk_prob": null,
     "full_game_confidence": 57.7,
     "full_game_tier": "NORMAL",
@@ -351,7 +351,7 @@
     "q1_confidence": 50.6,
     "q1_action": "PASAR Q1",
     "h1_pick": "DEN",
-    "h1_confidence": 51.5,
+    "h1_confidence": 51.0,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 242.5",
     "total_prob_over": 0.4641,
@@ -380,9 +380,9 @@
     "q1_prob_home": 49.42,
     "q1_prob_away": 50.58,
     "h1_model_prob_home": 0.5388,
-    "h1_calibrated_prob_home": 0.5146,
-    "h1_prob_home": 51.46,
-    "h1_prob_away": 48.54
+    "h1_calibrated_prob_home": 0.4905,
+    "h1_prob_home": 49.05,
+    "h1_prob_away": 50.95
   },
   {
     "game_id": "401810623",
@@ -406,7 +406,7 @@
     "q1_confidence": 54.8,
     "q1_action": "PASAR Q1",
     "h1_pick": "GSW",
-    "h1_confidence": 74.8,
+    "h1_confidence": 59.5,
     "h1_action": "JUGAR 1H",
     "total_pick": "UNDER 218.5",
     "total_prob_over": 0.2278,
@@ -435,9 +435,9 @@
     "q1_prob_home": 54.78,
     "q1_prob_away": 45.22,
     "h1_model_prob_home": 0.744,
-    "h1_calibrated_prob_home": 0.7481,
-    "h1_prob_home": 74.81,
-    "h1_prob_away": 25.19
+    "h1_calibrated_prob_home": 0.5954,
+    "h1_prob_home": 59.54,
+    "h1_prob_away": 40.46
   },
   {
     "game_id": "401810624",
@@ -461,7 +461,7 @@
     "q1_confidence": 58.4,
     "q1_action": "PASAR Q1",
     "h1_pick": "OKC",
-    "h1_confidence": 52.2,
+    "h1_confidence": 54.0,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 222.5",
     "total_prob_over": 0.4586,
@@ -490,9 +490,9 @@
     "q1_prob_home": 41.63,
     "q1_prob_away": 58.37,
     "h1_model_prob_home": 0.4517,
-    "h1_calibrated_prob_home": 0.4779,
-    "h1_prob_home": 47.79,
-    "h1_prob_away": 52.21
+    "h1_calibrated_prob_home": 0.46,
+    "h1_prob_home": 46.0,
+    "h1_prob_away": 54.0
   },
   {
     "game_id": "401810625",
@@ -516,7 +516,7 @@
     "q1_confidence": 53.7,
     "q1_action": "PASAR Q1",
     "h1_pick": "PHI",
-    "h1_confidence": 54.7,
+    "h1_confidence": 54.9,
     "h1_action": "PASAR 1H",
     "total_pick": "UNDER 231.5",
     "total_prob_over": 0.4643,
@@ -545,8 +545,8 @@
     "q1_prob_home": 46.34,
     "q1_prob_away": 53.66,
     "h1_model_prob_home": 0.4373,
-    "h1_calibrated_prob_home": 0.4527,
-    "h1_prob_home": 45.27,
-    "h1_prob_away": 54.73
+    "h1_calibrated_prob_home": 0.4506,
+    "h1_prob_home": 45.06,
+    "h1_prob_away": 54.94
   }
 ]

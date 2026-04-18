@@ -5,7 +5,7 @@ import os
 import sys
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, Optional, Set, Tuple
 
 import pandas as pd
 import requests
@@ -24,6 +24,7 @@ LINE_MOVEMENT_CACHE = CACHE_DIR / "line_movement.csv"
 LINE_MOVEMENT_HISTORY = CACHE_DIR / "line_movement_history.csv"
 HISTORICAL_DAILY_CACHE_DIR = CACHE_DIR / "theodds_historical_daily"
 HISTORICAL_DAILY_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+HISTORICAL_BACKFILL_PROGRESS_FILE = HISTORICAL_DAILY_CACHE_DIR / "_backfill_progress.json"
 RAW_ADVANCED_FILE = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
 
 SPORT_KEY = "baseball_mlb"
@@ -257,6 +258,95 @@ def _resolve_api_key() -> str:
     if not api_key:
         raise EnvironmentError("Set THE_ODDS_API_KEY, THEODDSAPI_KEY, or ODDS_API_KEY to use The Odds API")
     return api_key
+
+
+def _resolve_regions() -> str:
+    raw = str(os.environ.get("THEODDS_MLB_REGIONS", "us") or "us").strip().lower()
+    tokens = [token.strip() for token in raw.split(",") if token.strip()]
+    if not tokens:
+        tokens = ["us"]
+    return ",".join(dict.fromkeys(tokens))
+
+
+def _resolve_markets() -> str:
+    raw = str(os.environ.get("THEODDS_MLB_MARKETS", "h2h,spreads,totals") or "h2h,spreads,totals").strip().lower()
+    tokens = [token.strip() for token in raw.split(",") if token.strip()]
+    if not tokens:
+        tokens = ["h2h", "spreads", "totals"]
+    return ",".join(dict.fromkeys(tokens))
+
+
+def _count_csv_tokens(value: str) -> int:
+    return len([token for token in str(value or "").split(",") if token.strip()])
+
+
+def _estimate_credit_cost(markets: str, regions: str, historical: bool) -> int:
+    unit = 10 if historical else 1
+    return unit * max(_count_csv_tokens(markets), 1) * max(_count_csv_tokens(regions), 1)
+
+
+def _safe_int(value) -> Optional[int]:
+    try:
+        return int(str(value).strip())
+    except Exception:
+        return None
+
+
+def _atomic_write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.parent / f"{path.name}.tmp.{os.getpid()}.{pd.Timestamp.now('UTC').value}"
+    try:
+        with open(temp_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+
+
+def _load_backfill_progress(path: Path = HISTORICAL_BACKFILL_PROGRESS_FILE) -> Dict[str, dict]:
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
+        pass
+    return {}
+
+
+def _write_backfill_progress(progress: Dict[str, dict], path: Path = HISTORICAL_BACKFILL_PROGRESS_FILE) -> None:
+    _atomic_write_json(path, progress)
+
+
+def _load_cached_payload(day_cache_file: Path, allow_redownload_on_cache_error: bool) -> Optional[Any]:
+    if not day_cache_file.exists():
+        return None
+    try:
+        with open(day_cache_file, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception as exc:
+        if not allow_redownload_on_cache_error:
+            raise RuntimeError(
+                f"Cache corrupto para {day_cache_file.name}. Se detiene para proteger creditos. "
+                "Si deseas re-descargar ese dia, exporta THEODDS_MLB_ALLOW_REDOWNLOAD_ON_CACHE_ERROR=1"
+            ) from exc
+
+        stamp = pd.Timestamp.now("UTC").strftime("%Y%m%dT%H%M%SZ")
+        corrupt_path = day_cache_file.with_name(f"{day_cache_file.stem}.corrupt.{stamp}.json")
+        try:
+            os.replace(day_cache_file, corrupt_path)
+            print(f"WARNING: Cache corrupto movido a {corrupt_path.name}; se intentara re-descarga de ese dia.")
+        except Exception:
+            print(f"WARNING: Cache corrupto detectado en {day_cache_file.name}; se intentara re-descarga de ese dia.")
+        return None
 
 
 def _extract_events_payload(payload) -> list:
@@ -493,16 +583,22 @@ def fetch_the_odds_api(save_path: Path = LINE_MOVEMENT_CACHE, timeout: int = 30)
         print(f"Cache refresh required: {cache_reason}")
 
     api_key = _resolve_api_key()
+    regions = _resolve_regions()
+    markets = _resolve_markets()
+    est_cost = _estimate_credit_cost(markets=markets, regions=regions, historical=False)
 
     params = {
         "apiKey": api_key,
-        "regions": "us",
-        "markets": "h2h,spreads,totals",
+        "regions": regions,
+        "markets": markets,
         "oddsFormat": "american",
         "dateFormat": "iso",
     }
     resp = requests.get(ODDS_URL, params=params, timeout=timeout)
     resp.raise_for_status()
+    x_last = _safe_int(resp.headers.get("x-requests-last"))
+    if x_last is not None:
+        print(f"TheOdds current fetch credits: last_call={x_last} | configured_max={est_cost} | markets={markets} | regions={regions}")
     data = _extract_events_payload(resp.json() or [])
 
     fetched_at_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -525,32 +621,61 @@ def backfill_historical_theodds(
     end_date: Optional[str] = None,
 ) -> Path:
     api_key = _resolve_api_key()
+    regions = _resolve_regions()
+    markets = _resolve_markets()
+    allow_redownload_on_cache_error = str(
+        os.environ.get("THEODDS_MLB_ALLOW_REDOWNLOAD_ON_CACHE_ERROR", "0")
+    ).strip().lower() in {"1", "true", "yes", "y"}
+    max_credits_per_run = _safe_int(os.environ.get("THEODDS_MLB_MAX_CREDITS_PER_RUN", "").strip())
+    est_cost_per_download = _estimate_credit_cost(markets=markets, regions=regions, historical=True)
+
     missing_dates = _load_missing_dates_from_raw(max_dates=max_dates, start_date=start_date, end_date=end_date)
     if not missing_dates:
         print("No hay fechas faltantes en raw para backfill histórico.")
         return save_path
 
+    print(
+        "Backfill historical config "
+        f"markets={markets} regions={regions} "
+        f"estimated_max_credits_per_download={est_cost_per_download} "
+        f"dates_to_process={len(missing_dates)}"
+    )
+    if max_credits_per_run is not None and max_credits_per_run > 0:
+        print(f"Backfill credit cap for this run: {max_credits_per_run}")
+
     schedule_lookup = _load_schedule_lookup()
+    progress = _load_backfill_progress()
     collected = []
     downloaded_days = 0
     cache_hits = 0
+    credits_spent_this_run = 0
+    stopped_for_budget = False
 
     for date_str in missing_dates:
         day_cache_file = HISTORICAL_DAILY_CACHE_DIR / f"odds_{date_str}.json"
-        payload = None
-        if day_cache_file.exists():
-            try:
-                with open(day_cache_file, "r", encoding="utf-8") as fh:
-                    payload = json.load(fh)
-                cache_hits += 1
-            except Exception:
-                payload = None
+        payload = _load_cached_payload(
+            day_cache_file=day_cache_file,
+            allow_redownload_on_cache_error=allow_redownload_on_cache_error,
+        )
+        from_cache = payload is not None
+        if from_cache:
+            cache_hits += 1
 
         if payload is None:
+            if max_credits_per_run is not None and max_credits_per_run > 0:
+                projected = credits_spent_this_run + est_cost_per_download
+                if projected > max_credits_per_run:
+                    print(
+                        "Stopping historical backfill before next API call to respect credit cap: "
+                        f"spent={credits_spent_this_run} projected_next={projected} cap={max_credits_per_run}"
+                    )
+                    stopped_for_budget = True
+                    break
+
             params = {
                 "apiKey": api_key,
-                "regions": "us",
-                "markets": "h2h,spreads,totals",
+                "regions": regions,
+                "markets": markets,
                 "oddsFormat": "american",
                 "dateFormat": "iso",
                 "date": f"{date_str}T12:00:00Z",
@@ -558,12 +683,33 @@ def backfill_historical_theodds(
             resp = requests.get(ODDS_HISTORICAL_URL, params=params, timeout=timeout)
             resp.raise_for_status()
             payload = resp.json() or {}
-            with open(day_cache_file, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh)
+            _atomic_write_json(day_cache_file, payload)
             downloaded_days += 1
 
+            last_cost = _safe_int(resp.headers.get("x-requests-last"))
+            if last_cost is None:
+                last_cost = est_cost_per_download
+            credits_spent_this_run += max(last_cost, 0)
+
+            remaining = _safe_int(resp.headers.get("x-requests-remaining"))
+            if remaining is not None:
+                print(
+                    f"Historical call date={date_str} credits_last={last_cost} "
+                    f"credits_remaining={remaining}"
+                )
+
         events = _extract_events_payload(payload)
+        normalized_rows = 0
         if not events:
+            progress[date_str] = {
+                "updated_at_utc": pd.Timestamp.now("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "source": "cache" if from_cache else "download",
+                "events_in_payload": 0,
+                "normalized_rows": 0,
+                "cache_file": day_cache_file.name,
+                "credits_spent_this_run": credits_spent_this_run,
+            }
+            _write_backfill_progress(progress)
             continue
 
         fetched_at_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -571,8 +717,25 @@ def backfill_historical_theodds(
             row = _extract_event_snapshot(event, schedule_lookup, fetched_at_utc)
             if row is not None:
                 collected.append(row)
+                normalized_rows += 1
 
-    print(f"Backfill histórico: fechas={len(missing_dates)} | descargas={downloaded_days} | cache_dias={cache_hits}")
+        progress[date_str] = {
+            "updated_at_utc": fetched_at_utc,
+            "source": "cache" if from_cache else "download",
+            "events_in_payload": int(len(events)),
+            "normalized_rows": int(normalized_rows),
+            "cache_file": day_cache_file.name,
+            "credits_spent_this_run": credits_spent_this_run,
+        }
+        _write_backfill_progress(progress)
+
+    print(
+        f"Backfill histórico: fechas={len(missing_dates)} | descargas={downloaded_days} | "
+        f"cache_dias={cache_hits} | creditos_run={credits_spent_this_run}"
+    )
+    if stopped_for_budget:
+        print("Backfill histórico detenido por limite de creditos configurado.")
+    print(f"Backfill progress file: {HISTORICAL_BACKFILL_PROGRESS_FILE}")
     if not collected:
         print("Backfill histórico sin snapshots normalizables para las fechas solicitadas.")
         return save_path

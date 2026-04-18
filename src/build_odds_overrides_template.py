@@ -11,6 +11,7 @@ OVERRIDES_FILE = BASE_DIR / "data" / "odds_provider" / "closing_odds_overrides.c
 SPORTS_PREDICTIONS_DIR = {
     "nba": BASE_DIR / "data" / "predictions",
     "mlb": BASE_DIR / "data" / "mlb" / "predictions",
+    "lmb": BASE_DIR / "data" / "lmb" / "predictions",
     "kbo": BASE_DIR / "data" / "kbo" / "predictions",
     "nhl": BASE_DIR / "data" / "nhl" / "predictions",
     "liga_mx": BASE_DIR / "data" / "liga_mx" / "predictions",

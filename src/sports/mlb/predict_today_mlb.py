@@ -30,6 +30,46 @@ PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
 CALIBRATION_FILE = MODELS_DIR / "calibration_params.json"
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return float(default)
+    try:
+        return float(raw)
+    except Exception:
+        return float(default)
+
+
+FULL_GAME_VOL_NORM_ENABLED = int(np.clip(_env_float("NBA_MLB_FULL_GAME_VOL_NORM_ENABLED", 0.0), 0.0, 1.0))
+FULL_GAME_VOL_NORM_ALPHA = float(np.clip(_env_float("NBA_MLB_FULL_GAME_VOL_NORM_ALPHA", 0.18), 0.0, 0.45))
+FULL_GAME_VOL_NORM_THRESHOLD_BONUS = float(np.clip(_env_float("NBA_MLB_FULL_GAME_VOL_NORM_THRESHOLD_BONUS", 0.02), 0.0, 0.08))
+
+_full_game_vol_decision_default = 1.0 if FULL_GAME_VOL_NORM_ENABLED > 0 else 0.0
+FULL_GAME_VOL_DECISION_ENABLED = int(
+    np.clip(
+        _env_float("NBA_MLB_FULL_GAME_VOL_DECISION_ENABLED", _full_game_vol_decision_default),
+        0.0,
+        1.0,
+    )
+)
+FULL_GAME_VOL_DECISION_BETA = float(np.clip(_env_float("NBA_MLB_FULL_GAME_VOL_DECISION_BETA", 0.0), -0.30, 0.30))
+FULL_GAME_VOL_DECISION_CENTER = float(np.clip(_env_float("NBA_MLB_FULL_GAME_VOL_DECISION_CENTER", 0.50), 0.0, 1.0))
+FULL_GAME_VOL_DECISION_MAX_SHIFT = float(np.clip(_env_float("NBA_MLB_FULL_GAME_VOL_DECISION_MAX_SHIFT", 0.06), 0.0, 0.20))
+
+FULL_GAME_RELIABILITY_ENABLED = int(
+    np.clip(_env_float("NBA_MLB_FULL_GAME_RELIABILITY_ENABLED", 0.0), 0.0, 1.0)
+)
+FULL_GAME_RELIABILITY_SHRINK_ALPHA = float(
+    np.clip(_env_float("NBA_MLB_FULL_GAME_RELIABILITY_SHRINK_ALPHA", 0.14), 0.0, 0.60)
+)
+FULL_GAME_RELIABILITY_SIDE_SHIFT = float(
+    np.clip(_env_float("NBA_MLB_FULL_GAME_RELIABILITY_SIDE_SHIFT", 0.035), 0.0, 0.25)
+)
+FULL_GAME_RELIABILITY_CONFLICT_SHIFT = float(
+    np.clip(_env_float("NBA_MLB_FULL_GAME_RELIABILITY_CONFLICT_SHIFT", 0.018), 0.0, 0.25)
+)
+
+
 def get_latest_prediction_dependency_mtime() -> float:
     dependency_paths = [
         FEATURES_FILE,
@@ -39,7 +79,7 @@ def get_latest_prediction_dependency_mtime() -> float:
         Path(__file__),
     ]
 
-    for market_key in ["full_game", "yrfi", "f5", "totals", "run_line"]:
+    for market_key in ["full_game", "yrfi", "f5", "totals", "total_hits_event", "run_line"]:
         market_dir = MODELS_DIR / market_key
         dependency_paths.extend(
             [
@@ -156,15 +196,144 @@ def _signed_squash_value(value: float) -> float:
     return val / (1.0 + abs(val))
 
 
+def compute_full_game_volatility_score(feature_row: pd.Series) -> float:
+    components = []
+
+    def _scaled_abs(col: str, scale: float, weight: float) -> None:
+        value = abs(_safe_float(feature_row.get(col, 0.0), 0.0))
+        norm = np.clip(value / max(float(scale), 1e-6), 0.0, 1.0)
+        components.append((float(norm), float(weight)))
+
+    _scaled_abs("diff_runs_scored_std_L10", scale=2.5, weight=1.00)
+    _scaled_abs("diff_runs_allowed_std_L10", scale=2.5, weight=1.00)
+    _scaled_abs("diff_r1_scored_std_L10", scale=0.30, weight=0.70)
+    _scaled_abs("diff_r1_allowed_std_L10", scale=0.30, weight=0.70)
+    _scaled_abs("diff_pitcher_blowup_rate_L10", scale=0.35, weight=1.20)
+    _scaled_abs("diff_pitcher_era_trend", scale=0.40, weight=0.90)
+    _scaled_abs("diff_pitcher_whip_trend", scale=0.08, weight=0.90)
+    _scaled_abs("umpire_volatility_risk", scale=0.60, weight=0.70)
+
+    both_pitchers_available = _safe_float(feature_row.get("both_pitchers_available", 0.0), 0.0)
+    if both_pitchers_available < 1.0:
+        components.append((1.0, 1.25))
+
+    if not components:
+        return 0.0
+
+    numer = float(sum(v * w for v, w in components))
+    denom = float(sum(w for _, w in components))
+    if denom <= 0:
+        return 0.0
+    return float(np.clip(numer / denom, 0.0, 1.0))
+
+
+def compute_full_game_decision_threshold(vol_score: float) -> float:
+    if FULL_GAME_VOL_DECISION_ENABLED <= 0:
+        return 0.5
+
+    shift = float(FULL_GAME_VOL_DECISION_BETA) * (float(vol_score) - float(FULL_GAME_VOL_DECISION_CENTER))
+    shift = float(np.clip(shift, -float(FULL_GAME_VOL_DECISION_MAX_SHIFT), float(FULL_GAME_VOL_DECISION_MAX_SHIFT)))
+    return float(np.clip(0.5 + shift, 0.35, 0.65))
+
+
+def _signed_scaled(value: float, scale: float, invert: bool = False) -> float:
+    signed = _safe_float(value, 0.0)
+    if invert:
+        signed = -signed
+    return float(np.clip(signed / max(float(scale), 1e-6), -1.0, 1.0))
+
+
+def compute_full_game_reliability_adjustment(
+    feature_row: pd.Series,
+    prob_home: float,
+    vol_score: float,
+):
+    prob = float(np.clip(prob_home, 1e-6, 1.0 - 1e-6))
+    if FULL_GAME_RELIABILITY_ENABLED <= 0:
+        return prob, 1.0, 0.0, 0.0, 0.0, 1.0
+
+    quality_signal = _signed_scaled(feature_row.get("diff_pitcher_recent_quality_score", 0.0), scale=4.0)
+    quality_start_signal = _signed_scaled(feature_row.get("diff_pitcher_quality_start_rate_L10", 0.0), scale=0.30)
+    blowup_signal = _signed_scaled(feature_row.get("diff_pitcher_blowup_rate_L10", 0.0), scale=0.35, invert=True)
+    era_trend_signal = _signed_scaled(feature_row.get("diff_pitcher_era_trend", 0.0), scale=0.40, invert=True)
+    whip_trend_signal = _signed_scaled(feature_row.get("diff_pitcher_whip_trend", 0.0), scale=0.08, invert=True)
+    form_signal = _signed_scaled(feature_row.get("diff_form_power", 0.0), scale=3.0)
+    elo_signal = _signed_scaled(feature_row.get("diff_elo", 0.0), scale=120.0)
+    favorite_signal = 1.0 if _safe_float(feature_row.get("home_is_favorite", 0.0), 0.0) >= 0.5 else -1.0
+
+    weights = np.array([1.20, 1.00, 1.00, 0.80, 0.80, 0.70, 0.55, 0.35], dtype=float)
+    signals = np.array(
+        [
+            quality_signal,
+            quality_start_signal,
+            blowup_signal,
+            era_trend_signal,
+            whip_trend_signal,
+            form_signal,
+            elo_signal,
+            favorite_signal,
+        ],
+        dtype=float,
+    )
+    side_hint = float(np.clip(np.sum(weights * signals) / max(float(weights.sum()), 1e-6), -1.0, 1.0))
+    context_strength = abs(side_hint)
+
+    model_side = 1.0 if prob >= 0.5 else -1.0
+    conflict_flag = 1.0 if ((np.sign(side_hint) * model_side) < 0 and context_strength >= 0.20) else 0.0
+
+    edge = float(np.clip(abs(prob - 0.5) * 2.0, 0.0, 1.0))
+    missing_pitchers = 1.0 if _safe_float(feature_row.get("both_pitchers_available", 0.0), 0.0) < 1.0 else 0.0
+
+    base_reliability = float(np.clip((0.55 * edge) + (0.45 * context_strength), 0.0, 1.0))
+    risk = 1.0 - base_reliability
+    risk += 0.22 * conflict_flag * context_strength
+    risk += 0.18 * float(np.clip(vol_score, 0.0, 1.0))
+    risk += 0.24 * missing_pitchers
+    risk = float(np.clip(risk, 0.0, 1.0))
+    reliability = float(np.clip(1.0 - risk, 0.0, 1.0))
+    unreliability = 1.0 - reliability
+
+    shrink_factor = float(np.clip(1.0 - (FULL_GAME_RELIABILITY_SHRINK_ALPHA * unreliability), 0.35, 1.0))
+    prob_shrunk = float(np.clip(0.5 + ((prob - 0.5) * shrink_factor), 1e-6, 1.0 - 1e-6))
+
+    side_shift = float(FULL_GAME_RELIABILITY_SIDE_SHIFT) * unreliability * side_hint
+    side_shift += float(FULL_GAME_RELIABILITY_CONFLICT_SHIFT) * conflict_flag * float(np.sign(side_hint))
+    prob_adjusted = float(np.clip(prob_shrunk + side_shift, 1e-6, 1.0 - 1e-6))
+
+    return prob_adjusted, reliability, side_hint, conflict_flag, side_shift, shrink_factor
+
+
 def compute_full_game_publish_policy(feature_row: pd.Series, prob_home: float):
-    confidence = max(float(prob_home), 1.0 - float(prob_home))
+    vol_score = compute_full_game_volatility_score(feature_row) if FULL_GAME_VOL_NORM_ENABLED > 0 else 0.0
+
+    prob_adjusted = float(np.clip(float(prob_home), 1e-6, 1.0 - 1e-6))
+    if FULL_GAME_VOL_NORM_ENABLED > 0 and vol_score > 0:
+        shrink = np.clip(1.0 - (FULL_GAME_VOL_NORM_ALPHA * vol_score), 0.35, 1.0)
+        prob_adjusted = float(np.clip(0.5 + ((prob_adjusted - 0.5) * shrink), 1e-6, 1.0 - 1e-6))
+
+    prob_after_vol_norm = float(prob_adjusted)
+    (
+        prob_adjusted,
+        reliability_score,
+        reliability_side_hint,
+        reliability_conflict_flag,
+        reliability_side_shift,
+        reliability_shrink,
+    ) = compute_full_game_reliability_adjustment(
+        feature_row=feature_row,
+        prob_home=prob_adjusted,
+        vol_score=vol_score,
+    )
+
+    confidence = max(prob_adjusted, 1.0 - prob_adjusted)
     threshold = 0.56
 
     both_pitchers_available = _safe_float(feature_row.get("both_pitchers_available", 0.0), 0.0)
     if both_pitchers_available < 1.0:
         threshold += 0.05
 
-    pred_side = 1.0 if float(prob_home) >= 0.5 else -1.0
+    decision_threshold = compute_full_game_decision_threshold(vol_score)
+    pred_side = 1.0 if prob_adjusted >= decision_threshold else -1.0
 
     momentum_penalty = 0.0
     diff_quality = _safe_float(feature_row.get("diff_pitcher_recent_quality_score", 0.0), 0.0)
@@ -176,20 +345,35 @@ def compute_full_game_publish_policy(feature_row: pd.Series, prob_home: float):
         momentum_penalty += 0.005
 
     diff_era_trend = _safe_float(feature_row.get("diff_pitcher_era_trend", 0.0), 0.0)
-    if (float(prob_home) >= 0.5 and diff_era_trend > 0.12) or (float(prob_home) < 0.5 and diff_era_trend < -0.12):
+    if (prob_adjusted >= 0.5 and diff_era_trend > 0.12) or (prob_adjusted < 0.5 and diff_era_trend < -0.12):
         momentum_penalty += 0.002
 
     diff_whip_trend = _safe_float(feature_row.get("diff_pitcher_whip_trend", 0.0), 0.0)
-    if (float(prob_home) >= 0.5 and diff_whip_trend > 0.025) or (float(prob_home) < 0.5 and diff_whip_trend < -0.025):
+    if (prob_adjusted >= 0.5 and diff_whip_trend > 0.025) or (prob_adjusted < 0.5 and diff_whip_trend < -0.025):
         momentum_penalty += 0.002
 
     threshold += min(0.03, momentum_penalty)
+    threshold += float(FULL_GAME_VOL_NORM_THRESHOLD_BONUS) * float(vol_score)
+    threshold = float(np.clip(threshold, 0.50, 0.75))
 
     publish = confidence >= threshold
     if 0.60 <= confidence < 0.62:
         publish = False
 
-    return bool(publish), float(threshold), float(min(0.03, momentum_penalty))
+    return (
+        bool(publish),
+        float(threshold),
+        float(min(0.03, momentum_penalty)),
+        float(vol_score),
+        float(prob_after_vol_norm),
+        float(prob_adjusted),
+        float(decision_threshold),
+        float(reliability_score),
+        float(reliability_side_hint),
+        float(reliability_conflict_flag),
+        float(reliability_side_shift),
+        float(reliability_shrink),
+    )
 
 
 def get_team_snapshot(history_df: pd.DataFrame, team: str, cutoff_date: str):
@@ -925,6 +1109,31 @@ def resolve_total_market_line(sched_row, line_row) -> float:
     return 0.0
 
 
+def resolve_total_hits_market_line(sched_row, line_row) -> float:
+    candidates = []
+    if sched_row is not None:
+        candidates.extend([
+            sched_row.get("odds_total_hits_event", np.nan),
+            sched_row.get("odds_total_hits", np.nan),
+            sched_row.get("closing_total_hits_line", np.nan),
+        ])
+    if line_row is not None:
+        candidates.extend([
+            line_row.get("current_total_hits_line", np.nan),
+            line_row.get("open_total_hits", np.nan),
+            line_row.get("closing_total_hits_line", np.nan),
+        ])
+
+    for value in candidates:
+        try:
+            numeric = float(value)
+        except Exception:
+            continue
+        if np.isfinite(numeric) and numeric > 0:
+            return numeric
+    return 0.0
+
+
 def resolve_home_spread_line(sched_row, line_row, home_is_favorite: float) -> float:
     candidates = []
     if sched_row is not None:
@@ -968,6 +1177,11 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
     yrfi_probs, yrfi_preds, _, _ = predict_market(df_day, "yrfi")
     f5_probs, f5_preds, _, _ = predict_market(df_day, "f5")
     total_preds, _ = predict_regression_market(df_day, "totals")
+    total_hits_preds = np.full(len(df_day), np.nan, dtype=float)
+    try:
+        total_hits_preds, _ = predict_regression_market(df_day, "total_hits_event")
+    except Exception as exc:
+        print(f"WARNING: mercado total_hits_event no disponible ({exc}). Se deja en PASS.")
     margin_preds, _ = predict_regression_market(df_day, "run_line")
 
     output = []
@@ -986,6 +1200,7 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
         f5_model_prob_home = float(f5_probs[i])
         yrfi_model_prob_yes = float(yrfi_probs[i])
         predicted_total_runs = float(total_preds[i])
+        predicted_total_hits_event = float(total_hits_preds[i]) if np.isfinite(total_hits_preds[i]) else None
         predicted_home_margin = float(margin_preds[i])
 
         fg_prob_home = calibrate_probability(fg_model_prob_home, "mlb", "full_game", calibration_cfg)
@@ -995,10 +1210,24 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
         mlb_patterns = generate_mlb_patterns(row.to_dict())
         pattern_edge = aggregate_pattern_edge(mlb_patterns)
 
-        full_game_pick = home_team if fg_preds[i] == 1 else away_team
-        full_game_conf = confidence_from_prob(fg_prob_home)
-        full_game_score = fuse_with_pattern_score(recommendation_score(fg_prob_home), pattern_edge)
-        full_game_publish_ok, full_game_threshold_effective, full_game_momentum_penalty = compute_full_game_publish_policy(row, fg_prob_home)
+        (
+            full_game_publish_ok,
+            full_game_threshold_effective,
+            full_game_momentum_penalty,
+            full_game_volatility_score,
+            fg_prob_home_vol_norm,
+            fg_prob_home_reliability,
+            full_game_decision_threshold,
+            full_game_reliability_score,
+            full_game_reliability_side_hint,
+            full_game_reliability_conflict_flag,
+            full_game_reliability_side_shift,
+            full_game_reliability_shrink,
+        ) = compute_full_game_publish_policy(row, fg_prob_home)
+        full_game_pick = home_team if fg_prob_home_reliability >= full_game_decision_threshold else away_team
+        full_game_pick_prob = fg_prob_home_reliability if full_game_pick == home_team else (1.0 - fg_prob_home_reliability)
+        full_game_conf = int(round(np.clip(full_game_pick_prob, 0.50, 1.0) * 100))
+        full_game_score = fuse_with_pattern_score(recommendation_score(fg_prob_home_reliability), pattern_edge)
 
         f5_pick = home_team if f5_preds[i] == 1 else away_team
         f5_conf = confidence_from_prob(f5_prob_home)
@@ -1009,6 +1238,7 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
         yrfi_score = fuse_with_pattern_score(recommendation_score(yrfi_prob_yes), pattern_edge)
 
         total_line = resolve_total_market_line(sched_row, line_row)
+        total_hits_line = resolve_total_hits_market_line(sched_row, line_row)
         home_spread_line = resolve_home_spread_line(sched_row, line_row, row.get("home_is_favorite", 0))
 
         home_ml_odds = None if sched_row is None else sched_row.get("home_moneyline_odds")
@@ -1025,6 +1255,13 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
         else:
             total_pick = "PASS"
             total_confidence = 50
+
+        if total_hits_line > 0 and predicted_total_hits_event is not None:
+            total_hits_pick = "OVER" if predicted_total_hits_event >= total_hits_line else "UNDER"
+            total_hits_confidence = confidence_from_edge(abs(predicted_total_hits_event - total_hits_line))
+        else:
+            total_hits_pick = "PASS"
+            total_hits_confidence = 50
 
         spread_pick, spread_side_team, spread_line_abs = build_run_line_pick(
             home_team=home_team,
@@ -1051,6 +1288,19 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
                 "full_game_tier": tier_from_conf(full_game_conf),
                 "full_game_model_prob_home": round(fg_model_prob_home, 4),
                 "full_game_calibrated_prob_home": round(fg_prob_home, 4),
+                "full_game_vol_norm_prob_home": round(fg_prob_home_vol_norm, 4),
+                "full_game_reliability_prob_home": round(fg_prob_home_reliability, 4),
+                "full_game_volatility_score": round(full_game_volatility_score, 4),
+                "full_game_vol_norm_enabled": bool(FULL_GAME_VOL_NORM_ENABLED > 0),
+                "full_game_decision_threshold": round(full_game_decision_threshold, 4),
+                "full_game_vol_decision_enabled": bool(FULL_GAME_VOL_DECISION_ENABLED > 0),
+                "full_game_vol_decision_beta": round(FULL_GAME_VOL_DECISION_BETA, 4),
+                "full_game_reliability_enabled": bool(FULL_GAME_RELIABILITY_ENABLED > 0),
+                "full_game_reliability_score": round(full_game_reliability_score, 4),
+                "full_game_reliability_side_hint": round(full_game_reliability_side_hint, 4),
+                "full_game_reliability_conflict_flag": bool(full_game_reliability_conflict_flag >= 0.5),
+                "full_game_reliability_side_shift": round(full_game_reliability_side_shift, 5),
+                "full_game_reliability_shrink": round(full_game_reliability_shrink, 4),
                 "full_game_pattern_edge": round(pattern_edge, 4),
                 "full_game_detected_patterns": mlb_patterns,
                 "full_game_recommended_score": round(full_game_score, 1),
@@ -1079,6 +1329,19 @@ def build_output_rows(df_day: pd.DataFrame, schedule_df: pd.DataFrame, line_move
                 "predicted_total_runs": round(predicted_total_runs, 2),
                 "odds_over_under": total_line,
                 "closing_total_line": total_line,
+
+                "total_hits_pick": total_hits_pick,
+                "total_hits_recommended_pick": (
+                    f"{total_hits_pick.title()} {total_hits_line:.1f}" if total_hits_line > 0 else total_hits_pick.title()
+                ),
+                "total_hits_confidence": total_hits_confidence,
+                "predicted_total_hits_event": (
+                    round(predicted_total_hits_event, 2) if predicted_total_hits_event is not None else None
+                ),
+                "odds_total_hits_event": total_hits_line,
+                "closing_total_hits_line": total_hits_line,
+                "total_hits_model_available": bool(predicted_total_hits_event is not None),
+
                 "odds_details": odds_details,
                 "odds_data_quality": odds_data_quality,
                 "home_moneyline_odds": None if pd.isna(home_ml_odds) else float(home_ml_odds),
@@ -1128,7 +1391,22 @@ def main():
     if schedule_df.empty:
         raise ValueError("La agenda del día está vacía.")
 
-    schedule_df["date"] = schedule_df["date"].astype(str)
+    # Defensive cleanup: drop blank/invalid date rows that can create nan.json outputs.
+    before_rows = len(schedule_df)
+    schedule_df = schedule_df.dropna(how="all").copy()
+    schedule_df["date"] = pd.to_datetime(schedule_df.get("date"), errors="coerce").dt.strftime("%Y-%m-%d")
+    invalid_date_mask = schedule_df["date"].isna()
+    invalid_date_count = int(invalid_date_mask.sum())
+    if invalid_date_count:
+        schedule_df = schedule_df.loc[~invalid_date_mask].copy()
+        print(f"WARNING: Se omitieron {invalid_date_count} filas de agenda con fecha inválida.")
+
+    if schedule_df.empty:
+        raise ValueError("La agenda del día no contiene filas válidas con fecha.")
+
+    cleaned_rows = before_rows - len(schedule_df)
+    if cleaned_rows and not invalid_date_count:
+        print(f"INFO: Se limpiaron {cleaned_rows} filas vacías de agenda MLB.")
     line_movement_df = load_line_movement_frame()
 
     schedule_df["status_completed"] = pd.to_numeric(
