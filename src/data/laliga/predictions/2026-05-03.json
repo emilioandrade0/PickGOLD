@@ -1,30 +1,48 @@
 {
-  "date": "2026-05-02",
+  "date": "2026-05-03",
   "sport": "laliga",
-  "generated_at": "2026-04-20T08:16:13.707609",
+  "generated_at": "2026-04-20T08:16:13.938193",
   "games": [
     {
-      "game_id": "748477",
-      "date": "2026-05-02",
+      "game_id": "748483",
+      "date": "2026-05-03",
       "time": "06:00",
-      "game_name": "LEV @ VIL",
-      "home_team": "VIL",
-      "away_team": "LEV",
-      "full_game_pick": "VIL",
-      "full_game_confidence": 87,
-      "full_game_tier": "ELITE",
-      "base_probability": 0.87341,
-      "adjusted_probability": 0.880105,
-      "adjustment_amount": 0.006695,
+      "game_name": "ELC @ CEL",
+      "home_team": "CEL",
+      "away_team": "ELC",
+      "full_game_pick": "CEL",
+      "full_game_confidence": 63,
+      "full_game_tier": "STRONG",
+      "base_probability": 0.628713,
+      "adjusted_probability": 0.603156,
+      "adjustment_amount": -0.025558,
       "adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.0135,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -47,11 +65,25 @@
       ],
       "detected_events": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
           "strength": 0.02,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -68,29 +100,55 @@
           "category": "reliability"
         }
       ],
-      "detected_patterns": [],
-      "pattern_edge": 0.0,
-      "recommended_pick": "VIL",
-      "recommended_confidence": 88,
-      "recommended_score": 88.0,
+      "detected_patterns": [
+        {
+          "name": "over_environment",
+          "strength": 0.07,
+          "direction": "positive",
+          "reliability": 0.7,
+          "reason": "Both teams show over-scoring context."
+        }
+      ],
+      "pattern_edge": 0.049,
+      "recommended_pick": "CEL",
+      "recommended_confidence": 60,
+      "recommended_score": 60.7,
       "recommended": true,
-      "spread_pick": "DNB VIL",
+      "spread_pick": "DNB CEL",
       "spread_market": "DNB / 1X",
       "total_pick": "OVER 2.5",
-      "total_confidence": 77,
+      "total_confidence": 85,
       "total_action": "JUGAR",
-      "total_base_probability": 0.765984,
-      "total_adjusted_probability": 0.799266,
-      "total_adjustment_amount": 0.033281,
+      "total_base_probability": 0.850999,
+      "total_adjusted_probability": 0.917561,
+      "total_adjustment_amount": 0.066562,
       "total_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.015,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.0225,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -112,7 +170,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 79.9,
+      "total_recommended_score": 92.1,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -124,20 +182,38 @@
       "closing_total_odds": NaN,
       "odds_data_quality": "fallback",
       "btts_pick": "BTTS YES",
-      "btts_confidence": 51,
-      "btts_tier": "PASS",
-      "btts_base_probability": 0.508466,
-      "btts_adjusted_probability": 0.525733,
-      "btts_adjustment_amount": 0.017267,
+      "btts_confidence": 56,
+      "btts_tier": "NORMAL",
+      "btts_base_probability": 0.437703,
+      "btts_adjusted_probability": 0.480199,
+      "btts_adjustment_amount": 0.042496,
       "btts_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.015,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.0225,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "both_teams_btts_trend",
@@ -159,39 +235,48 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 52.6,
+      "btts_recommended_score": 52.4,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
-      "corners_pick": "UNDER 9.5",
-      "corners_confidence": 84,
-      "corners_model_prob_over": 0.162744,
-      "corners_recommended_pick": "UNDER 9.5",
-      "corners_recommended_score": 83.7,
+      "corners_pick": "OVER 9.5",
+      "corners_confidence": 65,
+      "corners_model_prob_over": 0.649443,
+      "corners_recommended_pick": "OVER 9.5",
+      "corners_recommended_score": 65.3,
       "corners_action": "JUGAR",
       "status_state": "pre",
       "status_description": "nan"
     },
     {
-      "game_id": "748481",
-      "date": "2026-05-02",
+      "game_id": "748474",
+      "date": "2026-05-03",
       "time": "08:15",
-      "game_name": "ATM @ VAL",
-      "home_team": "VAL",
-      "away_team": "ATM",
-      "full_game_pick": "ATM",
-      "full_game_confidence": 87,
-      "full_game_tier": "ELITE",
-      "base_probability": 0.8704,
-      "adjusted_probability": 0.823365,
-      "adjustment_amount": -0.047034,
+      "game_name": "RAY @ GET",
+      "home_team": "GET",
+      "away_team": "RAY",
+      "full_game_pick": "GET",
+      "full_game_confidence": 55,
+      "full_game_tier": "NORMAL",
+      "base_probability": 0.451202,
+      "adjusted_probability": 0.470725,
+      "adjustment_amount": 0.019523,
       "adjustment_breakdown": [
         {
-          "event_name": "away_team_weak_defense",
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
           "direction": "negative",
           "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Defensa visitante vulnerable.",
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Ataque visitante en baja.",
           "category": "attack_defense"
         },
         {
@@ -206,10 +291,17 @@
       ],
       "detected_events": [
         {
-          "event_name": "away_team_weak_defense",
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
           "direction": "negative",
           "strength": 0.02,
-          "explanation": "Defensa visitante vulnerable.",
+          "explanation": "Ataque visitante en baja.",
           "category": "attack_defense"
         },
         {
@@ -222,26 +314,35 @@
       ],
       "detected_patterns": [],
       "pattern_edge": 0.0,
-      "recommended_pick": "ATM",
-      "recommended_confidence": 82,
-      "recommended_score": 82.3,
-      "recommended": true,
-      "spread_pick": "DNB ATM",
+      "recommended_pick": "GET",
+      "recommended_confidence": 53,
+      "recommended_score": 52.9,
+      "recommended": false,
+      "spread_pick": "DNB GET",
       "spread_market": "DNB / 1X",
       "total_pick": "UNDER 2.5",
-      "total_confidence": 69,
+      "total_confidence": 92,
       "total_action": "JUGAR",
-      "total_base_probability": 0.312209,
-      "total_adjusted_probability": 0.325565,
-      "total_adjustment_amount": 0.013356,
+      "total_base_probability": 0.077365,
+      "total_adjusted_probability": 0.077365,
+      "total_adjustment_amount": 0.0,
       "total_adjustment_breakdown": [
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
+          "event_name": "home_good_form",
+          "direction": "positive",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque visitante en baja.",
           "category": "attack_defense"
         },
         {
@@ -255,7 +356,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 67.4,
+      "total_recommended_score": 92.3,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -266,20 +367,29 @@
       "closing_spread_odds": NaN,
       "closing_total_odds": NaN,
       "odds_data_quality": "fallback",
-      "btts_pick": "BTTS NO",
-      "btts_confidence": 65,
-      "btts_tier": "STRONG",
-      "btts_base_probability": 0.346983,
-      "btts_adjusted_probability": 0.359214,
-      "btts_adjustment_amount": 0.012231,
+      "btts_pick": "BTTS YES",
+      "btts_confidence": 68,
+      "btts_tier": "PREMIUM",
+      "btts_base_probability": 0.676616,
+      "btts_adjusted_probability": 0.676616,
+      "btts_adjustment_amount": 0.0,
       "btts_adjustment_breakdown": [
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
+          "event_name": "home_good_form",
+          "direction": "positive",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque visitante en baja.",
           "category": "attack_defense"
         },
         {
@@ -292,335 +402,234 @@
           "category": "reliability"
         }
       ],
-      "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 64.1,
+      "btts_recommended_pick": "BTTS YES",
+      "btts_recommended_score": 67.7,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
-      "corners_pick": "UNDER 9.5",
-      "corners_confidence": 92,
-      "corners_model_prob_over": 0.081973,
-      "corners_recommended_pick": "UNDER 9.5",
-      "corners_recommended_score": 91.8,
-      "corners_action": "JUGAR",
+      "corners_pick": "OVER 9.5",
+      "corners_confidence": 51,
+      "corners_model_prob_over": 0.508248,
+      "corners_recommended_pick": "OVER 9.5",
+      "corners_recommended_score": 50.8,
+      "corners_action": "PASS",
       "status_state": "pre",
       "status_description": "nan"
     },
     {
-      "game_id": "748482",
-      "date": "2026-05-02",
+      "game_id": "748479",
+      "date": "2026-05-03",
       "time": "10:30",
-      "game_name": "ATH @ ALA",
-      "home_team": "ALA",
-      "away_team": "ATH",
-      "full_game_pick": "ALA",
-      "full_game_confidence": 69,
-      "full_game_tier": "PREMIUM",
-      "base_probability": 0.685112,
-      "adjusted_probability": 0.692114,
-      "adjustment_amount": 0.007002,
+      "game_name": "OVI @ BET",
+      "home_team": "BET",
+      "away_team": "OVI",
+      "full_game_pick": "BET",
+      "full_game_confidence": 83,
+      "full_game_tier": "ELITE",
+      "base_probability": 0.834673,
+      "adjusted_probability": 0.810711,
+      "adjustment_amount": -0.023962,
       "adjustment_breakdown": [
         {
-          "event_name": "home_team_hot_attack",
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_patterns": [],
+      "pattern_edge": 0.0,
+      "recommended_pick": "BET",
+      "recommended_confidence": 81,
+      "recommended_score": 81.1,
+      "recommended": true,
+      "spread_pick": "DNB BET",
+      "spread_market": "DNB / 1X",
+      "total_pick": "OVER 2.5",
+      "total_confidence": 59,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.59066,
+      "total_adjusted_probability": 0.59066,
+      "total_adjustment_amount": 0.0,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.015,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "total_recommended_pick": "OVER 2.5",
+      "total_recommended_score": 59.1,
+      "odds_over_under": 2.5,
+      "home_price": null,
+      "draw_price": null,
+      "away_price": null,
+      "closing_moneyline_odds": NaN,
+      "home_moneyline_odds": NaN,
+      "away_moneyline_odds": NaN,
+      "closing_spread_odds": NaN,
+      "closing_total_odds": NaN,
+      "odds_data_quality": "fallback",
+      "btts_pick": "BTTS YES",
+      "btts_confidence": 89,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.885707,
+      "btts_adjusted_probability": 0.885707,
+      "btts_adjustment_amount": 0.0,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.015,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "btts_recommended_pick": "BTTS YES",
+      "btts_recommended_score": 88.6,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "OVER 9.5",
+      "corners_confidence": 55,
+      "corners_model_prob_over": 0.450855,
+      "corners_recommended_pick": "OVER 9.5",
+      "corners_recommended_score": 54.9,
+      "corners_action": "PASS",
+      "status_state": "pre",
+      "status_description": "nan"
+    },
+    {
+      "game_id": "748475",
+      "date": "2026-05-03",
+      "time": "13:00",
+      "game_name": "RMA @ ESP",
+      "home_team": "ESP",
+      "away_team": "RMA",
+      "full_game_pick": "RMA",
+      "full_game_confidence": 80,
+      "full_game_tier": "ELITE",
+      "base_probability": 0.804984,
+      "adjusted_probability": 0.840397,
+      "adjustment_amount": 0.035413,
+      "adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_hot_attack",
           "direction": "positive",
           "strength": 0.025,
           "sign": 1.0,
           "contribution": 0.018000000000000002,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.014400000000000001,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.014400000000000001,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
-        }
-      ],
-      "detected_events": [
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
-        }
-      ],
-      "detected_patterns": [
-        {
-          "name": "over_environment",
-          "strength": 0.07,
-          "direction": "positive",
-          "reliability": 0.7,
-          "reason": "Both teams show over-scoring context."
-        }
-      ],
-      "pattern_edge": 0.049,
-      "recommended_pick": "ALA",
-      "recommended_confidence": 69,
-      "recommended_score": 69.6,
-      "recommended": true,
-      "spread_pick": "DNB ALA",
-      "spread_market": "DNB / 1X",
-      "total_pick": "UNDER 2.5",
-      "total_confidence": 87,
-      "total_action": "JUGAR",
-      "total_base_probability": 0.134791,
-      "total_adjusted_probability": 0.189391,
-      "total_adjustment_amount": 0.0546,
-      "total_adjustment_breakdown": [
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.02,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.016,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 1.0,
-          "contribution": 0.023999999999999997,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
-        }
-      ],
-      "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 81.5,
-      "odds_over_under": 2.5,
-      "home_price": null,
-      "draw_price": null,
-      "away_price": null,
-      "closing_moneyline_odds": NaN,
-      "home_moneyline_odds": NaN,
-      "away_moneyline_odds": NaN,
-      "closing_spread_odds": NaN,
-      "closing_total_odds": NaN,
-      "odds_data_quality": "fallback",
-      "btts_pick": "BTTS NO",
-      "btts_confidence": 92,
-      "btts_tier": "ELITE",
-      "btts_base_probability": 0.083401,
-      "btts_adjusted_probability": 0.138001,
-      "btts_adjustment_amount": 0.0546,
-      "btts_adjustment_breakdown": [
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.02,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.016,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 1.0,
-          "contribution": 0.023999999999999997,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
-        {
-          "event_name": "low_h2h_sample",
-          "direction": "neutral",
-          "strength": 0.0,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Muestra H2H baja; peso H2H reducido.",
-          "category": "reliability"
-        }
-      ],
-      "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 86.6,
-      "corners_market": "TOTAL CORNERS O/U",
-      "corners_line": 9.5,
-      "corners_pick": "UNDER 9.5",
-      "corners_confidence": 86,
-      "corners_model_prob_over": 0.143977,
-      "corners_recommended_pick": "UNDER 9.5",
-      "corners_recommended_score": 86.0,
-      "corners_action": "JUGAR",
-      "status_state": "pre",
-      "status_description": "nan"
-    },
-    {
-      "game_id": "748480",
-      "date": "2026-05-02",
-      "time": "13:00",
-      "game_name": "BAR @ OSA",
-      "home_team": "OSA",
-      "away_team": "BAR",
-      "full_game_pick": "OSA",
-      "full_game_confidence": 76,
-      "full_game_tier": "ELITE",
-      "base_probability": 0.760882,
-      "adjusted_probability": 0.695465,
-      "adjustment_amount": -0.065417,
-      "adjustment_breakdown": [
-        {
-          "event_name": "away_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Visita con buena forma reciente.",
-          "category": "form"
-        },
-        {
-          "event_name": "away_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": -1.0,
-          "contribution": -0.018000000000000002,
           "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
           "explanation": "Defensa local vulnerable.",
           "category": "attack_defense"
         },
@@ -668,6 +677,13 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
@@ -706,18 +722,18 @@
         }
       ],
       "pattern_edge": 0.049,
-      "recommended_pick": "OSA",
-      "recommended_confidence": 70,
-      "recommended_score": 69.9,
+      "recommended_pick": "RMA",
+      "recommended_confidence": 84,
+      "recommended_score": 84.4,
       "recommended": true,
-      "spread_pick": "DNB OSA",
+      "spread_pick": "DNB RMA",
       "spread_market": "DNB / 1X",
       "total_pick": "OVER 2.5",
-      "total_confidence": 63,
+      "total_confidence": 79,
       "total_action": "JUGAR",
-      "total_base_probability": 0.629805,
-      "total_adjusted_probability": 0.687205,
-      "total_adjustment_amount": 0.0574,
+      "total_base_probability": 0.786977,
+      "total_adjusted_probability": 0.859777,
+      "total_adjustment_amount": 0.0728,
       "total_adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -735,6 +751,15 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -775,7 +800,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 69.1,
+      "total_recommended_score": 86.4,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -787,11 +812,11 @@
       "closing_total_odds": NaN,
       "odds_data_quality": "fallback",
       "btts_pick": "BTTS YES",
-      "btts_confidence": 77,
-      "btts_tier": "ELITE",
-      "btts_base_probability": 0.772161,
-      "btts_adjusted_probability": 0.844961,
-      "btts_adjustment_amount": 0.0728,
+      "btts_confidence": 68,
+      "btts_tier": "PREMIUM",
+      "btts_base_probability": 0.677862,
+      "btts_adjusted_probability": 0.743036,
+      "btts_adjustment_amount": 0.065174,
       "btts_adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -809,6 +834,15 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -849,15 +883,15 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 84.9,
+      "btts_recommended_score": 74.7,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
-      "corners_confidence": 67,
-      "corners_model_prob_over": 0.667279,
+      "corners_confidence": 52,
+      "corners_model_prob_over": 0.47794,
       "corners_recommended_pick": "OVER 9.5",
-      "corners_recommended_score": 67.1,
-      "corners_action": "JUGAR",
+      "corners_recommended_score": 52.6,
+      "corners_action": "PASS",
       "status_state": "pre",
       "status_description": "nan"
     }
