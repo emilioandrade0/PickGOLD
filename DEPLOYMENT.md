@@ -6,7 +6,7 @@ This repository includes `render.yaml` for one-click deployment.
 
 1. In Render, create a new Blueprint from this GitHub repository.
 2. Render should detect `render.yaml` automatically and provision:
-	- the `pickgold-api` web service
+	- the `pickgold-api` web service (incluye API principal + endpoints PROGOLD)
 	- the `pickgold-auth-db` Postgres database
 3. Set the following environment variables in Render:
 	- `THEODDSAPI_KEY` (required)
@@ -25,6 +25,7 @@ This repository includes `render.yaml` for one-click deployment.
 5. Deploy and verify:
 	- `https://YOUR-RENDER-SERVICE.onrender.com/health`
 	- Expected response: `{"status":"ok","service":"nba-gold-api"}`
+	- PROGOLD endpoint (mismo backend): `https://YOUR-RENDER-SERVICE.onrender.com/api/progold/rules`
 
 ## 2) Frontend (Vercel)
 

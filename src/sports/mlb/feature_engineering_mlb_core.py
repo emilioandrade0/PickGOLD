@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from collections import deque
 from pathlib import Path
 import re
 import sys
@@ -1538,9 +1539,15 @@ def add_matchup_history_features(df: pd.DataFrame) -> pd.DataFrame:
     hist_win_pct = []
     hist_run_diff = []
     season_win_pct = []
+    matchup_win_pct_l10 = []
+    matchup_run_diff_l10 = []
+    matchup_games_l10 = []
+    matchup_win_pct_l10_shrunk = []
+    matchup_run_diff_l10_shrunk = []
 
     overall_state: dict[str, dict[str, float]] = {}
     season_state: dict[tuple[int, str], dict[str, float]] = {}
+    recent_state: dict[tuple[str, str], dict[str, deque]] = {}
 
     for _, row in work.iterrows():
         pair_key = str(row["matchup_pair_key"])
@@ -1560,9 +1567,37 @@ def add_matchup_history_features(df: pd.DataFrame) -> pd.DataFrame:
         season_games = float(pair_season["games"])
         season_prev_wins = float(pair_season["home_team_wins"].get(home_team, 0.0))
 
-        hist_win_pct.append(home_prev_wins / overall_games if overall_games > 0 else 0.5)
-        hist_run_diff.append(home_prev_run_diff / overall_games if overall_games > 0 else 0.0)
-        season_win_pct.append(season_prev_wins / season_games if season_games > 0 else 0.5)
+        prior_win_pct = home_prev_wins / overall_games if overall_games > 0 else 0.5
+        prior_run_diff = home_prev_run_diff / overall_games if overall_games > 0 else 0.0
+        prior_season_win_pct = season_prev_wins / season_games if season_games > 0 else 0.5
+
+        hist_win_pct.append(prior_win_pct)
+        hist_run_diff.append(prior_run_diff)
+        season_win_pct.append(prior_season_win_pct)
+
+        recent_key = (pair_key, home_team)
+        recent_bucket = recent_state.get(recent_key)
+        if recent_bucket is None:
+            recent_bucket = {"wins": deque(maxlen=10), "run_diff": deque(maxlen=10)}
+            recent_state[recent_key] = recent_bucket
+
+        recent_wins = recent_bucket["wins"]
+        recent_run_diff = recent_bucket["run_diff"]
+        recent_games = float(len(recent_wins))
+        if recent_games > 0:
+            recent_win_pct = float(sum(recent_wins) / recent_games)
+            recent_margin = float(sum(recent_run_diff) / recent_games)
+        else:
+            recent_win_pct = 0.5
+            recent_margin = 0.0
+
+        # Shrink: prior matchup history + recent L10 memory to avoid overreacting in low-sample rivalries.
+        shrink = recent_games / (recent_games + 5.0) if recent_games > 0 else 0.0
+        matchup_win_pct_l10.append(recent_win_pct)
+        matchup_run_diff_l10.append(recent_margin)
+        matchup_games_l10.append(recent_games)
+        matchup_win_pct_l10_shrunk.append((shrink * recent_win_pct) + ((1.0 - shrink) * prior_win_pct))
+        matchup_run_diff_l10_shrunk.append((shrink * recent_margin) + ((1.0 - shrink) * prior_run_diff))
 
         home_win = 1.0 if home_margin > 0 else 0.0
         away_win = 1.0 - home_win
@@ -1579,9 +1614,21 @@ def add_matchup_history_features(df: pd.DataFrame) -> pd.DataFrame:
         pair_season["home_team_wins"][away_team] = float(pair_season["home_team_wins"].get(away_team, 0.0)) + away_win
         season_state[season_key] = pair_season
 
+        home_recent_bucket = recent_state.setdefault((pair_key, home_team), {"wins": deque(maxlen=10), "run_diff": deque(maxlen=10)})
+        away_recent_bucket = recent_state.setdefault((pair_key, away_team), {"wins": deque(maxlen=10), "run_diff": deque(maxlen=10)})
+        home_recent_bucket["wins"].append(home_win)
+        home_recent_bucket["run_diff"].append(home_margin)
+        away_recent_bucket["wins"].append(away_win)
+        away_recent_bucket["run_diff"].append(-home_margin)
+
     work["home_vs_away_matchup_win_pct_pre"] = pd.Series(hist_win_pct, index=work.index, dtype=float)
     work["home_vs_away_matchup_run_diff_pre"] = pd.Series(hist_run_diff, index=work.index, dtype=float)
     work["home_vs_away_in_season_record_pre"] = pd.Series(season_win_pct, index=work.index, dtype=float)
+    work["home_vs_away_matchup_win_pct_L10_pre"] = pd.Series(matchup_win_pct_l10, index=work.index, dtype=float)
+    work["home_vs_away_matchup_run_diff_L10_pre"] = pd.Series(matchup_run_diff_l10, index=work.index, dtype=float)
+    work["home_vs_away_matchup_games_L10_pre"] = pd.Series(matchup_games_l10, index=work.index, dtype=float)
+    work["home_vs_away_matchup_win_pct_L10_shrunk_pre"] = pd.Series(matchup_win_pct_l10_shrunk, index=work.index, dtype=float)
+    work["home_vs_away_matchup_run_diff_L10_shrunk_pre"] = pd.Series(matchup_run_diff_l10_shrunk, index=work.index, dtype=float)
 
     return df.merge(
         work[[
@@ -1589,6 +1636,11 @@ def add_matchup_history_features(df: pd.DataFrame) -> pd.DataFrame:
             "home_vs_away_matchup_win_pct_pre",
             "home_vs_away_matchup_run_diff_pre",
             "home_vs_away_in_season_record_pre",
+            "home_vs_away_matchup_win_pct_L10_pre",
+            "home_vs_away_matchup_run_diff_L10_pre",
+            "home_vs_away_matchup_games_L10_pre",
+            "home_vs_away_matchup_win_pct_L10_shrunk_pre",
+            "home_vs_away_matchup_run_diff_L10_shrunk_pre",
         ]],
         on="game_id",
         how="left",
@@ -2358,6 +2410,14 @@ def build_features() -> pd.DataFrame:
         "series_game_number",
         "series_run_diff_so_far",
         "did_home_win_previous_game_in_series",
+        "home_vs_away_matchup_win_pct_pre",
+        "home_vs_away_matchup_run_diff_pre",
+        "home_vs_away_in_season_record_pre",
+        "home_vs_away_matchup_win_pct_L10_pre",
+        "home_vs_away_matchup_run_diff_L10_pre",
+        "home_vs_away_matchup_games_L10_pre",
+        "home_vs_away_matchup_win_pct_L10_shrunk_pre",
+        "home_vs_away_matchup_run_diff_L10_shrunk_pre",
 
         "home_rest_days",
         "away_rest_days",

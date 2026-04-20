@@ -37,4 +37,6 @@ You can use `ui/.env.example` as reference.
 - Node version: 20+
 - Add env var: `VITE_API_BASE` pointing to your backend API.
 
+PROGOLD is integrated natively in the same frontend/backend deployment (`/progold` + `/api/progold/*`), so no extra app URL is needed.
+
 `ui/vercel.json` includes SPA rewrites so direct routes open correctly.

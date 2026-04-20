@@ -482,7 +482,7 @@ def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
         return out
 
     if market_key == "full_game":
-        ablation_mode = str(os.getenv("NBA_MLB_FULL_GAME_ABLATION", "everything") or "everything").strip().lower()
+        ablation_mode = str(os.getenv("NBA_MLB_FULL_GAME_ABLATION", "baseball_only") or "baseball_only").strip().lower()
         baseball_only = [
             "diff_elo", "home_elo_pre", "away_elo_pre",
             "diff_rest_days", "diff_games_last_5_days",
@@ -526,7 +526,7 @@ def get_market_feature_columns(df: pd.DataFrame, market_key: str) -> List[str]:
             preferred = ablation_map[ablation_mode]
             print(f"   🧪 Full-game ablation mode: {ablation_mode}")
         else:
-            print(f"   WARNING: NBA_MLB_FULL_GAME_ABLATION desconocido: {ablation_mode}; usando everything")
+            print(f"   WARNING: NBA_MLB_FULL_GAME_ABLATION desconocido: {ablation_mode}; usando baseball_only")
 
         force_raw = str(os.getenv("NBA_MLB_FULL_GAME_FORCE_FEATURES", "") or "").strip()
         if force_raw:

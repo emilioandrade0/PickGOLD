@@ -136,6 +136,66 @@ def health_check():
     }
 
 
+@app.get("/api/progold/rules")
+def progold_rules():
+    try:
+        from .progold_engine import get_rules_dict
+    except ImportError:
+        from progold_engine import get_rules_dict
+    return {
+        "ok": True,
+        "rules": get_rules_dict(),
+    }
+
+
+@app.post("/api/progold/analyze-ticket")
+def progold_analyze_ticket(payload: dict = Body(...)):
+    try:
+        from .progold_engine import analyze_ticket_rows
+    except ImportError:
+        from progold_engine import analyze_ticket_rows
+
+    rows = payload.get("rows") if isinstance(payload, dict) else []
+    rules_override = payload.get("rules") if isinstance(payload, dict) else None
+    debug_mode = bool(payload.get("debug_mode")) if isinstance(payload, dict) else False
+    if not isinstance(rows, list):
+        rows = []
+
+    return analyze_ticket_rows(
+        rows=rows,
+        rules_override=rules_override if isinstance(rules_override, dict) else None,
+        debug_mode=debug_mode,
+    )
+
+
+@app.get("/api/progold/ocr-status")
+def progold_ocr_status():
+    try:
+        from .progold_engine import get_ocr_status
+    except ImportError:
+        from progold_engine import get_ocr_status
+    return get_ocr_status()
+
+
+@app.post("/api/progold/ocr-extract")
+def progold_ocr_extract(payload: dict = Body(...)):
+    try:
+        from .progold_engine import extract_rows_from_capture
+    except ImportError:
+        from progold_engine import extract_rows_from_capture
+
+    body = payload if isinstance(payload, dict) else {}
+    try:
+        max_matches = int(body.get("max_matches") or 14)
+    except Exception:
+        max_matches = 14
+    return extract_rows_from_capture(
+        image_base64=str(body.get("image_base64") or ""),
+        section=str(body.get("section") or "progol"),
+        max_matches=max_matches,
+    )
+
+
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "emilio.andra.na@gmail.com").strip().lower()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "adminpassword")
 

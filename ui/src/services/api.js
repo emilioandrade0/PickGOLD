@@ -319,3 +319,65 @@ export async function fetchTeamFormTeamDetail(
     errorMessage: "No se pudo cargar el detalle de racha del equipo.",
   });
 }
+
+export async function fetchProgoldRules() {
+  return await fetchJsonWithRetry("/progold/rules", {
+    timeoutMs: 20000,
+    retries: 1,
+    retryDelayMs: 600,
+    errorMessage: "No se pudieron cargar las reglas de PROGOLD.",
+  });
+}
+
+export async function analyzeProgoldTicket({ rows = [], rules = null, debugMode = false } = {}) {
+  const body = {
+    rows: Array.isArray(rows) ? rows : [],
+    debug_mode: !!debugMode,
+  };
+  if (rules && typeof rules === "object") {
+    body.rules = rules;
+  }
+  const res = await fetchWithFallback("/progold/analyze-ticket", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error("No se pudo analizar el boleto PROGOLD.");
+  }
+  return await res.json();
+}
+
+export async function fetchProgoldOcrStatus() {
+  return await fetchJsonWithRetry("/progold/ocr-status", {
+    timeoutMs: 20000,
+    retries: 1,
+    retryDelayMs: 600,
+    errorMessage: "No se pudo consultar el estado OCR de PROGOLD.",
+  });
+}
+
+export async function extractProgoldCapture({
+  imageBase64 = "",
+  section = "progol",
+  maxMatches = 14,
+} = {}) {
+  const body = {
+    image_base64: String(imageBase64 || ""),
+    section: String(section || "progol"),
+    max_matches: Number.isFinite(Number(maxMatches)) ? Number(maxMatches) : 14,
+  };
+  const res = await fetchWithFallback("/progold/ocr-extract", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error("No se pudo procesar la captura OCR de PROGOLD.");
+  }
+  return await res.json();
+}

@@ -22,6 +22,7 @@ import LiveBoardPage from "./pages/LiveBoardPage.jsx";
 import LiveEdgePage from "./pages/LiveEdgePage.jsx";
 import DailySummaryPage from "./pages/DailySummaryPage.jsx";
 import TeamFormStatsPage from "./pages/TeamFormStatsPage.jsx";
+import ProGoldPage from "./pages/ProGoldPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import AdminUserApproval from "./pages/AdminUserApproval.jsx";
 import TermsPage from "./pages/TermsPage.jsx";
@@ -162,6 +163,7 @@ export default function App() {
         <Route path="/live-edge" element={<LiveEdgePage />} />
         <Route path="/resumen-dia" element={<DailySummaryPage />} />
         <Route path="/estadisticas" element={<TeamFormStatsPage />} />
+        <Route path="/progold" element={<ProGoldPage />} />
         {session?.role === "admin" && (
           <Route path="/admin/approve-users" element={<AdminUserApproval />} />
         )}

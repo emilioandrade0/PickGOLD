@@ -1,136 +1,136 @@
 {
   "market_key": "full_game",
   "target_col": "TARGET_home_win",
-  "train_rows": 5227,
-  "valid_rows": 1307,
-  "feature_count": 42,
-  "ensemble_threshold": 0.45,
+  "train_rows": 5272,
+  "valid_rows": 1319,
+  "feature_count": 38,
+  "ensemble_threshold": 0.46,
   "ensemble_weights": {
-    "xgboost": 0.75,
-    "lightgbm": 0.25
+    "xgboost": 0.4,
+    "lightgbm": 0.6
   },
   "ensemble_selection": {
     "mode": "oof_timeseries",
-    "oof_rows": 4180,
+    "oof_rows": 4216,
     "oof_folds_used": 4
   },
   "metrics": {
     "xgboost_valid": {
-      "accuracy": 0.5455241009946442,
-      "logloss": 0.691779254313547,
-      "roc_auc": 0.5518434700612918
+      "accuracy": 0.5443517816527672,
+      "logloss": 0.6917851745774147,
+      "roc_auc": 0.548875016196805
     },
     "lightgbm_valid": {
-      "accuracy": 0.5439938791124713,
-      "logloss": 0.7123272068617129,
-      "roc_auc": 0.5436327204148986
+      "accuracy": 0.514783927217589,
+      "logloss": 0.7071869030302802,
+      "roc_auc": 0.5375210558465839
     },
     "ensemble_valid": {
-      "accuracy": 0.5325172149961744,
-      "logloss": 0.6930212171227702,
-      "roc_auc": 0.5531824611032532
+      "accuracy": 0.530705079605762,
+      "logloss": 0.6961721425307927,
+      "roc_auc": 0.5436041130629546
     }
   },
   "top_features": [
     {
-      "feature": "diff_runs_allowed_std_L10",
-      "importance": 195.51261062175035
-    },
-    {
-      "feature": "away_elo_pre",
-      "importance": 181.014410356991
-    },
-    {
       "feature": "diff_runs_scored_std_L10",
-      "importance": 176.01169403456151
+      "importance": 211.512950967066
     },
     {
-      "feature": "diff_pitcher_k_bb_L5",
-      "importance": 175.01375969219953
-    },
-    {
-      "feature": "diff_runs_per_baserunner_L10",
-      "importance": 172.51253290567547
-    },
-    {
-      "feature": "home_elo_pre",
-      "importance": 169.01201899256557
-    },
-    {
-      "feature": "diff_player_slg_proxy_L10",
-      "importance": 166.01391007192433
-    },
-    {
-      "feature": "diff_bullpen_runs_allowed_L10",
-      "importance": 165.5123391803354
-    },
-    {
-      "feature": "diff_player_obp_proxy_L10",
-      "importance": 164.51210095360875
-    },
-    {
-      "feature": "umpire_zone_delta",
-      "importance": 160.5142678329721
+      "feature": "diff_runs_allowed_std_L10",
+      "importance": 203.01269960589707
     },
     {
       "feature": "diff_elo",
-      "importance": 156.51892533898354
+      "importance": 198.01876529678702
     },
     {
-      "feature": "diff_pitcher_total_bases_allowed_L5",
-      "importance": 148.51284165214747
+      "feature": "home_elo_pre",
+      "importance": 185.51425466313958
     },
     {
-      "feature": "diff_runs_allowed_L5_blend",
-      "importance": 147.0116267260164
-    },
-    {
-      "feature": "diff_runs_scored_L5_blend",
-      "importance": 146.51259229704738
+      "feature": "diff_player_hits_allowed_L10",
+      "importance": 184.51381263881922
     },
     {
       "feature": "diff_pitcher_whip_L5",
-      "importance": 144.01256711501628
+      "importance": 183.013760112226
     },
     {
-      "feature": "diff_pitcher_era_L5",
-      "importance": 141.5124130807817
+      "feature": "diff_runs_scored_L5",
+      "importance": 182.01425699144602
     },
     {
-      "feature": "diff_pitcher_whip_trend",
-      "importance": 138.51236398890615
+      "feature": "away_elo_pre",
+      "importance": 181.01618273928761
     },
     {
-      "feature": "diff_offense_vs_pitcher",
-      "importance": 136.51228618621826
+      "feature": "diff_pitcher_k_bb_L5",
+      "importance": 175.51337940245867
     },
     {
-      "feature": "diff_pitcher_baserunners_allowed_L5",
-      "importance": 132.51243572682142
+      "feature": "diff_bullpen_runs_allowed_L10",
+      "importance": 172.01435942668468
     },
     {
-      "feature": "diff_pitcher_bb_allowed_L5",
-      "importance": 130.01156589295715
-    },
-    {
-      "feature": "diff_pitcher_quality_start_rate_L10",
-      "importance": 127.51264968607575
-    },
-    {
-      "feature": "diff_form_power",
-      "importance": 127.51247864961624
+      "feature": "diff_runs_allowed_L5",
+      "importance": 167.01213115546852
     },
     {
       "feature": "diff_pitcher_recent_quality_score",
-      "importance": 122.01263244915754
+      "importance": 162.51376114599407
     },
     {
-      "feature": "diff_run_diff_L10_blend",
-      "importance": 121.51202278584242
+      "feature": "diff_pitcher_era_L5",
+      "importance": 160.01420276798308
     },
     {
-      "feature": "diff_surface_edge",
-      "importance": 121.01113143842667
+      "feature": "diff_pitcher_total_bases_allowed_L5",
+      "importance": 157.5128231588751
+    },
+    {
+      "feature": "diff_pitcher_bb_allowed_L5",
+      "importance": 156.0120321502909
+    },
+    {
+      "feature": "diff_form_power",
+      "importance": 152.01285378821194
+    },
+    {
+      "feature": "diff_pitcher_quality_start_rate_L10",
+      "importance": 147.5126220146194
+    },
+    {
+      "feature": "diff_run_diff_L10",
+      "importance": 147.0138153359294
+    },
+    {
+      "feature": "diff_pitcher_era_trend",
+      "importance": 145.51306763663888
+    },
+    {
+      "feature": "diff_offense_vs_pitcher",
+      "importance": 145.0133874397725
+    },
+    {
+      "feature": "diff_pitcher_baserunners_allowed_L5",
+      "importance": 145.01281715091318
+    },
+    {
+      "feature": "diff_pitcher_whip_trend",
+      "importance": 144.01316409092396
+    },
+    {
+      "feature": "diff_surface_run_diff_L5",
+      "importance": 137.01234021503478
+    },
+    {
+      "feature": "diff_bullpen_runs_allowed_L5",
+      "importance": 120.51269792485982
+    },
+    {
+      "feature": "diff_pitcher_blowup_rate_L10",
+      "importance": 114.0135076213628
     }
   ]
 }

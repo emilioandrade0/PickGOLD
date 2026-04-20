@@ -18,3 +18,8 @@ lightgbm==4.6.0
 catboost==1.2.10
 
 playwright==1.58.0
+
+Pillow==12.0.0
+rapidocr==3.8.1
+onnxruntime==1.23.2; python_version < "3.13"
+onnxruntime==1.24.4; python_version >= "3.13"

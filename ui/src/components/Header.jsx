@@ -8,6 +8,7 @@ function getSportTitle(pathname, socialMode) {
   if (pathname.startsWith("/best-picks")) return socialMode ? "Radar" : "Best Picks";
   if (pathname.startsWith("/weekday-scoring")) return socialMode ? "Ritmo" : "Weekday Scoring";
   if (pathname.startsWith("/insights")) return socialMode ? "Modelo" : "Insights";
+  if (pathname.startsWith("/progold")) return "PROGOLD";
   if (pathname.startsWith("/triple-a")) return "Triple-A";
   if (pathname.startsWith("/tennis")) return "Tennis";
   if (pathname.startsWith("/kbo")) return "KBO";
@@ -71,6 +72,13 @@ export default function Header({ onLogout, userName }) {
                 className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
               >
                 Picks en vivo
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/progold")}
+                className="rounded-full border border-[#8f929c] bg-[#ececf0] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#343844] transition hover:bg-[#f5f5f7]"
+              >
+                PROGOLD
               </button>
               <button
                 type="button"
@@ -153,6 +161,13 @@ export default function Header({ onLogout, userName }) {
                     className="rounded-lg border border-white/12 bg-transparent px-3 py-1.5 text-xs font-semibold text-white/78 transition hover:border-white/22 hover:bg-white/[0.06] hover:text-white"
                   >
                     Picks en vivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/progold")}
+                    className="rounded-lg border border-white/12 bg-transparent px-3 py-1.5 text-xs font-semibold text-white/78 transition hover:border-white/22 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    PROGOLD
                   </button>
                 </div>
               ) : (

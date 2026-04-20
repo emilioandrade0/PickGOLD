@@ -64,7 +64,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 RAW_ADVANCED_HISTORY_PATH = BASE_DIR / "data" / "mlb" / "raw" / "mlb_advanced_history.csv"
 _FULL_GAME_ODDS_LOOKUP_CACHE: pd.DataFrame | None = None
 
-# Configuración inicial OPTIMIZADA
+# Configuracion inicial OPTIMIZADA
 MIN_TRAIN_DATES = 120
 CALIBRATION_DATES = 21
 TEST_DATES = 1
@@ -1806,7 +1806,7 @@ def summarize_pitcher_momentum_analysis(detail_df: pd.DataFrame) -> Dict[str, Di
 
 def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
     all_feature_cols = get_feature_columns(df)
-    full_game_ablation_mode = str(os.getenv("NBA_MLB_FULL_GAME_ABLATION", "everything") or "everything").strip().lower()
+    full_game_ablation_mode = str(os.getenv("NBA_MLB_FULL_GAME_ABLATION", "baseball_only") or "baseball_only").strip().lower()
 
     def _dedupe_keep_order(items: List[str]) -> List[str]:
         seen = set()
@@ -1916,9 +1916,9 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
     }
     full_game_keep = full_game_ablation_map.get(full_game_ablation_mode, full_game_keep)
     if full_game_ablation_mode not in full_game_ablation_map:
-        print(f"   ⚠️ NBA_MLB_FULL_GAME_ABLATION desconocido: {full_game_ablation_mode}; usando everything")
+        print(f"   WARNING: NBA_MLB_FULL_GAME_ABLATION desconocido: {full_game_ablation_mode}; usando baseball_only")
     else:
-        print(f"   🧪 Full-game ablation mode: {full_game_ablation_mode} ({len(full_game_keep)} columnas objetivo)")
+        print(f"   INFO: Full-game ablation mode: {full_game_ablation_mode} ({len(full_game_keep)} columnas objetivo)")
 
     # Optional controlled overrides for full_game experiments without changing defaults.
     full_game_keep = _dedupe_keep_order(full_game_keep)
@@ -1929,10 +1929,10 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
         valid = [feat for feat in requested if feat in all_feature_cols]
         missing = [feat for feat in requested if feat not in all_feature_cols]
         if missing:
-            print(f"   ⚠️ Full-game extra features ignoradas (no existen en dataset): {missing}")
+            print(f"   WARNING: Full-game extra features ignoradas (no existen en dataset): {missing}")
         if valid:
             full_game_keep.extend([feat for feat in valid if feat not in full_game_keep])
-            print(f"   🧪 Full-game extra features ON: {valid}")
+            print(f"   INFO: Full-game extra features ON: {valid}")
 
     full_game_drop_raw = str(os.getenv("NBA_MLB_FULL_GAME_DROP_FEATURES", "") or "").strip()
     if full_game_drop_raw:
@@ -1941,7 +1941,7 @@ def build_market_feature_map(df: pd.DataFrame) -> Dict[str, List[str]]:
             before = len(full_game_keep)
             full_game_keep = [feat for feat in full_game_keep if feat not in to_drop]
             dropped = before - len(full_game_keep)
-            print(f"   🧪 Full-game drop features ON: {sorted(to_drop)} | removidas={dropped}")
+            print(f"   INFO: Full-game drop features ON: {sorted(to_drop)} | removidas={dropped}")
 
     f5_keep = [
         "diff_elo", "diff_rest_days", "diff_win_pct_L5", "diff_run_diff_L5", "diff_f5_win_pct_L5",
@@ -2965,7 +2965,7 @@ def run_market_walkforward(
         )
 
         if len(train_df) < 100 or len(calib_df) < MIN_CALIBRATION_ROWS or test_df.empty:
-            print("      split omitido por tamaño insuficiente")
+            print("      split omitido por tamano insuficiente")
             continue
 
         y_train = train_df[target_col].astype(int)
@@ -3259,7 +3259,7 @@ def run_regression_market_walkforward(
 
         print(f"      rows -> train={len(train_df)} | calib={len(calib_df)} | test={len(test_df)}")
         if len(train_df) < 100 or len(calib_df) < MIN_CALIBRATION_ROWS or test_df.empty:
-            print("      split omitido por tamaño insuficiente")
+            print("      split omitido por tamano insuficiente")
             continue
 
         train_plus_calib = pd.concat([train_df, calib_df], ignore_index=True)
