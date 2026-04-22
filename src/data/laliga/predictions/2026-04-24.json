@@ -1,7 +1,7 @@
 {
   "date": "2026-04-24",
   "sport": "laliga",
-  "generated_at": "2026-04-21T07:57:41.065040",
+  "generated_at": "2026-04-22T07:54:23.792700",
   "games": [
     {
       "game_id": "748457",
@@ -14,8 +14,8 @@
       "full_game_confidence": 59,
       "full_game_tier": "NORMAL",
       "base_probability": 0.592888,
-      "adjusted_probability": 0.563285,
-      "adjustment_amount": -0.029603,
+      "adjusted_probability": 0.573685,
+      "adjustment_amount": -0.019203,
       "adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -33,15 +33,6 @@
           "sign": -1.0,
           "contribution": -0.018000000000000002,
           "explanation": "Ataque visitante encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -79,13 +70,6 @@
           "category": "attack_defense"
         },
         {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Ataque local en baja.",
-          "category": "attack_defense"
-        },
-        {
           "event_name": "both_teams_btts_trend",
           "direction": "positive",
           "strength": 0.03,
@@ -111,8 +95,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "BET",
-      "recommended_confidence": 56,
-      "recommended_score": 56.7,
+      "recommended_confidence": 57,
+      "recommended_score": 57.8,
       "recommended": true,
       "spread_pick": "DNB BET",
       "spread_market": "DNB / 1X",
@@ -120,8 +104,8 @@
       "total_confidence": 55,
       "total_action": "PASS",
       "total_base_probability": 0.549592,
-      "total_adjusted_probability": 0.574024,
-      "total_adjustment_amount": 0.024433,
+      "total_adjusted_probability": 0.582909,
+      "total_adjustment_amount": 0.033317,
       "total_adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -139,15 +123,6 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Ataque visitante encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.016,
-          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -170,23 +145,23 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 57.8,
+      "total_recommended_score": 58.7,
       "odds_over_under": 3.5,
       "home_price": null,
       "draw_price": null,
       "away_price": null,
-      "closing_moneyline_odds": -110.0,
-      "home_moneyline_odds": 250.0,
-      "away_moneyline_odds": -110.0,
-      "closing_spread_odds": -115.0,
-      "closing_total_odds": 125.0,
+      "closing_moneyline_odds": -115.0,
+      "home_moneyline_odds": 260.0,
+      "away_moneyline_odds": -115.0,
+      "closing_spread_odds": -110.0,
+      "closing_total_odds": 130.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS NO",
       "btts_confidence": 79,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.209222,
-      "btts_adjusted_probability": 0.249262,
-      "btts_adjustment_amount": 0.04004,
+      "btts_adjusted_probability": 0.263822,
+      "btts_adjustment_amount": 0.0546,
       "btts_adjustment_breakdown": [
         {
           "event_name": "away_good_form",
@@ -204,15 +179,6 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Ataque visitante encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.016,
-          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -235,7 +201,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 75.5,
+      "btts_recommended_score": 74.0,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",

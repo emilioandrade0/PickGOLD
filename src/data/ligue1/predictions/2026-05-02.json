@@ -1,8 +1,147 @@
 {
   "date": "2026-05-02",
   "sport": "ligue1",
-  "generated_at": "2026-04-21T07:57:46.966261",
+  "generated_at": "2026-04-22T07:54:29.944449",
   "games": [
+    {
+      "game_id": "746694",
+      "date": "2026-05-02",
+      "time": "07:00",
+      "game_name": "OM @ FCN",
+      "home_team": "FCN",
+      "away_team": "OM",
+      "full_game_pick": "OM",
+      "full_game_confidence": 56,
+      "full_game_tier": "NORMAL",
+      "base_probability": 0.560393,
+      "adjusted_probability": 0.551387,
+      "adjustment_amount": -0.009007,
+      "adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_patterns": [
+        {
+          "name": "over_environment",
+          "strength": 0.07,
+          "direction": "positive",
+          "reliability": 0.7,
+          "reason": "Both teams show over-scoring context."
+        }
+      ],
+      "pattern_edge": 0.049,
+      "recommended_pick": "OM",
+      "recommended_confidence": 55,
+      "recommended_score": 55.5,
+      "recommended": false,
+      "spread_pick": "DNB OM",
+      "spread_market": "DNB / 1X",
+      "total_pick": "UNDER 2.5",
+      "total_confidence": 59,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.406489,
+      "total_adjusted_probability": 0.396184,
+      "total_adjustment_amount": -0.010306,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "total_recommended_pick": "UNDER 2.5",
+      "total_recommended_score": 60.8,
+      "odds_over_under": 2.5,
+      "closing_moneyline_odds": -165.0,
+      "home_moneyline_odds": 400.0,
+      "away_moneyline_odds": -165.0,
+      "closing_spread_odds": 120.0,
+      "closing_total_odds": -165.0,
+      "odds_data_quality": "real",
+      "btts_pick": "BTTS NO",
+      "btts_confidence": 82,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.184572,
+      "btts_adjusted_probability": 0.170012,
+      "btts_adjustment_amount": -0.01456,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "btts_recommended_pick": "BTTS NO",
+      "btts_recommended_score": 83.4,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "UNDER 9.5",
+      "corners_confidence": 78,
+      "corners_model_prob_over": 0.217523,
+      "corners_recommended_pick": "UNDER 9.5",
+      "corners_recommended_score": 78.6,
+      "corners_action": "JUGAR",
+      "status_state": "pre",
+      "status_description": ""
+    },
     {
       "game_id": "746695",
       "date": "2026-05-02",

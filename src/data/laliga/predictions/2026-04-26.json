@@ -1,7 +1,7 @@
 {
   "date": "2026-04-26",
   "sport": "laliga",
-  "generated_at": "2026-04-21T07:57:41.477098",
+  "generated_at": "2026-04-22T07:54:24.221758",
   "games": [
     {
       "game_id": "748458",
@@ -144,8 +144,8 @@
       "away_price": null,
       "closing_moneyline_odds": 125.0,
       "home_moneyline_odds": 125.0,
-      "away_moneyline_odds": 230.0,
-      "closing_spread_odds": 110.0,
+      "away_moneyline_odds": 220.0,
+      "closing_spread_odds": 115.0,
       "closing_total_odds": -110.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
@@ -392,18 +392,9 @@
       "full_game_confidence": 82,
       "full_game_tier": "ELITE",
       "base_probability": 0.816322,
-      "adjusted_probability": 0.784512,
-      "adjustment_amount": -0.03181,
+      "adjusted_probability": 0.797105,
+      "adjustment_amount": -0.019216,
       "adjustment_breakdown": [
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "away_team_weak_defense",
           "direction": "negative",
@@ -434,13 +425,6 @@
       ],
       "detected_events": [
         {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
           "event_name": "away_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
@@ -465,8 +449,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "OSA",
-      "recommended_confidence": 78,
-      "recommended_score": 78.5,
+      "recommended_confidence": 80,
+      "recommended_score": 79.7,
       "recommended": true,
       "spread_pick": "DNB OSA",
       "spread_market": "DNB / 1X",
@@ -474,18 +458,9 @@
       "total_confidence": 73,
       "total_action": "JUGAR",
       "total_base_probability": 0.265711,
-      "total_adjusted_probability": 0.316671,
-      "total_adjustment_amount": 0.05096,
+      "total_adjusted_probability": 0.302111,
+      "total_adjustment_amount": 0.0364,
       "total_adjustment_breakdown": [
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "away_team_weak_defense",
           "direction": "negative",
@@ -515,7 +490,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 68.3,
+      "total_recommended_score": 69.8,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -530,18 +505,9 @@
       "btts_confidence": 65,
       "btts_tier": "STRONG",
       "btts_base_probability": 0.353659,
-      "btts_adjusted_probability": 0.395711,
-      "btts_adjustment_amount": 0.042052,
+      "btts_adjusted_probability": 0.383696,
+      "btts_adjustment_amount": 0.030037,
       "btts_adjustment_breakdown": [
-        {
-          "event_name": "home_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "away_team_weak_defense",
           "direction": "negative",
@@ -571,7 +537,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 60.4,
+      "btts_recommended_score": 61.6,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
@@ -757,7 +723,7 @@
       "away_price": null,
       "closing_moneyline_odds": -105.0,
       "home_moneyline_odds": -105.0,
-      "away_moneyline_odds": 310.0,
+      "away_moneyline_odds": 290.0,
       "closing_spread_odds": -115.0,
       "closing_total_odds": -125.0,
       "odds_data_quality": "real",
