@@ -1,7 +1,7 @@
 {
   "date": "2026-04-26",
   "sport": "laliga",
-  "generated_at": "2026-04-22T07:54:24.221758",
+  "generated_at": "2026-04-23T08:00:29.930937",
   "games": [
     {
       "game_id": "748458",
@@ -142,10 +142,10 @@
       "home_price": null,
       "draw_price": null,
       "away_price": null,
-      "closing_moneyline_odds": 125.0,
-      "home_moneyline_odds": 125.0,
-      "away_moneyline_odds": 220.0,
-      "closing_spread_odds": 115.0,
+      "closing_moneyline_odds": 140.0,
+      "home_moneyline_odds": 140.0,
+      "away_moneyline_odds": 205.0,
+      "closing_spread_odds": 125.0,
       "closing_total_odds": -110.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
@@ -216,8 +216,8 @@
       "full_game_confidence": 62,
       "full_game_tier": "STRONG",
       "base_probability": 0.621639,
-      "adjusted_probability": 0.599879,
-      "adjustment_amount": -0.02176,
+      "adjusted_probability": 0.610729,
+      "adjustment_amount": -0.01091,
       "adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -226,6 +226,15 @@
           "sign": -1.0,
           "contribution": -0.0135,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.0135,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -256,6 +265,13 @@
           "category": "form"
         },
         {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "away_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
@@ -281,8 +297,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "ELC",
-      "recommended_confidence": 60,
-      "recommended_score": 60.4,
+      "recommended_confidence": 61,
+      "recommended_score": 61.5,
       "recommended": true,
       "spread_pick": "DNB ELC",
       "spread_market": "DNB / 1X",
@@ -290,8 +306,8 @@
       "total_confidence": 69,
       "total_action": "JUGAR",
       "total_base_probability": 0.313213,
-      "total_adjusted_probability": 0.337577,
-      "total_adjustment_amount": 0.024364,
+      "total_adjusted_probability": 0.349759,
+      "total_adjustment_amount": 0.036546,
       "total_adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -300,6 +316,15 @@
           "sign": 1.0,
           "contribution": 0.015,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -322,7 +347,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 66.6,
+      "total_recommended_score": 65.4,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -337,8 +362,8 @@
       "btts_confidence": 68,
       "btts_tier": "PREMIUM",
       "btts_base_probability": 0.684173,
-      "btts_adjusted_probability": 0.708382,
-      "btts_adjustment_amount": 0.024209,
+      "btts_adjusted_probability": 0.720487,
+      "btts_adjustment_amount": 0.036314,
       "btts_adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -347,6 +372,15 @@
           "sign": 1.0,
           "contribution": 0.015,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -369,7 +403,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 71.2,
+      "btts_recommended_score": 72.4,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
@@ -497,7 +531,7 @@
       "away_price": null,
       "closing_moneyline_odds": 110.0,
       "home_moneyline_odds": 110.0,
-      "away_moneyline_odds": 235.0,
+      "away_moneyline_odds": 245.0,
       "closing_spread_odds": 100.0,
       "closing_total_odds": 105.0,
       "odds_data_quality": "real",
@@ -725,7 +759,7 @@
       "home_moneyline_odds": -105.0,
       "away_moneyline_odds": 290.0,
       "closing_spread_odds": -115.0,
-      "closing_total_odds": -125.0,
+      "closing_total_odds": -130.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 53,
