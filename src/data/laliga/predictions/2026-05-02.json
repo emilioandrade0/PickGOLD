@@ -1,7 +1,7 @@
 {
   "date": "2026-05-02",
   "sport": "laliga",
-  "generated_at": "2026-04-23T08:00:30.500622",
+  "generated_at": "2026-04-24T08:10:47.798408",
   "games": [
     {
       "game_id": "748477",
@@ -14,26 +14,17 @@
       "full_game_confidence": 87,
       "full_game_tier": "ELITE",
       "base_probability": 0.87341,
-      "adjusted_probability": 0.880105,
-      "adjustment_amount": 0.006695,
+      "adjusted_probability": 0.856285,
+      "adjustment_amount": -0.017125,
       "adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
+          "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.0135,
-          "explanation": "Local con buena forma reciente.",
+          "sign": -1.0,
+          "contribution": -0.0135,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "both_teams_btts_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Ambos con tendencia BTTS.",
-          "category": "trend"
         },
         {
           "event_name": "low_h2h_sample",
@@ -47,18 +38,11 @@
       ],
       "detected_events": [
         {
-          "event_name": "home_good_form",
+          "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
-          "explanation": "Local con buena forma reciente.",
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "both_teams_btts_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "explanation": "Ambos con tendencia BTTS.",
-          "category": "trend"
         },
         {
           "event_name": "low_h2h_sample",
@@ -71,8 +55,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "VIL",
-      "recommended_confidence": 88,
-      "recommended_score": 88.0,
+      "recommended_confidence": 86,
+      "recommended_score": 85.6,
       "recommended": true,
       "spread_pick": "DNB VIL",
       "spread_market": "DNB / 1X",
@@ -80,26 +64,17 @@
       "total_confidence": 77,
       "total_action": "JUGAR",
       "total_base_probability": 0.765984,
-      "total_adjusted_probability": 0.799266,
-      "total_adjustment_amount": 0.033281,
+      "total_adjusted_probability": 0.779297,
+      "total_adjustment_amount": 0.013312,
       "total_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
+          "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.015,
-          "explanation": "Local con buena forma reciente.",
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "both_teams_btts_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 1.0,
-          "contribution": 0.0225,
-          "explanation": "Ambos con tendencia BTTS.",
-          "category": "trend"
         },
         {
           "event_name": "low_h2h_sample",
@@ -112,7 +87,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 79.9,
+      "total_recommended_score": 77.9,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -127,26 +102,17 @@
       "btts_confidence": 51,
       "btts_tier": "PASS",
       "btts_base_probability": 0.508466,
-      "btts_adjusted_probability": 0.525733,
-      "btts_adjustment_amount": 0.017267,
+      "btts_adjusted_probability": 0.515372,
+      "btts_adjustment_amount": 0.006907,
       "btts_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
+          "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.015,
-          "explanation": "Local con buena forma reciente.",
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "both_teams_btts_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 1.0,
-          "contribution": 0.0225,
-          "explanation": "Ambos con tendencia BTTS.",
-          "category": "trend"
         },
         {
           "event_name": "low_h2h_sample",
@@ -159,7 +125,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 52.6,
+      "btts_recommended_score": 51.5,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
