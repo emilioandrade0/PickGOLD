@@ -1,7 +1,7 @@
 {
   "date": "2026-05-03",
   "sport": "bundesliga",
-  "generated_at": "2026-04-25T07:23:12.602812",
+  "generated_at": "2026-04-26T07:46:36.559159",
   "games": [
     {
       "game_id": "747002",
@@ -14,18 +14,9 @@
       "full_game_confidence": 70,
       "full_game_tier": "PREMIUM",
       "base_probability": 0.700205,
-      "adjusted_probability": 0.725619,
-      "adjustment_amount": 0.025415,
+      "adjusted_probability": 0.713101,
+      "adjustment_amount": 0.012897,
       "adjustment_breakdown": [
-        {
-          "event_name": "away_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.014400000000000001,
-          "explanation": "Visita con buena forma reciente.",
-          "category": "form"
-        },
         {
           "event_name": "home_team_cold_attack",
           "direction": "negative",
@@ -42,6 +33,15 @@
           "sign": 1.0,
           "contribution": 0.014400000000000001,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.014400000000000001,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -65,13 +65,6 @@
       ],
       "detected_events": [
         {
-          "event_name": "away_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "explanation": "Visita con buena forma reciente.",
-          "category": "form"
-        },
-        {
           "event_name": "home_team_cold_attack",
           "direction": "negative",
           "strength": 0.02,
@@ -83,6 +76,13 @@
           "direction": "negative",
           "strength": 0.02,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -111,8 +111,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "M05",
-      "recommended_confidence": 73,
-      "recommended_score": 73.0,
+      "recommended_confidence": 71,
+      "recommended_score": 71.7,
       "recommended": true,
       "spread_pick": "DNB M05",
       "spread_market": "DNB / 1X",
@@ -123,15 +123,6 @@
       "total_adjusted_probability": 0.683951,
       "total_adjustment_amount": 0.030604,
       "total_adjustment_breakdown": [
-        {
-          "event_name": "away_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Visita con buena forma reciente.",
-          "category": "form"
-        },
         {
           "event_name": "home_team_cold_attack",
           "direction": "negative",
@@ -148,6 +139,15 @@
           "sign": 1.0,
           "contribution": 0.016,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -172,11 +172,11 @@
       "total_recommended_pick": "OVER 2.5",
       "total_recommended_score": 68.8,
       "odds_over_under": 2.5,
-      "closing_moneyline_odds": 135.0,
-      "home_moneyline_odds": 180.0,
-      "away_moneyline_odds": 135.0,
-      "closing_spread_odds": -195.0,
-      "closing_total_odds": 110.0,
+      "closing_moneyline_odds": 150.0,
+      "home_moneyline_odds": 170.0,
+      "away_moneyline_odds": 150.0,
+      "closing_spread_odds": -205.0,
+      "closing_total_odds": 115.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 54,
@@ -185,15 +185,6 @@
       "btts_adjusted_probability": 0.478999,
       "btts_adjustment_amount": 0.02165,
       "btts_adjustment_breakdown": [
-        {
-          "event_name": "away_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Visita con buena forma reciente.",
-          "category": "form"
-        },
         {
           "event_name": "home_team_cold_attack",
           "direction": "negative",
@@ -210,6 +201,15 @@
           "sign": 1.0,
           "contribution": 0.016,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -338,11 +338,11 @@
       "total_recommended_pick": "UNDER 2.5",
       "total_recommended_score": 61.7,
       "odds_over_under": 2.5,
-      "closing_moneyline_odds": -125.0,
-      "home_moneyline_odds": 260.0,
-      "away_moneyline_odds": -125.0,
+      "closing_moneyline_odds": -120.0,
+      "home_moneyline_odds": 265.0,
+      "away_moneyline_odds": -120.0,
       "closing_spread_odds": -115.0,
-      "closing_total_odds": -180.0,
+      "closing_total_odds": -175.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 72,
@@ -554,9 +554,9 @@
       "odds_over_under": 2.5,
       "closing_moneyline_odds": 120.0,
       "home_moneyline_odds": 120.0,
-      "away_moneyline_odds": 180.0,
-      "closing_spread_odds": 110.0,
-      "closing_total_odds": -165.0,
+      "away_moneyline_odds": 185.0,
+      "closing_spread_odds": 115.0,
+      "closing_total_odds": -160.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 99,
