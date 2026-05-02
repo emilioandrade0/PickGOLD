@@ -1,7 +1,7 @@
 {
   "date": "2026-05-13",
   "sport": "laliga",
-  "generated_at": "2026-05-01T08:18:02.434193",
+  "generated_at": "2026-05-02T07:51:08.884365",
   "games": [
     {
       "game_id": "748497",
@@ -392,8 +392,8 @@
       "full_game_confidence": 55,
       "full_game_tier": "NORMAL",
       "base_probability": 0.447741,
-      "adjusted_probability": 0.457761,
-      "adjustment_amount": 0.010019,
+      "adjusted_probability": 0.447741,
+      "adjustment_amount": -0.0,
       "adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -402,6 +402,15 @@
           "sign": 1.0,
           "contribution": 0.014400000000000001,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.014400000000000001,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -423,6 +432,13 @@
           "category": "form"
         },
         {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
           "strength": 0.0,
@@ -433,8 +449,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "GET",
-      "recommended_confidence": 54,
-      "recommended_score": 54.2,
+      "recommended_confidence": 55,
+      "recommended_score": 55.2,
       "recommended": false,
       "spread_pick": "DNB GET",
       "spread_market": "DNB / 1X",
@@ -442,8 +458,8 @@
       "total_confidence": 87,
       "total_action": "JUGAR",
       "total_base_probability": 0.866774,
-      "total_adjusted_probability": 0.881334,
-      "total_adjustment_amount": 0.01456,
+      "total_adjusted_probability": 0.895894,
+      "total_adjustment_amount": 0.02912,
       "total_adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -452,6 +468,15 @@
           "sign": 1.0,
           "contribution": 0.016,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -465,7 +490,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 88.1,
+      "total_recommended_score": 89.6,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -480,8 +505,8 @@
       "btts_confidence": 68,
       "btts_tier": "PREMIUM",
       "btts_base_probability": 0.677987,
-      "btts_adjusted_probability": 0.691026,
-      "btts_adjustment_amount": 0.013039,
+      "btts_adjusted_probability": 0.704065,
+      "btts_adjustment_amount": 0.026078,
       "btts_adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -490,6 +515,15 @@
           "sign": 1.0,
           "contribution": 0.016,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -503,7 +537,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 69.1,
+      "btts_recommended_score": 70.4,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
