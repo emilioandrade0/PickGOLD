@@ -1,7 +1,7 @@
 {
   "date": "2026-05-08",
   "sport": "laliga",
-  "generated_at": "2026-05-02T07:51:07.799484",
+  "generated_at": "2026-05-03T08:07:05.575426",
   "games": [
     {
       "game_id": "748491",
@@ -14,17 +14,17 @@
       "full_game_confidence": 80,
       "full_game_tier": "ELITE",
       "base_probability": 0.804078,
-      "adjusted_probability": 0.792097,
-      "adjustment_amount": -0.011981,
+      "adjusted_probability": 0.816059,
+      "adjustment_amount": 0.011981,
       "adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
           "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.0135,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "sign": 1.0,
+          "contribution": 0.0135,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
         },
         {
           "event_name": "low_h2h_sample",
@@ -38,11 +38,11 @@
       ],
       "detected_events": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
           "strength": 0.02,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
         },
         {
           "event_name": "low_h2h_sample",
@@ -55,8 +55,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "OSA",
-      "recommended_confidence": 79,
-      "recommended_score": 79.2,
+      "recommended_confidence": 82,
+      "recommended_score": 81.6,
       "recommended": true,
       "spread_pick": "DNB OSA",
       "spread_market": "DNB / 1X",
@@ -64,17 +64,17 @@
       "total_confidence": 62,
       "total_action": "JUGAR",
       "total_base_probability": 0.382513,
-      "total_adjusted_probability": 0.392645,
-      "total_adjustment_amount": 0.010132,
+      "total_adjusted_probability": 0.372381,
+      "total_adjustment_amount": -0.010132,
       "total_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
           "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.015,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "sign": -1.0,
+          "contribution": -0.015,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
         },
         {
           "event_name": "low_h2h_sample",
@@ -87,7 +87,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 60.7,
+      "total_recommended_score": 62.8,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -102,17 +102,17 @@
       "btts_confidence": 80,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.201527,
-      "btts_adjusted_probability": 0.21484,
-      "btts_adjustment_amount": 0.013313,
+      "btts_adjusted_probability": 0.188215,
+      "btts_adjustment_amount": -0.013313,
       "btts_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
           "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.015,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
+          "sign": -1.0,
+          "contribution": -0.015,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
         },
         {
           "event_name": "low_h2h_sample",
@@ -125,7 +125,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 78.5,
+      "btts_recommended_score": 81.2,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
