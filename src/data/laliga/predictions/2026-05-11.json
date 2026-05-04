@@ -1,7 +1,7 @@
 {
   "date": "2026-05-11",
   "sport": "laliga",
-  "generated_at": "2026-05-03T08:07:06.159903",
+  "generated_at": "2026-05-04T08:36:46.616131",
   "games": [
     {
       "game_id": "748489",
@@ -14,9 +14,18 @@
       "full_game_confidence": 61,
       "full_game_tier": "STRONG",
       "base_probability": 0.386911,
-      "adjusted_probability": 0.386911,
-      "adjustment_amount": -0.0,
+      "adjusted_probability": 0.396823,
+      "adjustment_amount": 0.009912,
       "adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
@@ -29,6 +38,13 @@
       ],
       "detected_events": [
         {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
           "strength": 0.0,
@@ -39,8 +55,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "RAY",
-      "recommended_confidence": 61,
-      "recommended_score": 61.3,
+      "recommended_confidence": 60,
+      "recommended_score": 60.3,
       "recommended": true,
       "spread_pick": "DNB RAY",
       "spread_market": "DNB / 1X",
@@ -48,9 +64,18 @@
       "total_confidence": 95,
       "total_action": "JUGAR",
       "total_base_probability": 0.051741,
-      "total_adjusted_probability": 0.051741,
-      "total_adjustment_amount": 0.0,
+      "total_adjusted_probability": 0.066301,
+      "total_adjustment_amount": 0.01456,
       "total_adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
@@ -62,13 +87,13 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 94.8,
+      "total_recommended_score": 93.4,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
       "away_price": null,
-      "closing_moneyline_odds": 120.0,
-      "home_moneyline_odds": 120.0,
+      "closing_moneyline_odds": 115.0,
+      "home_moneyline_odds": 115.0,
       "away_moneyline_odds": 220.0,
       "closing_spread_odds": 105.0,
       "closing_total_odds": -135.0,
@@ -77,9 +102,18 @@
       "btts_confidence": 88,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.11989,
-      "btts_adjusted_probability": 0.11989,
-      "btts_adjustment_amount": 0.0,
+      "btts_adjusted_probability": 0.13445,
+      "btts_adjustment_amount": 0.01456,
       "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
@@ -91,7 +125,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 88.0,
+      "btts_recommended_score": 86.6,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
