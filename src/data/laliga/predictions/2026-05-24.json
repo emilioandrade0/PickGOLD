@@ -1,7 +1,7 @@
 {
   "date": "2026-05-24",
   "sport": "laliga",
-  "generated_at": "2026-05-12T08:48:21.689691",
+  "generated_at": "2026-05-13T08:51:50.978553",
   "games": [
     {
       "game_id": "748515",
@@ -14,8 +14,8 @@
       "full_game_confidence": 51,
       "full_game_tier": "PASS",
       "base_probability": 0.505842,
-      "adjusted_probability": 0.484799,
-      "adjustment_amount": -0.021043,
+      "adjusted_probability": 0.510644,
+      "adjustment_amount": 0.004802,
       "adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -24,6 +24,15 @@
           "sign": -1.0,
           "contribution": -0.014400000000000001,
           "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.014400000000000001,
+          "explanation": "Visita con buena forma reciente.",
           "category": "form"
         },
         {
@@ -36,12 +45,12 @@
           "category": "attack_defense"
         },
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Defensa visitante vulnerable.",
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.018000000000000002,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
@@ -81,6 +90,13 @@
           "category": "form"
         },
         {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "home_team_hot_attack",
           "direction": "positive",
           "strength": 0.025,
@@ -88,10 +104,10 @@
           "category": "attack_defense"
         },
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Defensa visitante vulnerable.",
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
@@ -127,8 +143,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "ATM",
-      "recommended_confidence": 52,
-      "recommended_score": 51.9,
+      "recommended_confidence": 51,
+      "recommended_score": 51.5,
       "recommended": false,
       "spread_pick": "DNB ATM",
       "spread_market": "DNB / 1X",
@@ -149,6 +165,15 @@
           "category": "form"
         },
         {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "home_team_hot_attack",
           "direction": "positive",
           "strength": 0.025,
@@ -158,12 +183,12 @@
           "category": "attack_defense"
         },
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
           "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
+          "contribution": 0.02,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
@@ -223,6 +248,15 @@
           "category": "form"
         },
         {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.016,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "home_team_hot_attack",
           "direction": "positive",
           "strength": 0.025,
@@ -232,12 +266,12 @@
           "category": "attack_defense"
         },
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
           "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
+          "contribution": 0.02,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
