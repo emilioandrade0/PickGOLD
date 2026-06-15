@@ -639,7 +639,7 @@ game_id,date,time,season,home_team,away_team,home_score,away_score,home_p1_goals
 401802961,2025-12-29,20:00,2025,STL,BUF,2,4,2,1,3,6,0,1,Enterprise Center,5.5,BUF -115,-105.0,-115.0,-115.0,-250.0,-130.0,real,Joel Hofer,Alex Lyon,4587909,3654006,0,0,1,1,found_both
 401802962,2025-12-29,21:00,2025,COL,LAK,5,2,1,0,1,7,0,1,Ball Arena,5.5,COL -225,-225.0,185.0,-225.0,120.0,-130.0,real,Mackenzie Blackwood,Anton Forsberg,3904177,3036851,0,0,1,1,found_both
 401802963,2025-12-29,21:00,2025,UTA,NSH,3,4,1,1,2,7,0,1,Delta Center,5.5,UTAH -142,-142.0,120.0,-142.0,170.0,-122.0,real,Vitek Vanecek,Juuse Saros,3114996,3042109,0,0,1,1,found_both
-401802964,2025-12-29,21:00,2025,CGY,BOS,2,1,0,1,1,3,0,1,Scotiabank Saddledome,0.0,N/A,,,,,,fallback,,,,,0,0,0,0,error
+401802964,2025-12-29,21:00,2025,CGY,BOS,2,1,0,1,1,3,0,1,Scotiabank Saddledome,5.5,CGY -130,-130.0,110.0,-130.0,180.0,-135.0,real,Dustin Wolf,Jeremy Swayman,4587952,4712036,0,0,1,1,found_both
 401802965,2025-12-29,22:00,2025,VGK,MIN,2,5,0,2,2,7,0,1,T-Mobile Arena,5.5,VGK -115,-115.0,-105.0,-115.0,215.0,-122.0,real,Akira Schmid,Filip Gustavsson,4587845,4272674,0,0,1,1,found_both
 401802966,2025-12-29,22:00,2025,ANA,SJS,4,5,1,2,3,9,0,1,Honda Center,6.5,ANA -170,-170.0,142.0,-170.0,130.0,-135.0,real,Lukas Dostal,Yaroslav Askarov,4588165,4697394,0,0,1,1,found_both
 401802967,2025-12-29,22:00,2025,SEA,VAN,2,3,2,1,3,5,0,1,Climate Pledge Arena,5.5,VAN -118,-102.0,-118.0,-118.0,-250.0,-115.0,real,Joey Daccord,Kevin Lankinen,3942073,4341584,0,0,1,1,found_both
@@ -1362,7 +1362,7 @@ game_id,date,time,season,home_team,away_team,home_score,away_score,home_p1_goals
 401869793,2026-04-23,21:00,2026,LAK,COL,2,4,0,1,1,6,0,1,crypto.com Arena,5.5,COL -162,136.0,-162.0,-162.0,-192.0,-122.0,real,Anton Forsberg,Scott Wedgewood,3036851,5622,0,0,1,1,found_both
 401869771,2026-04-24,18:00,2026,MTL,TBL,3,2,1,1,2,5,0,1,Bell Centre,6.5,TB -118,-102.0,-118.0,-118.0,-245.0,110.0,real,Jakub Dobes,Andrei Vasilevskiy,4697686,2976847,0,0,1,1,found_both
 401869758,2026-04-24,20:30,2026,UTA,VGK,4,2,2,0,2,6,0,1,Delta Center,5.5,VGK -112,-108.0,-112.0,-112.0,-258.0,-122.0,real,Karel Vejmelka,Carter Hart,3942065,4064582,0,0,1,1,found_both
-401869770,2026-04-24,21:00,2026,ANA,EDM,7,4,2,1,3,11,0,1,Honda Center,7.5,EDM -142,120.0,-142.0,-142.0,-198.0,140.0,real,Lukas Dostal,Connor Ingram,4588165,4063522,0,0,1,1,found_both
+401869770,2026-04-24,21:00,2026,ANA,EDM,6,4,2,1,3,10,0,1,Honda Center,7.5,EDM -142,120.0,-142.0,-142.0,-198.0,140.0,real,Lukas Dostal,Connor Ingram,4588165,4063522,0,0,1,1,found_both
 401869786,2026-04-25,14:00,2026,OTT,CAR,2,4,0,0,0,6,0,1,Canadian Tire Centre,5.5,CAR -142,120.0,-142.0,-142.0,-218.0,-135.0,real,Linus Ullmark,Frederik Andersen,3069285,2517899,0,0,1,1,found_both
 401869784,2026-04-25,16:30,2026,MIN,DAL,3,2,1,1,2,5,0,1,Grand Casino Arena,5.5,MIN -130,-130.0,110.0,-130.0,195.0,-125.0,real,Jesper Wallstedt,Jake Oettinger,4874737,4196914,0,0,1,1,found_both
 401869799,2026-04-25,19:00,2026,PHI,PIT,2,4,0,1,1,6,0,1,Xfinity Mobile Arena,5.5,PHI -125,-125.0,105.0,-125.0,200.0,-130.0,real,Dan Vladar,Arturs Silovs,3942459,4576894,0,0,1,1,found_both
@@ -1420,3 +1420,4 @@ game_id,date,time,season,home_team,away_team,home_score,away_score,home_p1_goals
 401874173,2026-06-06,19:00,2026,VGK,CAR,5,4,0,0,0,9,0,1,T-Mobile Arena,5.5,CAR -108,-112.0,-108.0,-112.0,-285.0,-125.0,real,Carter Hart,Brandon Bussi,4064582,4996097,0,0,1,1,found_both
 401874174,2026-06-09,19:00,2026,VGK,CAR,3,5,1,3,4,8,0,1,T-Mobile Arena,5.5,CAR -115,-105.0,-115.0,-115.0,-265.0,-130.0,real,Carter Hart,Brandon Bussi,4064582,4996097,0,0,1,1,found_both
 401874175,2026-06-11,19:00,2026,CAR,VGK,4,2,1,1,2,6,0,1,Lenovo Center,6.5,CAR -155,-155.0,130.0,-155.0,170.0,114.0,real,Brandon Bussi,Carter Hart,4996097,4064582,0,0,1,1,found_both
+401874176,2026-06-14,19:00,2026,VGK,CAR,0,3,0,1,1,3,0,1,T-Mobile Arena,5.5,CAR -115,-105.0,-115.0,-115.0,-265.0,-130.0,real,Carter Hart,Brandon Bussi,4064582,4996097,0,0,1,1,found_both
