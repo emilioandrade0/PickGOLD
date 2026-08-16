@@ -1,7 +1,7 @@
 {
   "date": "2026-08-21",
   "sport": "liga_mx",
-  "generated_at": "2026-08-15T06:43:26.953652",
+  "generated_at": "2026-08-16T06:43:49.028026",
   "games": [
     {
       "game_id": "401877008",
@@ -14,8 +14,8 @@
       "full_game_confidence": 50,
       "full_game_tier": "PASS",
       "base_probability": 0.497393,
-      "adjusted_probability": 0.533903,
-      "adjustment_amount": 0.03651,
+      "adjusted_probability": 0.548317,
+      "adjustment_amount": 0.050925,
       "adjustment_breakdown": [
         {
           "event_name": "away_team_hot_attack",
@@ -24,6 +24,15 @@
           "sign": 1.0,
           "contribution": 0.022500000000000003,
           "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.018000000000000002,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -72,6 +81,13 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
@@ -111,8 +127,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "AME",
-      "recommended_confidence": 53,
-      "recommended_score": 53.4,
+      "recommended_confidence": 55,
+      "recommended_score": 54.8,
       "recommended": false,
       "spread_pick": "DNB AME",
       "spread_market": "DNB / 1X",
@@ -130,6 +146,15 @@
           "sign": 1.0,
           "contribution": 0.025,
           "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -188,6 +213,15 @@
           "sign": 1.0,
           "contribution": 0.025,
           "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -250,6 +284,15 @@
           "sign": 1.0,
           "contribution": 0.025,
           "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
