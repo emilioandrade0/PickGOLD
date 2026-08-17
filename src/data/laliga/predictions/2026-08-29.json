@@ -1,7 +1,7 @@
 {
   "date": "2026-08-29",
   "sport": "laliga",
-  "generated_at": "2026-08-16T06:43:54.179737",
+  "generated_at": "2026-08-17T07:00:00.507419",
   "games": [
     {
       "game_id": "401882902",
@@ -352,9 +352,27 @@
       "full_game_confidence": 51,
       "full_game_tier": "PASS",
       "base_probability": 0.510417,
-      "adjusted_probability": 0.508544,
-      "adjustment_amount": -0.001873,
+      "adjusted_probability": 0.502341,
+      "adjustment_amount": -0.008076,
       "adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": -0.5,
+          "contribution": -0.0085,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -384,6 +402,20 @@
         }
       ],
       "detected_events": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -417,8 +449,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "DRAW",
-      "recommended_confidence": 51,
-      "recommended_score": 51.2,
+      "recommended_confidence": 50,
+      "recommended_score": 50.6,
       "recommended": false,
       "spread_pick": "1X RSO",
       "spread_market": "DNB / 1X",
@@ -426,9 +458,27 @@
       "total_confidence": 78,
       "total_action": "JUGAR",
       "total_base_probability": 0.221156,
-      "total_adjusted_probability": 0.260787,
-      "total_adjustment_amount": 0.039631,
+      "total_adjusted_probability": 0.295756,
+      "total_adjustment_amount": 0.0746,
       "total_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.017,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02125,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -458,7 +508,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 74.3,
+      "total_recommended_score": 70.8,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -476,6 +526,24 @@
       "btts_adjusted_probability": 0.95,
       "btts_adjustment_amount": 0.009992,
       "btts_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.017,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02125,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",

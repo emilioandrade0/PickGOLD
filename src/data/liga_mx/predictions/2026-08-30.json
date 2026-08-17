@@ -1,7 +1,7 @@
 {
   "date": "2026-08-30",
   "sport": "liga_mx",
-  "generated_at": "2026-08-16T06:43:50.659574",
+  "generated_at": "2026-08-17T06:59:57.124666",
   "games": [
     {
       "game_id": "401876993",
@@ -184,8 +184,8 @@
       "full_game_confidence": 58,
       "full_game_tier": "NORMAL",
       "base_probability": 0.577824,
-      "adjusted_probability": 0.60344,
-      "adjustment_amount": 0.025616,
+      "adjusted_probability": 0.619478,
+      "adjustment_amount": 0.041654,
       "adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -212,6 +212,15 @@
           "sign": -1.0,
           "contribution": -0.018000000000000002,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.018000000000000002,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -265,6 +274,13 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "both_teams_over_trend",
           "direction": "positive",
           "strength": 0.03,
@@ -305,8 +321,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "MTY",
-      "recommended_confidence": 60,
-      "recommended_score": 60.7,
+      "recommended_confidence": 62,
+      "recommended_score": 62.3,
       "recommended": true,
       "spread_pick": "DNB MTY",
       "spread_market": "DNB / 1X",
@@ -342,6 +358,15 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -409,6 +434,15 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -480,6 +514,15 @@
           "sign": 1.0,
           "contribution": 0.02,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {

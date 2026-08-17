@@ -1,7 +1,7 @@
 {
   "date": "2026-08-22",
   "sport": "laliga",
-  "generated_at": "2026-08-16T06:43:52.852102",
+  "generated_at": "2026-08-17T06:59:59.162288",
   "games": [
     {
       "game_id": "401882916",
@@ -460,9 +460,18 @@
       "full_game_confidence": 80,
       "full_game_tier": "ELITE",
       "base_probability": 0.804984,
-      "adjusted_probability": 0.817362,
-      "adjustment_amount": 0.012379,
+      "adjusted_probability": 0.786017,
+      "adjustment_amount": -0.018966,
       "adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.015300000000000001,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -471,6 +480,15 @@
           "contribution": 0.015300000000000001,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": -1.0,
+          "contribution": -0.019125000000000003,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -493,11 +511,25 @@
       ],
       "detected_events": [
         {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
+        {
           "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -525,8 +557,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "RMA",
-      "recommended_confidence": 82,
-      "recommended_score": 82.1,
+      "recommended_confidence": 79,
+      "recommended_score": 79.0,
       "recommended": true,
       "spread_pick": "DNB RMA",
       "spread_market": "DNB / 1X",
@@ -534,9 +566,18 @@
       "total_confidence": 79,
       "total_action": "JUGAR",
       "total_base_probability": 0.786977,
-      "total_adjusted_probability": 0.822645,
-      "total_adjustment_amount": 0.035668,
+      "total_adjusted_probability": 0.858313,
+      "total_adjustment_amount": 0.071336,
       "total_adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.017,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -545,6 +586,15 @@
           "contribution": 0.017,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02125,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -566,7 +616,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 82.7,
+      "total_recommended_score": 86.2,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -581,9 +631,18 @@
       "btts_confidence": 68,
       "btts_tier": "PREMIUM",
       "btts_base_probability": 0.677862,
-      "btts_adjusted_probability": 0.709794,
-      "btts_adjustment_amount": 0.031932,
+      "btts_adjusted_probability": 0.741726,
+      "btts_adjustment_amount": 0.063864,
       "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.017,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -592,6 +651,15 @@
           "contribution": 0.017,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02125,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -613,7 +681,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 71.4,
+      "btts_recommended_score": 74.6,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
