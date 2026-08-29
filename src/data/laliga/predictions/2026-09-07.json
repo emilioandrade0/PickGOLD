@@ -1,7 +1,7 @@
 {
   "date": "2026-09-07",
   "sport": "laliga",
-  "generated_at": "2026-08-28T18:21:57.379660",
+  "generated_at": "2026-08-29T12:30:53.251937",
   "games": [
     {
       "game_id": "401882891",
@@ -148,18 +148,9 @@
       "full_game_confidence": 93,
       "full_game_tier": "ELITE",
       "base_probability": 0.925089,
-      "adjusted_probability": 0.903679,
-      "adjustment_amount": -0.02141,
+      "adjusted_probability": 0.902447,
+      "adjustment_amount": -0.022642,
       "adjustment_breakdown": [
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.014400000000000001,
-          "explanation": "Ataque local en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -198,13 +189,6 @@
         }
       ],
       "detected_events": [
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Ataque local en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -246,7 +230,7 @@
       "pattern_edge": 0.049,
       "recommended_pick": "RSO",
       "recommended_confidence": 90,
-      "recommended_score": 90.8,
+      "recommended_score": 90.6,
       "recommended": true,
       "spread_pick": "DNB RSO",
       "spread_market": "DNB / 1X",
@@ -254,18 +238,9 @@
       "total_confidence": 91,
       "total_action": "JUGAR",
       "total_base_probability": 0.906251,
-      "total_adjusted_probability": 0.942651,
-      "total_adjustment_amount": 0.0364,
+      "total_adjusted_probability": 0.95,
+      "total_adjustment_amount": 0.043749,
       "total_adjustment_breakdown": [
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.016,
-          "explanation": "Ataque local en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -304,7 +279,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 94.7,
+      "total_recommended_score": 95.4,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -319,18 +294,9 @@
       "btts_confidence": 76,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.757656,
-      "btts_adjusted_probability": 0.794056,
-      "btts_adjustment_amount": 0.0364,
+      "btts_adjusted_probability": 0.808616,
+      "btts_adjustment_amount": 0.05096,
       "btts_adjustment_breakdown": [
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.016,
-          "explanation": "Ataque local en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -369,7 +335,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 79.8,
+      "btts_recommended_score": 81.3,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
