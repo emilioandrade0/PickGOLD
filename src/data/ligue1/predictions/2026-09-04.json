@@ -1,7 +1,7 @@
 {
   "date": "2026-09-04",
   "sport": "ligue1",
-  "generated_at": "2026-08-29T12:30:56.964890",
+  "generated_at": "2026-08-30T11:31:06.184963",
   "games": [
     {
       "game_id": "401876472",
@@ -14,18 +14,9 @@
       "full_game_confidence": 58,
       "full_game_tier": "NORMAL",
       "base_probability": 0.581241,
-      "adjusted_probability": 0.590603,
-      "adjustment_amount": 0.009363,
+      "adjusted_probability": 0.558095,
+      "adjustment_amount": -0.023146,
       "adjustment_breakdown": [
-        {
-          "event_name": "home_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.015300000000000001,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
-        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -34,15 +25,6 @@
           "contribution": -0.015300000000000001,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.019125000000000003,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -101,25 +83,11 @@
       ],
       "detected_events": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
-        },
-        {
           "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -167,9 +135,9 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "OL",
-      "recommended_confidence": 59,
-      "recommended_score": 59.1,
-      "recommended": true,
+      "recommended_confidence": 56,
+      "recommended_score": 55.8,
+      "recommended": false,
       "spread_pick": "DNB OL",
       "spread_market": "DNB / 1X",
       "total_pick": "OVER 2.5",
@@ -180,15 +148,6 @@
       "total_adjustment_amount": -0.008915,
       "total_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.017,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
-        },
-        {
           "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
@@ -196,15 +155,6 @@
           "contribution": 0.017,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.02125,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",
@@ -278,15 +228,6 @@
       "btts_adjustment_amount": 0.057334,
       "btts_adjustment_breakdown": [
         {
-          "event_name": "home_good_form",
-          "direction": "positive",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.017,
-          "explanation": "Local con buena forma reciente.",
-          "category": "form"
-        },
-        {
           "event_name": "away_good_form",
           "direction": "positive",
           "strength": 0.02,
@@ -294,15 +235,6 @@
           "contribution": 0.017,
           "explanation": "Visita con buena forma reciente.",
           "category": "form"
-        },
-        {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.02125,
-          "explanation": "Ataque local encendido.",
-          "category": "attack_defense"
         },
         {
           "event_name": "away_team_hot_attack",

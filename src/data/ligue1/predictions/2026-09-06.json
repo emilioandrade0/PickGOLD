@@ -1,7 +1,7 @@
 {
   "date": "2026-09-06",
   "sport": "ligue1",
-  "generated_at": "2026-08-29T12:30:57.218683",
+  "generated_at": "2026-08-30T11:31:06.519420",
   "games": [
     {
       "game_id": "401876475",
@@ -14,8 +14,8 @@
       "full_game_confidence": 50,
       "full_game_tier": "PASS",
       "base_probability": 0.502886,
-      "adjusted_probability": 0.485214,
-      "adjustment_amount": -0.017671,
+      "adjusted_probability": 0.493209,
+      "adjustment_amount": -0.009677,
       "adjustment_breakdown": [
         {
           "event_name": "away_team_hot_attack",
@@ -24,15 +24,6 @@
           "sign": -1.0,
           "contribution": -0.019125000000000003,
           "explanation": "Ataque visitante encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.015300000000000001,
-          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -81,13 +72,6 @@
           "category": "attack_defense"
         },
         {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Ataque local en baja.",
-          "category": "attack_defense"
-        },
-        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
@@ -120,7 +104,7 @@
       "pattern_edge": 0.0,
       "recommended_pick": "SCO",
       "recommended_confidence": 51,
-      "recommended_score": 51.5,
+      "recommended_score": 50.7,
       "recommended": false,
       "spread_pick": "DNB SCO",
       "spread_market": "DNB / 1X",
@@ -128,8 +112,8 @@
       "total_confidence": 59,
       "total_action": "JUGAR",
       "total_base_probability": 0.412087,
-      "total_adjusted_probability": 0.453424,
-      "total_adjustment_amount": 0.041337,
+      "total_adjusted_probability": 0.463961,
+      "total_adjustment_amount": 0.051874,
       "total_adjustment_breakdown": [
         {
           "event_name": "away_team_hot_attack",
@@ -138,15 +122,6 @@
           "sign": 1.0,
           "contribution": 0.02125,
           "explanation": "Ataque visitante encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.017,
-          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -187,7 +162,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 54.7,
+      "total_recommended_score": 53.6,
       "odds_over_under": 2.5,
       "closing_moneyline_odds": NaN,
       "home_moneyline_odds": NaN,
@@ -199,8 +174,8 @@
       "btts_confidence": 63,
       "btts_tier": "STRONG",
       "btts_base_probability": 0.365305,
-      "btts_adjusted_probability": 0.412822,
-      "btts_adjustment_amount": 0.047517,
+      "btts_adjusted_probability": 0.424934,
+      "btts_adjustment_amount": 0.05963,
       "btts_adjustment_breakdown": [
         {
           "event_name": "away_team_hot_attack",
@@ -209,15 +184,6 @@
           "sign": 1.0,
           "contribution": 0.02125,
           "explanation": "Ataque visitante encendido.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "home_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.017,
-          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -258,7 +224,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 58.7,
+      "btts_recommended_score": 57.5,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
