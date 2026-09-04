@@ -1,7 +1,7 @@
 {
   "date": "2026-09-07",
   "sport": "laliga",
-  "generated_at": "2026-09-03T10:53:05.597687",
+  "generated_at": "2026-09-04T10:51:20.109117",
   "games": [
     {
       "game_id": "401882891",
@@ -117,11 +117,11 @@
       "home_price": null,
       "draw_price": null,
       "away_price": null,
-      "closing_moneyline_odds": 155.0,
-      "home_moneyline_odds": 155.0,
-      "away_moneyline_odds": 225.0,
-      "closing_spread_odds": 135.0,
-      "closing_total_odds": -165.0,
+      "closing_moneyline_odds": 140.0,
+      "home_moneyline_odds": 140.0,
+      "away_moneyline_odds": 240.0,
+      "closing_spread_odds": 130.0,
+      "closing_total_odds": -160.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 72,
@@ -186,21 +186,21 @@
       "adjustment_amount": -0.022642,
       "adjustment_breakdown": [
         {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.014400000000000001,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.014400000000000001,
           "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.014400000000000001,
-          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -224,17 +224,17 @@
       ],
       "detected_events": [
         {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
           "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -272,9 +272,18 @@
       "total_confidence": 91,
       "total_action": "JUGAR",
       "total_base_probability": 0.906251,
-      "total_adjusted_probability": 0.95,
-      "total_adjustment_amount": 0.043749,
+      "total_adjusted_probability": 0.928091,
+      "total_adjustment_amount": 0.02184,
       "total_adjustment_breakdown": [
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -282,15 +291,6 @@
           "sign": 1.0,
           "contribution": 0.016,
           "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -313,24 +313,33 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 95.4,
+      "total_recommended_score": 93.2,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
       "away_price": null,
-      "closing_moneyline_odds": 140.0,
-      "home_moneyline_odds": 185.0,
-      "away_moneyline_odds": 140.0,
-      "closing_spread_odds": -185.0,
-      "closing_total_odds": -125.0,
+      "closing_moneyline_odds": 135.0,
+      "home_moneyline_odds": 190.0,
+      "away_moneyline_odds": 135.0,
+      "closing_spread_odds": -180.0,
+      "closing_total_odds": -130.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 76,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.757656,
-      "btts_adjusted_probability": 0.808616,
-      "btts_adjustment_amount": 0.05096,
+      "btts_adjusted_probability": 0.779496,
+      "btts_adjustment_amount": 0.02184,
       "btts_adjustment_breakdown": [
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -338,15 +347,6 @@
           "sign": 1.0,
           "contribution": 0.016,
           "explanation": "Defensa local vulnerable.",
-          "category": "attack_defense"
-        },
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -369,7 +369,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 81.3,
+      "btts_recommended_score": 78.3,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",

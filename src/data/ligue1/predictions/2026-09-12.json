@@ -1,7 +1,7 @@
 {
   "date": "2026-09-12",
   "sport": "ligue1",
-  "generated_at": "2026-09-03T10:53:11.833627",
+  "generated_at": "2026-09-04T10:51:26.908999",
   "games": [
     {
       "game_id": "401876458",
@@ -522,18 +522,9 @@
       "full_game_confidence": 93,
       "full_game_tier": "ELITE",
       "base_probability": 0.932721,
-      "adjusted_probability": 0.904382,
-      "adjustment_amount": -0.028339,
+      "adjusted_probability": 0.903168,
+      "adjustment_amount": -0.029552,
       "adjustment_breakdown": [
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.014400000000000001,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "both_teams_over_trend",
           "direction": "positive",
@@ -555,13 +546,6 @@
       ],
       "detected_events": [
         {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
-        {
           "event_name": "both_teams_over_trend",
           "direction": "positive",
           "strength": 0.03,
@@ -580,7 +564,7 @@
       "pattern_edge": 0.0,
       "recommended_pick": "FCL",
       "recommended_confidence": 90,
-      "recommended_score": 90.4,
+      "recommended_score": 90.3,
       "recommended": true,
       "spread_pick": "DNB FCL",
       "spread_market": "DNB / 1X",
@@ -591,15 +575,6 @@
       "total_adjusted_probability": 0.95,
       "total_adjustment_amount": 0.011772,
       "total_adjustment_breakdown": [
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "both_teams_over_trend",
           "direction": "positive",
@@ -622,9 +597,9 @@
       "total_recommended_pick": "OVER 2.5",
       "total_recommended_score": 95.0,
       "odds_over_under": 2.5,
-      "closing_moneyline_odds": 2.45,
-      "home_moneyline_odds": 2.45,
-      "away_moneyline_odds": 2.8,
+      "closing_moneyline_odds": 2.55,
+      "home_moneyline_odds": 2.55,
+      "away_moneyline_odds": 2.7,
       "closing_spread_odds": NaN,
       "closing_total_odds": NaN,
       "odds_data_quality": "real",
@@ -632,18 +607,9 @@
       "btts_confidence": 60,
       "btts_tier": "STRONG",
       "btts_base_probability": 0.60259,
-      "btts_adjusted_probability": 0.629088,
-      "btts_adjustment_amount": 0.026498,
+      "btts_adjusted_probability": 0.618489,
+      "btts_adjustment_amount": 0.015899,
       "btts_adjustment_breakdown": [
-        {
-          "event_name": "away_team_weak_defense",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.016,
-          "explanation": "Defensa visitante vulnerable.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "both_teams_over_trend",
           "direction": "positive",
@@ -664,7 +630,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 62.9,
+      "btts_recommended_score": 61.8,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
