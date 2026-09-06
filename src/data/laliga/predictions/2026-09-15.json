@@ -1,7 +1,7 @@
 {
   "date": "2026-09-15",
   "sport": "laliga",
-  "generated_at": "2026-09-05T10:08:27.484797",
+  "generated_at": "2026-09-06T10:31:43.264393",
   "games": [
     {
       "game_id": "401882868",
@@ -14,9 +14,18 @@
       "full_game_confidence": 59,
       "full_game_tier": "NORMAL",
       "base_probability": 0.587897,
-      "adjusted_probability": 0.58725,
-      "adjustment_amount": -0.000647,
+      "adjusted_probability": 0.585775,
+      "adjustment_amount": -0.002122,
       "adjustment_breakdown": [
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": -0.5,
+          "contribution": -0.0085,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -55,6 +64,13 @@
         }
       ],
       "detected_events": [
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -96,7 +112,7 @@
       "pattern_edge": 0.049,
       "recommended_pick": "DRAW",
       "recommended_confidence": 59,
-      "recommended_score": 59.1,
+      "recommended_score": 59.0,
       "recommended": true,
       "spread_pick": "1X RAY",
       "spread_market": "DNB / 1X",
@@ -104,9 +120,18 @@
       "total_confidence": 62,
       "total_action": "JUGAR",
       "total_base_probability": 0.38072,
-      "total_adjusted_probability": 0.429232,
-      "total_adjustment_amount": 0.048513,
+      "total_adjusted_probability": 0.437794,
+      "total_adjustment_amount": 0.057074,
       "total_adjustment_breakdown": [
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02125,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -145,7 +170,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 57.5,
+      "total_recommended_score": 56.6,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -163,6 +188,15 @@
       "btts_adjusted_probability": 0.95,
       "btts_adjustment_amount": 0.044224,
       "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02125,
+          "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",

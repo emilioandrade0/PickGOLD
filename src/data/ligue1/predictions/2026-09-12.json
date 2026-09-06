@@ -1,7 +1,7 @@
 {
   "date": "2026-09-12",
   "sport": "ligue1",
-  "generated_at": "2026-09-05T10:08:33.451303",
+  "generated_at": "2026-09-06T10:31:49.228201",
   "games": [
     {
       "game_id": "401876458",
@@ -492,15 +492,6 @@
       "adjustment_amount": -0.029552,
       "adjustment_breakdown": [
         {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 0.0,
-          "contribution": 0.0,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
-        {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
           "strength": 0.0,
@@ -511,13 +502,6 @@
         }
       ],
       "detected_events": [
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
         {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
@@ -538,18 +522,9 @@
       "total_confidence": 94,
       "total_action": "JUGAR",
       "total_base_probability": 0.938228,
-      "total_adjusted_probability": 0.95,
-      "total_adjustment_amount": 0.011772,
+      "total_adjusted_probability": 0.938228,
+      "total_adjustment_amount": 0.0,
       "total_adjustment_breakdown": [
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 1.0,
-          "contribution": 0.023999999999999997,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
         {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
@@ -561,30 +536,21 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 95.0,
+      "total_recommended_score": 93.8,
       "odds_over_under": 2.5,
       "closing_moneyline_odds": 160.0,
       "home_moneyline_odds": 160.0,
       "away_moneyline_odds": 165.0,
       "closing_spread_odds": 140.0,
-      "closing_total_odds": -105.0,
+      "closing_total_odds": -110.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 60,
       "btts_tier": "STRONG",
       "btts_base_probability": 0.60259,
-      "btts_adjusted_probability": 0.618489,
-      "btts_adjustment_amount": 0.015899,
+      "btts_adjusted_probability": 0.60259,
+      "btts_adjustment_amount": 0.0,
       "btts_adjustment_breakdown": [
-        {
-          "event_name": "both_teams_over_trend",
-          "direction": "positive",
-          "strength": 0.03,
-          "sign": 1.0,
-          "contribution": 0.023999999999999997,
-          "explanation": "Ambos equipos con tendencia Over.",
-          "category": "trend"
-        },
         {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
@@ -596,7 +562,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 61.8,
+      "btts_recommended_score": 60.3,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
@@ -719,11 +685,11 @@
       "total_recommended_pick": "OVER 2.5",
       "total_recommended_score": 70.7,
       "odds_over_under": 2.5,
-      "closing_moneyline_odds": 115.0,
-      "home_moneyline_odds": 115.0,
+      "closing_moneyline_odds": 120.0,
+      "home_moneyline_odds": 120.0,
       "away_moneyline_odds": 235.0,
       "closing_spread_odds": 105.0,
-      "closing_total_odds": 110.0,
+      "closing_total_odds": 115.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 94,
@@ -884,10 +850,10 @@
       "total_recommended_pick": "UNDER 2.5",
       "total_recommended_score": 93.1,
       "odds_over_under": 2.5,
-      "closing_moneyline_odds": 145.0,
-      "home_moneyline_odds": 145.0,
-      "away_moneyline_odds": 185.0,
-      "closing_spread_odds": 130.0,
+      "closing_moneyline_odds": 160.0,
+      "home_moneyline_odds": 160.0,
+      "away_moneyline_odds": 165.0,
+      "closing_spread_odds": 140.0,
       "closing_total_odds": -105.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS NO",

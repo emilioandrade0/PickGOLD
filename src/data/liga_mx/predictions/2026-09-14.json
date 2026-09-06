@@ -1,7 +1,7 @@
 {
   "date": "2026-09-14",
   "sport": "liga_mx",
-  "generated_at": "2026-09-05T10:08:23.455174",
+  "generated_at": "2026-09-06T10:31:39.079670",
   "games": [
     {
       "game_id": "401876977",
@@ -14,8 +14,8 @@
       "full_game_confidence": 55,
       "full_game_tier": "NORMAL",
       "base_probability": 0.453755,
-      "adjusted_probability": 0.454688,
-      "adjustment_amount": 0.000934,
+      "adjusted_probability": 0.456568,
+      "adjustment_amount": 0.002813,
       "adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -25,6 +25,24 @@
           "contribution": 0.0,
           "explanation": "Local con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
         }
       ],
       "detected_events": [
@@ -34,6 +52,20 @@
           "strength": 0.02,
           "explanation": "Local con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
         }
       ],
       "intraday_market_mood": "neutral",
@@ -55,8 +87,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "DRAW",
-      "recommended_confidence": 55,
-      "recommended_score": 54.9,
+      "recommended_confidence": 54,
+      "recommended_score": 54.7,
       "recommended": false,
       "spread_pick": "1X LEO",
       "spread_market": "DNB / 1X",
@@ -75,6 +107,24 @@
           "contribution": 0.02,
           "explanation": "Local con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
         }
       ],
       "total_recommended_pick": "OVER 2.5",
@@ -97,6 +147,24 @@
           "contribution": 0.02,
           "explanation": "Local con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
         }
       ],
       "h1_over15_recommended_pick": "UNDER 1.5",
@@ -123,6 +191,24 @@
           "contribution": 0.02,
           "explanation": "Local con buena forma reciente.",
           "category": "form"
+        },
+        {
+          "event_name": "away_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque visitante en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
+          "category": "attack_defense"
         }
       ],
       "btts_recommended_pick": "BTTS NO",
