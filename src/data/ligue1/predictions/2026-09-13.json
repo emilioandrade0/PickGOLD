@@ -1,7 +1,7 @@
 {
   "date": "2026-09-13",
   "sport": "ligue1",
-  "generated_at": "2026-09-06T10:31:49.397089",
+  "generated_at": "2026-09-07T11:51:18.464893",
   "games": [
     {
       "game_id": "401876465",
@@ -14,9 +14,18 @@
       "full_game_confidence": 51,
       "full_game_tier": "PASS",
       "base_probability": 0.490879,
-      "adjusted_probability": 0.500344,
-      "adjustment_amount": 0.009464,
+      "adjusted_probability": 0.507436,
+      "adjustment_amount": 0.016556,
       "adjustment_breakdown": [
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.021375,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -24,6 +33,15 @@
           "sign": 1.0,
           "contribution": 0.0171,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0171,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -56,10 +74,24 @@
       ],
       "detected_events": [
         {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -87,8 +119,8 @@
       "detected_patterns": [],
       "pattern_edge": 0.0,
       "recommended_pick": "PSG",
-      "recommended_confidence": 50,
-      "recommended_score": 50.0,
+      "recommended_confidence": 51,
+      "recommended_score": 50.7,
       "recommended": false,
       "spread_pick": "DNB PSG",
       "spread_market": "DNB / 1X",
@@ -100,12 +132,30 @@
       "total_adjustment_amount": 0.0782,
       "total_adjustment_breakdown": [
         {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02375,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.019,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.019,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {
@@ -142,8 +192,8 @@
       "closing_moneyline_odds": -300.0,
       "home_moneyline_odds": 650.0,
       "away_moneyline_odds": -300.0,
-      "closing_spread_odds": -130.0,
-      "closing_total_odds": 110.0,
+      "closing_spread_odds": -120.0,
+      "closing_total_odds": 105.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 51,
@@ -153,12 +203,30 @@
       "btts_adjustment_amount": 0.041324,
       "btts_adjustment_breakdown": [
         {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.02375,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
           "strength": 0.02,
           "sign": 1.0,
           "contribution": 0.019,
           "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.019,
+          "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
         },
         {

@@ -1,7 +1,7 @@
 {
   "date": "2026-09-16",
   "sport": "laliga",
-  "generated_at": "2026-09-06T10:31:43.465055",
+  "generated_at": "2026-09-07T11:51:14.491231",
   "games": [
     {
       "game_id": "401882875",
@@ -14,18 +14,9 @@
       "full_game_confidence": 58,
       "full_game_tier": "NORMAL",
       "base_probability": 0.579128,
-      "adjusted_probability": 0.575017,
-      "adjustment_amount": -0.00411,
+      "adjusted_probability": 0.563811,
+      "adjustment_amount": -0.015317,
       "adjustment_breakdown": [
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": 1.0,
-          "contribution": 0.0162,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -37,13 +28,6 @@
         }
       ],
       "detected_events": [
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -63,8 +47,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "ATM",
-      "recommended_confidence": 58,
-      "recommended_score": 57.9,
+      "recommended_confidence": 56,
+      "recommended_score": 56.8,
       "recommended": true,
       "spread_pick": "DNB ATM",
       "spread_market": "DNB / 1X",
@@ -72,18 +56,9 @@
       "total_confidence": 53,
       "total_action": "PASS",
       "total_base_probability": 0.534875,
-      "total_adjusted_probability": 0.534875,
-      "total_adjustment_amount": 0.0,
+      "total_adjusted_probability": 0.544802,
+      "total_adjustment_amount": 0.009927,
       "total_adjustment_breakdown": [
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.018,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -95,7 +70,7 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 53.9,
+      "total_recommended_score": 54.9,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -110,18 +85,9 @@
       "btts_confidence": 82,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.175341,
-      "btts_adjusted_probability": 0.175341,
-      "btts_adjustment_amount": 0.0,
+      "btts_adjusted_probability": 0.192531,
+      "btts_adjustment_amount": 0.01719,
       "btts_adjustment_breakdown": [
-        {
-          "event_name": "away_team_cold_attack",
-          "direction": "negative",
-          "strength": 0.02,
-          "sign": -1.0,
-          "contribution": -0.018,
-          "explanation": "Ataque visitante en baja.",
-          "category": "attack_defense"
-        },
         {
           "event_name": "home_team_weak_defense",
           "direction": "negative",
@@ -133,7 +99,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 82.9,
+      "btts_recommended_score": 81.1,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
