@@ -1,7 +1,7 @@
 {
   "date": "2026-09-12",
   "sport": "laliga",
-  "generated_at": "2026-09-07T11:51:13.942736",
+  "generated_at": "2026-09-08T10:49:21.034702",
   "games": [
     {
       "game_id": "401882882",
@@ -78,8 +78,8 @@
       "closing_moneyline_odds": 100.0,
       "home_moneyline_odds": 100.0,
       "away_moneyline_odds": 275.0,
-      "closing_spread_odds": -110.0,
-      "closing_total_odds": 110.0,
+      "closing_spread_odds": -105.0,
+      "closing_total_odds": 115.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 93,
@@ -144,6 +144,15 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        },
+        {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
           "strength": 0.0,
@@ -167,6 +176,13 @@
           "strength": 0.02,
           "explanation": "Defensa visitante vulnerable.",
           "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
         },
         {
           "event_name": "low_h2h_sample",
@@ -196,8 +212,8 @@
       "total_confidence": 70,
       "total_action": "JUGAR",
       "total_base_probability": 0.704226,
-      "total_adjusted_probability": 0.732001,
-      "total_adjustment_amount": 0.027776,
+      "total_adjusted_probability": 0.752833,
+      "total_adjustment_amount": 0.048607,
       "total_adjustment_breakdown": [
         {
           "event_name": "home_team_weak_defense",
@@ -218,6 +234,15 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.023999999999999997,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        },
+        {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
           "strength": 0.0,
@@ -228,23 +253,23 @@
         }
       ],
       "total_recommended_pick": "OVER 2.5",
-      "total_recommended_score": 73.6,
+      "total_recommended_score": 75.7,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
       "away_price": null,
-      "closing_moneyline_odds": -205.0,
-      "home_moneyline_odds": -205.0,
-      "away_moneyline_odds": 500.0,
-      "closing_spread_odds": 130.0,
-      "closing_total_odds": -135.0,
+      "closing_moneyline_odds": -240.0,
+      "home_moneyline_odds": -240.0,
+      "away_moneyline_odds": 600.0,
+      "closing_spread_odds": 110.0,
+      "closing_total_odds": -150.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS YES",
       "btts_confidence": 80,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.795535,
-      "btts_adjusted_probability": 0.824655,
-      "btts_adjustment_amount": 0.02912,
+      "btts_adjusted_probability": 0.846495,
+      "btts_adjustment_amount": 0.05096,
       "btts_adjustment_breakdown": [
         {
           "event_name": "home_team_weak_defense",
@@ -265,6 +290,15 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.023999999999999997,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        },
+        {
           "event_name": "low_h2h_sample",
           "direction": "neutral",
           "strength": 0.0,
@@ -275,7 +309,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 82.9,
+      "btts_recommended_score": 85.0,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
@@ -504,8 +538,8 @@
       "closing_moneyline_odds": -750.0,
       "home_moneyline_odds": -750.0,
       "away_moneyline_odds": 1500.0,
-      "closing_spread_odds": -110.0,
-      "closing_total_odds": -130.0,
+      "closing_spread_odds": -115.0,
+      "closing_total_odds": -135.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS NO",
       "btts_confidence": 73,
