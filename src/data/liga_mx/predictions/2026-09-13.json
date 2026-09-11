@@ -1,7 +1,7 @@
 {
   "date": "2026-09-13",
   "sport": "liga_mx",
-  "generated_at": "2026-09-10T10:52:39.742746",
+  "generated_at": "2026-09-11T10:49:09.789583",
   "games": [
     {
       "game_id": "401876976",
@@ -203,12 +203,12 @@
       ],
       "h1_over15_recommended_pick": "UNDER 1.5",
       "h1_over15_recommended_score": 58.4,
-      "odds_over_under": 2.5,
+      "odds_over_under": 3.5,
       "closing_moneyline_odds": 100.0,
       "home_moneyline_odds": 100.0,
-      "away_moneyline_odds": 235.0,
+      "away_moneyline_odds": 240.0,
       "closing_spread_odds": -110.0,
-      "closing_total_odds": -175.0,
+      "closing_total_odds": 125.0,
       "odds_data_quality": "real",
       "btts_pick": "BTTS NO",
       "btts_confidence": 64,
@@ -278,8 +278,8 @@
       "full_game_confidence": 54,
       "full_game_tier": "NORMAL",
       "base_probability": 0.463372,
-      "adjusted_probability": 0.499899,
-      "adjustment_amount": 0.036527,
+      "adjusted_probability": 0.487034,
+      "adjustment_amount": 0.023662,
       "adjustment_breakdown": [
         {
           "event_name": "home_good_form",
@@ -297,6 +297,15 @@
           "sign": 1.0,
           "contribution": 0.022500000000000003,
           "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": -1.0,
+          "contribution": -0.022500000000000003,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
@@ -334,6 +343,13 @@
           "category": "attack_defense"
         },
         {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "explanation": "Ataque visitante encendido.",
+          "category": "attack_defense"
+        },
+        {
           "event_name": "both_teams_btts_trend",
           "direction": "positive",
           "strength": 0.03,
@@ -367,8 +383,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "GDL",
-      "recommended_confidence": 50,
-      "recommended_score": 50.4,
+      "recommended_confidence": 51,
+      "recommended_score": 51.7,
       "recommended": false,
       "spread_pick": "DNB GDL",
       "spread_market": "DNB / 1X",
@@ -395,6 +411,15 @@
           "sign": 1.0,
           "contribution": 0.025,
           "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.025,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
@@ -444,6 +469,15 @@
           "sign": 1.0,
           "contribution": 0.025,
           "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.025,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
@@ -497,6 +531,15 @@
           "sign": 1.0,
           "contribution": 0.025,
           "explanation": "Ataque local encendido.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "away_team_hot_attack",
+          "direction": "positive",
+          "strength": 0.025,
+          "sign": 1.0,
+          "contribution": 0.025,
+          "explanation": "Ataque visitante encendido.",
           "category": "attack_defense"
         },
         {
