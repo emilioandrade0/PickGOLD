@@ -1,7 +1,7 @@
 {
   "date": "2026-09-19",
   "sport": "laliga",
-  "generated_at": "2026-09-11T10:49:14.907481",
+  "generated_at": "2026-09-12T10:20:07.398095",
   "games": [
     {
       "game_id": "401882860",
@@ -426,9 +426,18 @@
       "full_game_confidence": 52,
       "full_game_tier": "PASS",
       "base_probability": 0.465378,
-      "adjusted_probability": 0.484666,
-      "adjustment_amount": 0.019288,
+      "adjusted_probability": 0.476671,
+      "adjustment_amount": 0.011293,
       "adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.015300000000000001,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -467,6 +476,13 @@
         }
       ],
       "detected_events": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -508,7 +524,7 @@
       "pattern_edge": 0.049,
       "recommended_pick": "BAR",
       "recommended_confidence": 52,
-      "recommended_score": 51.9,
+      "recommended_score": 52.7,
       "recommended": false,
       "spread_pick": "DNB SEV",
       "spread_market": "DNB / 1X",
@@ -516,9 +532,18 @@
       "total_confidence": 62,
       "total_action": "JUGAR",
       "total_base_probability": 0.381462,
-      "total_adjusted_probability": 0.426845,
-      "total_adjustment_amount": 0.045383,
+      "total_adjusted_probability": 0.438413,
+      "total_adjustment_amount": 0.056951,
       "total_adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.017,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -557,7 +582,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 57.7,
+      "total_recommended_score": 56.6,
       "odds_over_under": 2.5,
       "home_price": null,
       "draw_price": null,
@@ -572,9 +597,18 @@
       "btts_confidence": 72,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.718878,
-      "btts_adjusted_probability": 0.777516,
-      "btts_adjustment_amount": 0.058638,
+      "btts_adjusted_probability": 0.792463,
+      "btts_adjustment_amount": 0.073585,
       "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.017,
+          "explanation": "Local con buena forma reciente.",
+          "category": "form"
+        },
         {
           "event_name": "away_good_form",
           "direction": "positive",
@@ -613,7 +647,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS YES",
-      "btts_recommended_score": 78.1,
+      "btts_recommended_score": 79.6,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "OVER 9.5",
