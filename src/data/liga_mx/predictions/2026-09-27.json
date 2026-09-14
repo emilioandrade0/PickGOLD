@@ -1,7 +1,7 @@
 {
   "date": "2026-09-27",
   "sport": "liga_mx",
-  "generated_at": "2026-09-13T11:18:13.506377",
+  "generated_at": "2026-09-14T12:05:37.712566",
   "games": [
     {
       "game_id": "401876958",
@@ -14,16 +14,16 @@
       "full_game_confidence": 68,
       "full_game_tier": "PREMIUM",
       "base_probability": 0.678272,
-      "adjusted_probability": 0.742634,
-      "adjustment_amount": 0.064363,
+      "adjusted_probability": 0.695703,
+      "adjustment_amount": 0.017431,
       "adjustment_breakdown": [
         {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.022500000000000003,
-          "explanation": "Ataque local encendido.",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.018000000000000002,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -56,10 +56,10 @@
       ],
       "detected_events": [
         {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "explanation": "Ataque local encendido.",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -103,8 +103,8 @@
       ],
       "pattern_edge": 0.049,
       "recommended_pick": "PUM",
-      "recommended_confidence": 74,
-      "recommended_score": 74.7,
+      "recommended_confidence": 70,
+      "recommended_score": 70.0,
       "recommended": true,
       "spread_pick": "DNB PUM",
       "spread_market": "DNB / 1X",
@@ -112,16 +112,16 @@
       "total_confidence": 72,
       "total_action": "JUGAR",
       "total_base_probability": 0.284701,
-      "total_adjusted_probability": 0.328731,
-      "total_adjustment_amount": 0.04403,
+      "total_adjusted_probability": 0.284701,
+      "total_adjustment_amount": 0.0,
       "total_adjustment_breakdown": [
         {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.025,
-          "explanation": "Ataque local encendido.",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -153,7 +153,7 @@
         }
       ],
       "total_recommended_pick": "UNDER 2.5",
-      "total_recommended_score": 67.5,
+      "total_recommended_score": 71.9,
       "h1_over15_market": "1T O/U 1.5",
       "h1_over15_line": 1.5,
       "h1_over15_pick": "UNDER 1.5",
@@ -161,16 +161,16 @@
       "h1_over15_tier": "PASS",
       "h1_over15_action": "PASS",
       "h1_over15_base_probability": 0.466713,
-      "h1_over15_adjusted_probability": 0.492542,
-      "h1_over15_adjustment_amount": 0.025829,
+      "h1_over15_adjusted_probability": 0.466713,
+      "h1_over15_adjustment_amount": 0.0,
       "h1_over15_adjustment_breakdown": [
         {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.025,
-          "explanation": "Ataque local encendido.",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -202,7 +202,7 @@
         }
       ],
       "h1_over15_recommended_pick": "UNDER 1.5",
-      "h1_over15_recommended_score": 51.1,
+      "h1_over15_recommended_score": 53.7,
       "odds_over_under": 2.5,
       "closing_moneyline_odds": NaN,
       "home_moneyline_odds": NaN,
@@ -214,16 +214,16 @@
       "btts_confidence": 93,
       "btts_tier": "ELITE",
       "btts_base_probability": 0.0729,
-      "btts_adjusted_probability": 0.1179,
-      "btts_adjustment_amount": 0.045,
+      "btts_adjusted_probability": 0.0729,
+      "btts_adjustment_amount": 0.0,
       "btts_adjustment_breakdown": [
         {
-          "event_name": "home_team_hot_attack",
-          "direction": "positive",
-          "strength": 0.025,
-          "sign": 1.0,
-          "contribution": 0.025,
-          "explanation": "Ataque local encendido.",
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.02,
+          "explanation": "Ataque local en baja.",
           "category": "attack_defense"
         },
         {
@@ -255,7 +255,7 @@
         }
       ],
       "btts_recommended_pick": "BTTS NO",
-      "btts_recommended_score": 88.6,
+      "btts_recommended_score": 93.1,
       "corners_market": "TOTAL CORNERS O/U",
       "corners_line": 9.5,
       "corners_pick": "UNDER 9.5",
