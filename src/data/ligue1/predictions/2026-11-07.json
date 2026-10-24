@@ -1,0 +1,172 @@
+{
+  "date": "2026-11-07",
+  "sport": "ligue1",
+  "generated_at": "2026-10-24T10:30:53.160434",
+  "games": [
+    {
+      "game_id": "401876411",
+      "date": "2026-11-07",
+      "time": "10:15",
+      "game_name": "PSG @ AJA",
+      "home_team": "AJA",
+      "away_team": "PSG",
+      "full_game_pick": "AJA",
+      "full_game_confidence": 57,
+      "full_game_tier": "NORMAL",
+      "base_probability": 0.568351,
+      "adjusted_probability": 0.543363,
+      "adjustment_amount": -0.024988,
+      "adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0171,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.0171,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        }
+      ],
+      "detected_patterns": [],
+      "pattern_edge": 0.0,
+      "recommended_pick": "AJA",
+      "recommended_confidence": 54,
+      "recommended_score": 54.3,
+      "recommended": false,
+      "spread_pick": "DNB AJA",
+      "spread_market": "DNB / 1X",
+      "total_pick": "UNDER 2.5",
+      "total_confidence": 74,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.255333,
+      "total_adjusted_probability": 0.320337,
+      "total_adjustment_amount": 0.065004,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.019,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.019,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.028499999999999998,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        }
+      ],
+      "total_recommended_pick": "UNDER 2.5",
+      "total_recommended_score": 68.0,
+      "odds_over_under": 2.5,
+      "closing_moneyline_odds": NaN,
+      "home_moneyline_odds": NaN,
+      "away_moneyline_odds": NaN,
+      "closing_spread_odds": NaN,
+      "closing_total_odds": NaN,
+      "odds_data_quality": "fallback",
+      "btts_pick": "BTTS NO",
+      "btts_confidence": 76,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.237468,
+      "btts_adjusted_probability": 0.302471,
+      "btts_adjustment_amount": 0.065004,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "away_good_form",
+          "direction": "positive",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.019,
+          "explanation": "Visita con buena forma reciente.",
+          "category": "form"
+        },
+        {
+          "event_name": "home_team_weak_defense",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": 1.0,
+          "contribution": 0.019,
+          "explanation": "Defensa local vulnerable.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "both_teams_over_trend",
+          "direction": "positive",
+          "strength": 0.03,
+          "sign": 1.0,
+          "contribution": 0.028499999999999998,
+          "explanation": "Ambos equipos con tendencia Over.",
+          "category": "trend"
+        }
+      ],
+      "btts_recommended_pick": "BTTS NO",
+      "btts_recommended_score": 69.8,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "UNDER 9.5",
+      "corners_confidence": 52,
+      "corners_model_prob_over": 0.523859,
+      "corners_recommended_pick": "UNDER 9.5",
+      "corners_recommended_score": 52.4,
+      "corners_action": "PASS",
+      "status_state": "pre",
+      "status_description": ""
+    }
+  ]
+}
