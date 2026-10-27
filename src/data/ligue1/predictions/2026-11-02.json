@@ -1,0 +1,138 @@
+{
+  "date": "2026-11-02",
+  "sport": "ligue1",
+  "generated_at": "2026-10-27T11:49:08.975879",
+  "games": [
+    {
+      "game_id": "401876419",
+      "date": "2026-11-02",
+      "time": "13:45",
+      "game_name": "SB29 @ FCL",
+      "home_team": "FCL",
+      "away_team": "SB29",
+      "full_game_pick": "FCL",
+      "full_game_confidence": 69,
+      "full_game_tier": "PREMIUM",
+      "base_probability": 0.687938,
+      "adjusted_probability": 0.675184,
+      "adjustment_amount": -0.012753,
+      "adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.014400000000000001,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_events": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "detected_patterns": [],
+      "pattern_edge": 0.0,
+      "recommended_pick": "FCL",
+      "recommended_confidence": 68,
+      "recommended_score": 67.5,
+      "recommended": true,
+      "spread_pick": "DNB FCL",
+      "spread_market": "DNB / 1X",
+      "total_pick": "OVER 2.5",
+      "total_confidence": 80,
+      "total_action": "JUGAR",
+      "total_base_probability": 0.795088,
+      "total_adjusted_probability": 0.780528,
+      "total_adjustment_amount": -0.01456,
+      "total_adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "total_recommended_pick": "OVER 2.5",
+      "total_recommended_score": 78.1,
+      "odds_over_under": 2.5,
+      "closing_moneyline_odds": 140.0,
+      "home_moneyline_odds": 140.0,
+      "away_moneyline_odds": 180.0,
+      "closing_spread_odds": 125.0,
+      "closing_total_odds": -105.0,
+      "odds_data_quality": "real",
+      "btts_pick": "BTTS YES",
+      "btts_confidence": 74,
+      "btts_tier": "ELITE",
+      "btts_base_probability": 0.743345,
+      "btts_adjusted_probability": 0.728785,
+      "btts_adjustment_amount": -0.01456,
+      "btts_adjustment_breakdown": [
+        {
+          "event_name": "home_team_cold_attack",
+          "direction": "negative",
+          "strength": 0.02,
+          "sign": -1.0,
+          "contribution": -0.016,
+          "explanation": "Ataque local en baja.",
+          "category": "attack_defense"
+        },
+        {
+          "event_name": "low_h2h_sample",
+          "direction": "neutral",
+          "strength": 0.0,
+          "sign": 0.0,
+          "contribution": 0.0,
+          "explanation": "Muestra H2H baja; peso H2H reducido.",
+          "category": "reliability"
+        }
+      ],
+      "btts_recommended_pick": "BTTS YES",
+      "btts_recommended_score": 72.9,
+      "corners_market": "TOTAL CORNERS O/U",
+      "corners_line": 9.5,
+      "corners_pick": "OVER 9.5",
+      "corners_confidence": 92,
+      "corners_model_prob_over": 0.917546,
+      "corners_recommended_pick": "OVER 9.5",
+      "corners_recommended_score": 91.8,
+      "corners_action": "JUGAR",
+      "status_state": "pre",
+      "status_description": ""
+    }
+  ]
+}
